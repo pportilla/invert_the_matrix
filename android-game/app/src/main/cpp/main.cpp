@@ -1433,6 +1433,7 @@ struct Session {
     int moves = 0;
     bool usedHint = false;
     bool completed = false;
+    bool leaderboardAttempt = false;
     int64_t started = nowMs();
     int elapsed = 0;
     std::string dailyKey;
@@ -1546,7 +1547,7 @@ enum class Action {
     DailyChallenge, Leaderboard,
     Size, States, Pattern, Difficulty, ToggleLocked, ToggleIrregular, ToggleUnique,
     WidthMinus, WidthPlus, HeightMinus, HeightPlus, ExitGame, Undo, Reset, Hint,
-    GuideSize, ToggleSetting, Next, Replay, Dismiss
+    ConfirmDailyExit, CancelDailyExit, GuideSize, ToggleSetting, Next, Replay, Dismiss
 };
 
 enum class SoundCue {
@@ -1767,6 +1768,7 @@ struct AppState {
     bool completion = false;
     int completionStars = 0;
     int completionMark = 0;
+    bool dailyExitConfirm = false;
     int lastCampaign = 0;
     float density = 1.0f;
     float scroll = 0.0f;
@@ -2008,6 +2010,7 @@ void go(AppState *s, Screen screen) {
     s->screen = screen;
     s->scroll = 0.0f;
     s->completion = false;
+    s->dailyExitConfirm = false;
 }
 
 void startGame(AppState *s, const Puzzle &p, const std::string &mode) {
@@ -2051,12 +2054,92 @@ std::string formatMark(int mark) {
     return std::to_string(clampInt(mark, 0, 10000));
 }
 
-int dailyGlobalMark(AppState *s, const std::string &date) {
+std::string dailyLeaderboardRecordedKey(const std::string &key) {
+    return "daily_lb_recorded_" + key;
+}
+
+std::string dailyLeaderboardMarkKey(const std::string &key) {
+    return "daily_lb_mark_" + key;
+}
+
+void migrateDailyLeaderboardRecord(AppState *s, const std::string &key) {
+    if (!s || key.empty() || s->progress.getBool(dailyLeaderboardRecordedKey(key), false)) return;
+    int legacyMark = s->progress.getInt("daily_mark_" + key, -1);
+    if (legacyMark < 0) return;
+    s->progress.setInt(dailyLeaderboardRecordedKey(key), 1);
+    if (s->progress.getInt(dailyLeaderboardMarkKey(key), -1) < 0) {
+        s->progress.setInt(dailyLeaderboardMarkKey(key), clampInt(legacyMark, 0, 10000));
+    }
+}
+
+bool dailyLeaderboardRecorded(AppState *s, const std::string &key) {
+    migrateDailyLeaderboardRecord(s, key);
+    return s->progress.getBool(dailyLeaderboardRecordedKey(key), false);
+}
+
+int dailyLeaderboardMark(AppState *s, const std::string &key) {
+    migrateDailyLeaderboardRecord(s, key);
+    int mark = s->progress.getInt(dailyLeaderboardMarkKey(key), -1);
+    if (mark >= 0) return mark;
+    if (s->progress.getBool(dailyLeaderboardRecordedKey(key), false)) return 0;
+    return s->progress.getInt("daily_mark_" + key, 0);
+}
+
+int dailyGlobalLeaderboardMark(AppState *s, const std::string &date) {
     int total = 0;
     for (int tier = 0; tier < 3; ++tier) {
-        total += s->progress.getInt("daily_mark_" + dailyChallengeKey(date, tier), 0);
+        total += dailyLeaderboardMark(s, dailyChallengeKey(date, tier));
     }
     return total;
+}
+
+void recordDailyLeaderboardAttempt(AppState *s, const std::string &key, int tier, int mark) {
+    if (!s || key.empty() || dailyLeaderboardRecorded(s, key)) return;
+    mark = clampInt(mark, 0, 10000);
+    s->progress.setInt(dailyLeaderboardRecordedKey(key), 1);
+    s->progress.setInt(dailyLeaderboardMarkKey(key), mark);
+    tier = clampInt(tier, 0, 2);
+    playGamesSubmitScore(s, tier, mark);
+    std::string date = key.substr(0, std::min<size_t>(10, key.size()));
+    playGamesSubmitScore(s, 3, dailyGlobalLeaderboardMark(s, date));
+}
+
+void leaveCurrentGame(AppState *s) {
+    if (s->hasSession && s->session.mode == "campaign") {
+        go(s, Screen::Campaign);
+    } else if (s->hasSession && s->session.mode == "daily") {
+        go(s, Screen::Daily);
+    } else {
+        go(s, Screen::Main);
+    }
+}
+
+bool shouldConfirmDailyExit(AppState *s) {
+    return s && s->hasSession && s->screen == Screen::Game && s->session.mode == "daily" &&
+           s->session.leaderboardAttempt && !s->session.completed;
+}
+
+void requestExitGame(AppState *s) {
+    if (shouldConfirmDailyExit(s)) {
+        s->dailyExitConfirm = true;
+        s->previewTile = -1;
+        s->pressTile = -1;
+        s->longPreviewShown = false;
+        s->hintLine.clear();
+        s->hintChanged.clear();
+        s->pulseTiles.clear();
+        return;
+    }
+    leaveCurrentGame(s);
+}
+
+void confirmDailyExitForZero(AppState *s) {
+    if (shouldConfirmDailyExit(s)) {
+        s->session.elapsed = static_cast<int>((nowMs() - s->session.started) / 1000);
+        recordDailyLeaderboardAttempt(s, s->session.dailyKey, dailyTierIndex(s->session.dailyTier), 0);
+        s->session.leaderboardAttempt = false;
+    }
+    leaveCurrentGame(s);
 }
 
 void completeGame(AppState *s) {
@@ -2079,6 +2162,10 @@ void completeGame(AppState *s) {
     if (s->session.mode == "daily") {
         std::string key = s->session.dailyKey;
         s->completionMark = dailyMark(s->session);
+        if (s->session.leaderboardAttempt) {
+            recordDailyLeaderboardAttempt(s, key, dailyTierIndex(s->session.dailyTier), s->completionMark);
+            s->session.leaderboardAttempt = false;
+        }
         int oldMark = s->progress.getInt("daily_mark_" + key, -1);
         int oldMoves = s->progress.getInt("daily_moves_" + key, -1);
         bool better = oldMark < 0 ||
@@ -2091,10 +2178,6 @@ void completeGame(AppState *s) {
             s->progress.setInt("daily_mark_" + key, s->completionMark);
             s->progress.setInt("daily_hint_" + key, s->session.usedHint ? 1 : 0);
         }
-        int tier = dailyTierIndex(s->session.dailyTier);
-        playGamesSubmitScore(s, tier, s->completionMark);
-        std::string date = key.substr(0, 10);
-        playGamesSubmitScore(s, 3, dailyGlobalMark(s, date));
     }
     if (s->session.mode == "freeplay") {
         int oldBest = s->progress.getInt("best_" + s->session.puzzle.levelId, -1);
@@ -2796,6 +2879,8 @@ void drawDaily(AppState *s) {
         std::string key = dailyChallengeKey(date, tier);
         int mark = s->progress.getInt("daily_mark_" + key, -1);
         int moves = s->progress.getInt("daily_moves_" + key, -1);
+        bool firstTryRecorded = dailyLeaderboardRecorded(s, key);
+        int firstTryMark = dailyLeaderboardMark(s, key);
         Config cfg = dailyConfig(tier, date);
         Rect card{margin, y, cardW, dp(s, 116)};
         Color accent = tier == 0 ? GREEN : tier == 1 ? BLUE : ORANGE;
@@ -2807,14 +2892,17 @@ void drawDaily(AppState *s) {
         r.roundedRect(status.x, status.y, status.w, status.h, dp(s, 7), mark >= 0 ? rgba(95, 225, 170, 0.24f) : rgba(229, 236, 245, 0.11f));
         r.roundedRect(status.x + 1.0f, status.y + 1.0f, status.w - 2.0f, status.h - 2.0f, dp(s, 6),
                       mark >= 0 ? rgba(22, 54, 45, 0.88f) : rgba(10, 13, 19, 0.44f));
-        r.text(mark >= 0 ? "Done" : "New", status.x + status.w * 0.5f, status.y + dp(s, 8), dp(s, 1.72f), mark >= 0 ? GREEN : MUTED, 1);
+        std::string statusText = mark >= 0 ? "Done" : (firstTryRecorded ? "Open" : "New");
+        r.text(statusText, status.x + status.w * 0.5f, status.y + dp(s, 8), dp(s, 1.72f), mark >= 0 ? GREEN : MUTED, 1);
         std::string configText = std::to_string(cfg.width) + "x" + std::to_string(cfg.height) +
                                  " / " + std::to_string(cfg.states) + " states / " + patternLabel(cfg.pattern);
         drawFittedText(s, configText, card.x + dp(s, 14), card.y + dp(s, 50), card.w - dp(s, 72), dp(s, 1.96f), TEXT);
         std::string detail = std::string("Locks: ") + (cfg.locked ? "on" : "off") +
                              " / Gaps: " + (cfg.irregular ? "on" : "off");
         drawFittedText(s, detail, card.x + dp(s, 14), card.y + dp(s, 75), card.w - dp(s, 72), dp(s, 1.82f), MUTED);
-        std::string stats = mark >= 0 ? ("Best: " + std::to_string(moves) + " moves / Mark " + formatMark(mark)) : "Unplayed today";
+        std::string stats = mark >= 0
+                            ? ("Best: " + std::to_string(moves) + " moves / Mark " + formatMark(mark))
+                            : (firstTryRecorded ? ("First try: " + formatMark(firstTryMark) + " / Replays open") : "First try counts");
         drawFittedText(s, stats, card.x + dp(s, 14), card.y + dp(s, 99), card.w - dp(s, 72), dp(s, 1.82f), mark >= 0 ? GREEN : MUTED);
         float cx = card.x + card.w - dp(s, 24);
         float cy = card.y + card.h * 0.62f;
@@ -3481,7 +3569,7 @@ void drawHowTo(AppState *s) {
     drawGuideBlock(s, y, "Modes: Choose your puzzle",
                    {"Campaign is a long curated path. Levels unlock in order, and each level has fixed star targets.",
                     "Custom Level lets you choose board size, number of states, pulse pattern, difficulty, locks, gaps, and whether the generator should prefer a unique solution.",
-                    "Daily Challenge gives everyone the same three generated puzzles for the date, each with its own saved best score."},
+                    "Daily Challenge gives everyone the same three generated puzzles for the date. You can replay them, but leaderboards keep only the first try."},
                    GREEN, GuideDiagramKind::Modes);
     drawGuideBlock(s, y, "Moves, stars, and hints",
                    {"The move counter counts every tap.",
@@ -3970,9 +4058,18 @@ void drawGame(AppState *s) {
     y += dp(s, 60);
     float iconW = dp(s, 70);
     float resetW = r.width - dp(s, 28) - iconW * 2.0f - gap * 2.0f;
+    bool leaderboardAttempt = g.mode == "daily" && g.leaderboardAttempt && !g.completed;
     drawUndoToolButton(s, {dp(s, 14), y, iconW, dp(s, 52)}, !g.history.empty());
-    drawResetToolButton(s, {dp(s, 14) + iconW + gap, y, resetW, dp(s, 52)});
-    drawHintToolButton(s, {r.width - dp(s, 14) - iconW, y, iconW, dp(s, 52)});
+    if (leaderboardAttempt) {
+        Rect notice{dp(s, 14) + iconW + gap, y, r.width - dp(s, 28) - iconW - gap, dp(s, 52)};
+        drawGlassPanel(s, notice, rgba(22, 27, 38, 0.82f), rgba(255, 180, 90, 0.030f));
+        r.text("Leaderboard try", notice.x + dp(s, 10), notice.y + dp(s, 8), dp(s, 1.55f), ORANGE);
+        drawFittedText(s, "No reset or hints", notice.x + dp(s, 10), notice.y + dp(s, 31),
+                       notice.w - dp(s, 20), dp(s, 2.05f), TEXT);
+    } else {
+        drawResetToolButton(s, {dp(s, 14) + iconW + gap, y, resetW, dp(s, 52)});
+        drawHintToolButton(s, {r.width - dp(s, 14) - iconW, y, iconW, dp(s, 52)});
+    }
     drawBoard(s);
     if (!s->hintLine.empty()) {
         r.text(s->hintLine, r.width * 0.5f, r.height - safeBottom(s) - dp(s, 24), dp(s, 1.9f), MUTED, 1);
@@ -4042,6 +4139,33 @@ void drawGame(AppState *s) {
         by += dp(s, 54);
         std::string dismissLabel = g.mode == "campaign" ? "Campaign" : (g.mode == "daily" ? "Daily" : "Menu");
         drawButton(s, {modal.x + dp(s, 18), by, modal.w - dp(s, 36), dp(s, 44)}, dismissLabel, Action::Dismiss);
+    }
+
+    if (s->dailyExitConfirm) {
+        r.rect(0, 0, r.width, r.height, rgba(0, 0, 0, 0.68f));
+        addButton(s, {0.0f, 0.0f, static_cast<float>(r.width), static_cast<float>(r.height)}, Action::CancelDailyExit, 0, true);
+        float modalW = r.width - dp(s, 36);
+        float modalH = dp(s, 276);
+        Rect modal{dp(s, 18), (r.height - modalH) * 0.5f, modalW, modalH};
+        modal.y = std::max(safeTop(s) + dp(s, 18), std::min(modal.y, r.height - safeBottom(s) - modalH - dp(s, 18)));
+        r.glow(modal, dp(s, 18), rgba(255, 180, 90, 0.12f), 8);
+        r.roundedRect(modal.x, modal.y, modal.w, modal.h, dp(s, 8), rgba(255, 180, 90, 0.32f));
+        r.roundedRect(modal.x + 1.2f, modal.y + 1.2f, modal.w - 2.4f, modal.h - 2.4f, dp(s, 7), rgba(22, 26, 35, 0.98f));
+        r.rectGradient(modal.x + 2.0f, modal.y + 2.0f, modal.w - 4.0f, modal.h * 0.32f, rgba(255, 180, 90, 0.075f), rgba(255, 180, 90, 0.0f));
+        r.text("Exit daily challenge?", modal.x + dp(s, 18), modal.y + dp(s, 24), dp(s, 3.05f), TEXT);
+        std::vector<std::string> lines = wrapTextLines(
+                s,
+                "This is your first try. Exiting now records 0 for this daily leaderboard. You can replay afterward, but only this try counts.",
+                dp(s, 1.90f),
+                modal.w - dp(s, 36));
+        float textY = modal.y + dp(s, 68);
+        for (const std::string &line : lines) {
+            r.text(line, modal.x + dp(s, 18), textY, dp(s, 1.90f), MUTED);
+            textY += dp(s, 24);
+        }
+        float buttonY = modal.y + modal.h - dp(s, 110);
+        drawButton(s, {modal.x + dp(s, 18), buttonY, modal.w - dp(s, 36), dp(s, 44)}, "Keep Playing", Action::CancelDailyExit, 0, true);
+        drawButton(s, {modal.x + dp(s, 18), buttonY + dp(s, 54), modal.w - dp(s, 36), dp(s, 44)}, "Exit for 0", Action::ConfirmDailyExit);
     }
 }
 
@@ -4117,6 +4241,7 @@ void startDailyChallenge(AppState *s, int tier) {
     startGame(s, generatePuzzle(c), "daily");
     s->session.dailyKey = dailyChallengeKey(date, tier);
     s->session.dailyTier = dailyTierKey(tier);
+    s->session.leaderboardAttempt = !dailyLeaderboardRecorded(s, s->session.dailyKey);
 }
 
 void handleAction(AppState *s, const Button &b) {
@@ -4218,13 +4343,15 @@ void handleAction(AppState *s, const Button &b) {
         case Action::Generate: playSound(s, SoundCue::Start); startFreeplay(s); break;
         case Action::ExitGame:
             playSound(s, SoundCue::Ui);
-            if (s->hasSession && s->session.mode == "campaign") {
-                go(s, Screen::Campaign);
-            } else if (s->hasSession && s->session.mode == "daily") {
-                go(s, Screen::Daily);
-            } else {
-                go(s, Screen::Main);
-            }
+            requestExitGame(s);
+            break;
+        case Action::ConfirmDailyExit:
+            playSound(s, SoundCue::Ui);
+            confirmDailyExitForZero(s);
+            break;
+        case Action::CancelDailyExit:
+            playSound(s, SoundCue::Ui);
+            s->dailyExitConfirm = false;
             break;
         case Action::Undo:
             if (s->hasSession && !s->session.history.empty() && !s->session.completed) {
@@ -4241,11 +4368,12 @@ void handleAction(AppState *s, const Button &b) {
             }
             break;
         case Action::Reset:
-            if (s->hasSession) {
+            if (s->hasSession && !(s->session.mode == "daily" && s->session.leaderboardAttempt)) {
                 playSound(s, SoundCue::Reset);
                 bool usedHint = s->session.usedHint;
                 s->session.reset();
                 s->session.usedHint = usedHint;
+                s->session.leaderboardAttempt = false;
                 s->hintLine.clear();
                 s->previewTile = -1;
                 s->hintChanged.clear();
@@ -4253,7 +4381,7 @@ void handleAction(AppState *s, const Button &b) {
             }
             break;
         case Action::Hint:
-            if (s->hasSession && !s->session.completed) {
+            if (s->hasSession && !s->session.completed && !(s->session.mode == "daily" && s->session.leaderboardAttempt)) {
                 s->previewTile = -1;
                 s->hintChanged.clear();
                 int tap = -1;
@@ -4307,23 +4435,18 @@ void handleAction(AppState *s, const Button &b) {
                 startGame(s, p, mode);
                 s->session.dailyKey = key;
                 s->session.dailyTier = tier;
+                s->session.leaderboardAttempt = false;
             }
             break;
         case Action::Dismiss:
             playSound(s, SoundCue::Ui);
-            if (s->hasSession && s->session.mode == "campaign") {
-                go(s, Screen::Campaign);
-            } else if (s->hasSession && s->session.mode == "daily") {
-                go(s, Screen::Daily);
-            } else {
-                go(s, Screen::Main);
-            }
+            leaveCurrentGame(s);
             break;
     }
 }
 
 int tileAt(AppState *s, float x, float y) {
-    if (!s->hasSession || s->screen != Screen::Game || s->completion) return -1;
+    if (!s->hasSession || s->screen != Screen::Game || s->completion || s->dailyExitConfirm) return -1;
     Rect board = currentBoardRect(s);
     if (!board.contains(x, y)) return -1;
     Puzzle &p = s->session.puzzle;
@@ -4336,7 +4459,7 @@ int tileAt(AppState *s, float x, float y) {
 }
 
 void tapTile(AppState *s, int idx) {
-    if (!s->hasSession || s->session.completed) return;
+    if (!s->hasSession || s->session.completed || s->dailyExitConfirm) return;
     if (!isTappable(s->session.puzzle, idx)) {
         playSound(s, SoundCue::Invalid);
         vibrate(s, 16);
@@ -4366,14 +4489,12 @@ bool scrollable(Screen screen) {
 }
 
 void back(AppState *s) {
+    if (s->dailyExitConfirm) {
+        s->dailyExitConfirm = false;
+        return;
+    }
     if (s->screen == Screen::Game) {
-        if (s->hasSession && s->session.mode == "campaign") {
-            go(s, Screen::Campaign);
-        } else if (s->hasSession && s->session.mode == "daily") {
-            go(s, Screen::Daily);
-        } else {
-            go(s, Screen::Main);
-        }
+        requestExitGame(s);
     } else if (s->screen == Screen::Settings) {
         go(s, s->returnScreen);
     } else if (s->screen != Screen::Main) {
