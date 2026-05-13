@@ -2062,6 +2062,7 @@ std::string dailyLeaderboardMarkKey(const std::string &key) {
     return "daily_lb_mark_" + key;
 }
 
+// Changelog note: Android daily leaderboards lock to the first try, while later replays stay local-only.
 void migrateDailyLeaderboardRecord(AppState *s, const std::string &key) {
     if (!s || key.empty() || s->progress.getBool(dailyLeaderboardRecordedKey(key), false)) return;
     int legacyMark = s->progress.getInt("daily_mark_" + key, -1);
