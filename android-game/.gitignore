@@ -1,0 +1,12 @@
+.gradle/
+node_modules/
+build/
+app/build/
+local-sdk/
+third_party/skia/
+local.properties
+signing/keystore.properties
+signing/*.jks
+*.apk
+*.apks
+*.aab

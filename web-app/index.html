@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#090b12">
+    <title>Invert the Matrix</title>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["\\(", "\\)"]],
+          displayMath: [["\\[", "\\]"]]
+        },
+        svg: {
+          fontCache: "global"
+        }
+      };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <div class="ambient-grid" aria-hidden="true"></div>
+
+      <main id="screen-main" class="screen screen-main is-active">
+        <section class="brand-panel" aria-labelledby="game-title">
+          <div class="brand-mark" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <p class="kicker">Modular Linear Algebra Made Playful</p>
+          <h1 id="game-title">Invert the Matrix</h1>
+        </section>
+
+        <nav class="menu-stack" aria-label="Main menu">
+          <button class="menu-action" data-action="show-campaign">Campaign</button>
+          <button class="menu-action" data-action="show-freeplay">Custom Level</button>
+          <button class="menu-action" data-action="show-daily">Daily Challenge</button>
+          <button class="menu-action" data-action="show-howto">How to Play</button>
+          <button class="menu-action" data-action="show-math">The Math</button>
+          <button class="menu-action" data-action="show-settings">Settings</button>
+        </nav>
+      </main>
+
+      <main id="screen-campaign" class="screen">
+        <header class="screen-header sticky-screen-header">
+          <button class="icon-button" data-action="show-main" aria-label="Back">Back</button>
+          <div>
+            <p class="kicker">Campaign</p>
+            <h2>Campaign Select</h2>
+          </div>
+        </header>
+        <section id="campaign-list" class="chapter-list" aria-label="Campaign chapters"></section>
+      </main>
+
+      <main id="screen-freeplay" class="screen">
+        <header class="screen-header sticky-screen-header">
+          <button class="icon-button" data-action="show-main" aria-label="Back">Back</button>
+          <div>
+            <p class="kicker">Custom Level</p>
+            <h2>Build a Puzzle</h2>
+          </div>
+        </header>
+
+        <section class="setup-panel" aria-label="Custom level setup">
+          <div class="setup-group">
+            <h3>Grid Size</h3>
+            <div id="size-options" class="chip-row" role="radiogroup" aria-label="Grid size"></div>
+            <div id="custom-size" class="custom-size" hidden>
+              <label>Width
+                <input id="custom-width" type="number" min="3" max="9" value="5" inputmode="numeric">
+              </label>
+              <label>Height
+                <input id="custom-height" type="number" min="3" max="9" value="5" inputmode="numeric">
+              </label>
+            </div>
+          </div>
+
+          <div class="setup-group">
+            <h3>States</h3>
+            <div id="state-options" class="chip-row" role="radiogroup" aria-label="Number of states"></div>
+          </div>
+
+          <div class="setup-group">
+            <h3>Pulse Pattern</h3>
+            <select id="pattern-select" class="select-field" aria-label="Pulse pattern"></select>
+          </div>
+
+          <div class="setup-group">
+            <h3>Difficulty</h3>
+            <div id="difficulty-options" class="chip-row" role="radiogroup" aria-label="Difficulty"></div>
+          </div>
+
+          <div class="toggle-list">
+            <label class="toggle-row">
+              <span>Locked tiles</span>
+              <input id="locked-toggle" type="checkbox">
+            </label>
+            <label class="toggle-row">
+              <span>Irregular board</span>
+              <input id="irregular-toggle" type="checkbox">
+            </label>
+            <label class="toggle-row">
+              <span>Unique solution preferred</span>
+              <input id="unique-toggle" type="checkbox" checked>
+            </label>
+          </div>
+
+          <button class="primary-action full-width" data-action="generate-freeplay">Generate Puzzle</button>
+        </section>
+      </main>
+
+      <main id="screen-daily" class="screen">
+        <header class="screen-header sticky-screen-header">
+          <button class="icon-button" data-action="show-main" aria-label="Back">Back</button>
+          <div>
+            <p class="kicker">Daily</p>
+            <h2>Daily Challenge</h2>
+          </div>
+        </header>
+
+        <section id="daily-list" class="daily-list" aria-label="Daily puzzle tiers"></section>
+      </main>
+
+      <main id="screen-game" class="screen screen-game">
+        <header class="game-header">
+          <button class="icon-button icon-only" data-action="exit-game" aria-label="Back">
+            <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 5l-7 7 7 7"></path>
+            </svg>
+          </button>
+          <div class="game-title-block">
+            <p id="game-mode-label" class="kicker">Campaign</p>
+            <h2 id="game-title-label">Level</h2>
+          </div>
+          <button class="icon-button icon-only" data-action="show-settings" aria-label="Settings">
+            <svg class="settings-mark" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 8.25a3.75 3.75 0 1 1 0 7.5 3.75 3.75 0 0 1 0-7.5Z"></path>
+              <path d="M19.42 13.35a7.83 7.83 0 0 0 .04-2.63l2.06-1.58-2-3.46-2.45 1a7.78 7.78 0 0 0-2.27-1.32L14.43 2h-4.86l-.37 3.36a7.78 7.78 0 0 0-2.27 1.32l-2.45-1-2 3.46 2.06 1.58a7.83 7.83 0 0 0 .04 2.63l-2.08 1.6 2 3.46 2.5-1.03a7.75 7.75 0 0 0 2.2 1.26l.37 3.36h4.86l.37-3.36a7.75 7.75 0 0 0 2.2-1.26l2.5 1.03 2-3.46-2.08-1.6Z"></path>
+            </svg>
+          </button>
+        </header>
+
+        <section class="status-strip" aria-label="Puzzle status">
+          <div>
+            <span>Moves</span>
+            <strong id="move-counter">0</strong>
+          </div>
+          <div class="star-ranking-card" aria-label="Star ranking">
+            <div id="star-ranking" class="star-ranking"></div>
+          </div>
+          <div>
+            <span>Time</span>
+            <strong id="time-counter">0:00</strong>
+          </div>
+        </section>
+
+        <section class="pattern-strip" aria-label="Puzzle details">
+          <div class="pattern-card">
+            <div class="pattern-card-copy">
+              <span>Pattern</span>
+              <strong id="pattern-label">Cross</strong>
+            </div>
+            <div id="pattern-mini" class="pattern-mini" aria-hidden="true"></div>
+          </div>
+          <div class="personal-best-card">
+            <span>Personal Best</span>
+            <strong id="personal-best">-</strong>
+          </div>
+        </section>
+
+        <section class="tool-strip" aria-label="Board actions">
+          <button class="tool-button icon-tool undo-tool" data-action="undo" aria-label="Undo">
+            <svg class="tool-icon undo-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 7H4v5"></path>
+              <path d="M5.6 10.5A7 7 0 1 1 8 17.2"></path>
+            </svg>
+          </button>
+          <button class="tool-button reset-tool" data-action="reset">Reset</button>
+          <button class="tool-button icon-tool hint-tool" data-action="hint" aria-label="Hint">
+            <svg class="tool-icon eye-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2.5 12s3.5-5.5 9.5-5.5S21.5 12 21.5 12s-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z"></path>
+              <circle cx="12" cy="12" r="2.8"></circle>
+            </svg>
+          </button>
+        </section>
+
+        <section class="board-wrap" aria-label="Puzzle board">
+          <div id="board" class="board"></div>
+        </section>
+
+        <p id="hint-line" class="hint-line" aria-live="polite"></p>
+      </main>
+
+      <main id="screen-howto" class="screen">
+        <header class="screen-header guide-header">
+          <button class="icon-button" data-action="show-main" aria-label="Back">Back</button>
+          <div>
+            <p class="kicker">Guide</p>
+            <h2>How to Play</h2>
+          </div>
+          <div class="guide-size-control" role="group" aria-label="Guide text size">
+            <button class="guide-size-button guide-size-small" data-action="guide-size" data-guide-size="small" aria-label="Small guide text">A</button>
+            <button class="guide-size-button guide-size-medium" data-action="guide-size" data-guide-size="medium" aria-label="Medium guide text">A</button>
+            <button class="guide-size-button guide-size-large" data-action="guide-size" data-guide-size="large" aria-label="Large guide text">A</button>
+          </div>
+        </header>
+
+        <section class="math-intro" aria-label="Play overview">
+          <div class="mini-board" aria-hidden="true">
+            <span class="lit-blue"></span><span class="lit-orange"></span><span></span>
+            <span class="lit-purple"></span><span class="preview"></span><span class="lit-blue"></span>
+            <span></span><span class="lit-orange"></span><span></span>
+          </div>
+          <div>
+            <p>Clear the board by making every tile return to calm zero. Each tap sends a pulse through a pattern, and every touched tile advances by one state.</p>
+          </div>
+        </section>
+
+        <section class="howto-grid guide-grid" aria-label="Rules">
+          <article>
+            <div class="mini-board" aria-hidden="true">
+              <span></span><span class="lit-blue"></span><span></span>
+              <span class="lit-blue"></span><span class="lit-orange"></span><span class="lit-blue"></span>
+              <span></span><span class="lit-blue"></span><span></span>
+            </div>
+            <div>
+              <h3>1. Read the tiles</h3>
+              <p>A pale tile is solved. Colored tiles show values \(1,2,3,\ldots\), depending on the number of states in the level.</p>
+            </div>
+          </article>
+          <article>
+            <div class="mini-board" aria-hidden="true">
+              <span></span><span></span><span></span>
+              <span></span><span class="lit-purple"></span><span></span>
+              <span></span><span></span><span></span>
+            </div>
+            <div>
+              <h3>2. Tap and wrap</h3>
+              <p>Tap a tile to add \(1\) to every tile in its pulse pattern. After the last color, the next tap wraps that tile back to zero.</p>
+            </div>
+          </article>
+          <article>
+            <div class="mini-board" aria-hidden="true">
+              <span class="preview"></span><span></span><span class="preview"></span>
+              <span></span><span class="lit-blue preview"></span><span></span>
+              <span class="preview"></span><span></span><span class="preview"></span>
+            </div>
+            <div>
+              <h3>3. Watch the pattern</h3>
+              <p>Different levels use cross, diagonal, square, horizontal, vertical, knight, or mixed pulse patterns. Hold or hover a tile to preview its affected tiles.</p>
+            </div>
+          </article>
+          <article>
+            <div class="mini-board" aria-hidden="true">
+              <span></span><span class="locked"></span><span></span>
+              <span class="lit-orange"></span><span></span><span class="lit-orange"></span>
+              <span></span><span></span><span></span>
+            </div>
+            <div>
+              <h3>4. Respect special tiles</h3>
+              <p>Locked tiles can be changed by nearby pulses, but you cannot tap them directly. Empty holes are outside the board and do not store a value.</p>
+            </div>
+          </article>
+        </section>
+
+        <section class="equation-panel" aria-label="Modes">
+          <div class="mini-board" aria-hidden="true">
+            <span class="lit-green"></span><span class="lit-green"></span><span class="lit-green"></span>
+            <span class="lit-orange"></span><span class="locked"></span><span class="is-gap"></span>
+            <span class="lit-blue"></span><span></span><span class="lit-purple"></span>
+          </div>
+          <div>
+            <p class="kicker">Modes</p>
+            <h3>Choose your puzzle</h3>
+            <div class="guide-list">
+              <p><strong>Campaign</strong> is a long curated path. Levels unlock in order, and each level has fixed star targets.</p>
+              <p><strong>Custom Level</strong> lets you choose board size, number of states, pulse pattern, difficulty, locks, gaps, and whether the generator should prefer a unique solution.</p>
+              <p><strong>Daily Challenge</strong> gives everyone the same three generated puzzles for the date, each with its own saved best score.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="math-grid small" aria-label="Tools and options">
+          <article>
+            <div class="mini-board" aria-hidden="true">
+              <span class="lit-blue hinted"></span><span class="lit-orange hinted"></span><span></span>
+              <span></span><span class="lit-purple hinted">3</span><span></span>
+              <span></span><span></span><span class="lit-blue"></span>
+            </div>
+            <div>
+              <h3>Moves, stars, and hints</h3>
+              <p>The move counter counts every tap. Three stars means matching the generator's minimum found move count; two, one, and zero star bands allow progressively more extra moves.</p>
+              <p>Undo rewinds one move, Reset restores the starting board, and Hint applies the next move from a solver plan. A hint makes that try worth zero stars, but the puzzle still counts as complete. Tiles changed by a hint are marked in red.</p>
+            </div>
+          </article>
+          <article>
+            <div class="mini-board" aria-hidden="true">
+              <span class="lit-blue">1</span><span class="lit-orange">2</span><span></span>
+              <span class="lit-purple">3</span><span class="numbered">0</span><span class="lit-blue">1</span>
+              <span></span><span class="lit-orange">2</span><span class="lit-purple">3</span>
+            </div>
+            <div>
+              <h3>Settings</h3>
+              <p>Sound controls audio effects. Vibration controls haptic feedback. Animations can be turned off. Colorblind-friendly symbols add shape labels, and Show numbers on tiles can be enabled when you want numeric values.</p>
+            </div>
+          </article>
+        </section>
+      </main>
+
+      <main id="screen-math" class="screen">
+        <header class="screen-header guide-header">
+          <button class="icon-button" data-action="show-main" aria-label="Back">Back</button>
+          <div>
+            <p class="kicker">Guide</p>
+            <h2>The Math</h2>
+          </div>
+          <div class="guide-size-control" role="group" aria-label="Guide text size">
+            <button class="guide-size-button guide-size-small" data-action="guide-size" data-guide-size="small" aria-label="Small guide text">A</button>
+            <button class="guide-size-button guide-size-medium" data-action="guide-size" data-guide-size="medium" aria-label="Medium guide text">A</button>
+            <button class="guide-size-button guide-size-large" data-action="guide-size" data-guide-size="large" aria-label="Large guide text">A</button>
+          </div>
+        </header>
+
+        <section class="math-intro" aria-label="Math overview">
+          <p>Invert the Matrix is a spin on the classical Lights Out puzzle, but the useful way to see it is not as a picture of tiles. It is a list of numbers. A tap adds one fixed move vector to that list, and the puzzle asks whether some sum of move vectors cancels the starting board.</p>
+          <p>All arithmetic is modular. If a level has \(n\) states, then tile values live in \(R=\mathbb Z/n\mathbb Z\), so the value after \(n-1\) wraps back to \(0\). Prime moduli such as \(2,3,\) and \(5\) give finite fields. The four-state mode lives in the ring \(\mathbb Z/4\mathbb Z\), where addition still behaves beautifully, but not every nonzero number can be divided by.</p>
+          <div class="formula-card hero-formula">
+            \[
+              A x \equiv -s \pmod n
+            \]
+          </div>
+        </section>
+
+        <section class="equation-panel" aria-label="Lights Out generalization">
+          <div>
+            <p class="kicker">From Lights Out</p>
+            <h3>A modular version of the same question</h3>
+            <p>In ordinary Lights Out, every tile is either \(0\) or \(1\), and pressing a tile toggles a fixed neighborhood. Toggling is the same thing as adding \(1\) modulo \(2\), so pressing the same tile twice gives no net change. That is linear algebra over \(\mathbb F_2\).</p>
+            <p>This game keeps the linear structure but changes the arithmetic. A level with \(n\) states works in \(R=\mathbb Z/n\mathbb Z\). The board may have locks, gaps, and different pulse patterns, but the question remains the same: can the allowed move columns add up to the negative of the current board?</p>
+          </div>
+        </section>
+
+        <section class="howto-grid math-grid">
+          <article>
+            <div class="mini-board" aria-hidden="true">
+              <span></span><span class="lit-blue"></span><span></span>
+              <span class="lit-blue"></span><span class="lit-orange"></span><span class="lit-blue"></span>
+              <span></span><span class="lit-blue"></span><span></span>
+            </div>
+            <div>
+              <h3>1. The board is a vector</h3>
+              <p>Ignore gaps and list the active tiles in a fixed order. Their current values form a vector \(s\in R^m\), where \(m\) is the number of active board positions. The pale solved value is \(0\), so solving the puzzle means reaching the zero vector.</p>
+              <div class="formula-card">
+                \[
+                  s=(s_1,\ldots,s_m),\qquad s_i\in \mathbb Z/n\mathbb Z
+                \]
+              </div>
+            </div>
+          </article>
+          <article>
+            <div class="mini-board" aria-hidden="true">
+              <span class="preview"></span><span></span><span class="preview"></span>
+              <span></span><span class="lit-blue preview"></span><span></span>
+              <span class="preview"></span><span></span><span class="preview"></span>
+            </div>
+            <div>
+              <h3>2. Every legal tap is a column</h3>
+              <p>The move matrix \(A\) has one column for each tile you are allowed to tap. Column \(j\) records the board change caused by tap \(j\). The entry \(A_{ij}\) is \(1\) if tap \(j\) changes tile \(i\), and \(0\) otherwise.</p>
+              <p>Locked tiles still appear as rows because their values must become zero, and nearby moves can change them. They do not appear as columns because they cannot be tapped directly.</p>
+              <div class="formula-card">
+                \[
+                  A_{ij}=
+                  \begin{cases}
+                    1 & \text{tap }j\text{ changes tile }i,\\
+                    0 & \text{otherwise.}
+                  \end{cases}
+                \]
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="equation-panel" aria-label="Solving equation">
+          <div>
+            <p class="kicker">Goal</p>
+            <h3>Find a tap vector</h3>
+            <p>A plan is a vector \(x\in R^r\), where \(x_j\) says how many times to use legal tap \(j\), counted modulo \(n\). Because the moves add together, the order of taps does not matter algebraically; only the number of times each legal tap is used matters.</p>
+            <p>After the plan, the board is \(s+Ax\). Solving the puzzle means making that vector zero, which is the same as solving the linear congruence \(Ax\equiv -s\pmod n\).</p>
+          </div>
+          <div class="formula-card equation-stack">
+            \[
+              s + A x \equiv 0 \pmod n
+            \]
+            \[
+              A x \equiv -s \pmod n
+            \]
+          </div>
+        </section>
+
+        <section class="math-grid small">
+          <article>
+            <h3>When does a solution exist?</h3>
+            <p>The columns of \(A\) describe all board changes reachable by legal moves. The clean answer is image membership: the target vector \(-s\) must be in the image, or column span, of the move matrix \(A\).</p>
+            <div class="formula-card">
+              \[
+                \text{solution exists}
+                \Longleftrightarrow
+                -s\in \operatorname{Im}(A)
+              \]
+            </div>
+            <p>Over a field, such as \(\mathbb F_2,\mathbb F_3,\mathbb F_5\), this can be checked by row-reducing the augmented system \([A\mid -s]\). A row that says \(0=\text{nonzero}\) means no solution. If no contradiction appears, back-substitution gives at least one tap plan.</p>
+          </article>
+          <article>
+            <h3>What changes for non-prime \(n\)?</h3>
+            <p>For composite \(n\), \(\mathbb Z/n\mathbb Z\) is usually a ring, not a field. You may add and multiply as usual, but you cannot divide by a non-unit. For \(n=4\), \(2\) is nonzero but has no inverse: no value \(a\) satisfies \(2a\equiv 1\pmod 4\).</p>
+            <div class="formula-card">
+              \[
+                2a\not\equiv 1\pmod 4
+              \]
+            </div>
+            <p>The criterion does not change: there is still a solution exactly when \(-s\in\operatorname{Im}(A)\), but the verification must respect ring arithmetic. Row operations that divide by non-units can invent false conclusions. For general composite \(n\), one can also check the compatible prime-power systems given by the Chinese remainder theorem.</p>
+          </article>
+          <article>
+            <h3>When is the solution unique?</h3>
+            <p>If \(x_0\) is one solution, then every other solution is \(x_0+z\), where \(z\) is a vector of moves that changes nothing. These silent plans form the kernel of the move matrix.</p>
+            <div class="formula-card">
+              \[
+                \{x:\ Ax=-s\}=x_0+\ker(A)
+              \]
+            </div>
+            <p>So the algebraic solution is unique precisely when \(\ker(A)=\{0\}\). Over fields this is the same as saying the legal tap columns of \(A\) are independent. Over rings, the same kernel condition is the right statement, but it must be checked in the module over \(\mathbb Z/n\mathbb Z\).</p>
+          </article>
+          <article>
+            <h3>Why the minimum matters</h3>
+            <p>If there are several algebraic solutions, the game can still ask for the most efficient one. The star target is based on a representative with the smallest total number of physical taps. Using representatives \(0,\ldots,n-1\), the length of a plan is the sum of those tap counts.</p>
+            <div class="formula-card">
+              \[
+                \min \|x\|_1
+                =
+                \min \sum_j x_j
+              \]
+            </div>
+          </article>
+          <article>
+            <h3>Locked tiles and gaps</h3>
+            <p>Locked tiles still appear as rows because their values must become zero, and nearby moves may change them. They do not appear as tap columns. Gaps are removed from the board, so they are neither rows nor columns. This is how the same equation adapts to irregular boards without changing the underlying idea.</p>
+          </article>
+          <article>
+            <h3>How the generator uses this</h3>
+            <p>The generator builds \(A\) from the board shape, locks, gaps, and pulse pattern. It chooses or checks a starting vector \(s\), verifies that \(-s\) lies in \(\operatorname{Im}(A)\), and stores a solving plan. For curated levels it also searches for a short representative so the star thresholds have a mathematical basis. Hints use a stored plan one step at a time.</p>
+          </article>
+        </section>
+
+        <details class="advanced-note">
+          <summary>What the symbols mean</summary>
+          <dl class="symbol-list">
+            <div><dt>\(n\)</dt><dd>The number of tile states and the modulus used by the level; the app uses \(2,3,4,\) or \(5\) states.</dd></div>
+            <div><dt>\(s\)</dt><dd>The current board written as one long vector.</dd></div>
+            <div><dt>\(A\)</dt><dd>The pulse matrix. Each column is one possible tap.</dd></div>
+            <div><dt>\(x\)</dt><dd>The tap-count vector you are trying to find.</dd></div>
+            <div><dt>\(\operatorname{Im}(A)\)</dt><dd>All board changes obtainable by legal taps.</dd></div>
+            <div><dt>\(\ker(A)\)</dt><dd>Tap plans that leave the board unchanged.</dd></div>
+          </dl>
+        </details>
+      </main>
+
+      <main id="screen-settings" class="screen">
+        <header class="screen-header sticky-screen-header">
+          <button class="icon-button" data-action="close-settings" aria-label="Back">Back</button>
+          <div>
+            <p class="kicker">Options</p>
+            <h2>Settings</h2>
+          </div>
+        </header>
+
+        <section class="settings-list" aria-label="Settings">
+          <label class="toggle-row">
+            <span>Sound</span>
+            <input id="setting-sound" type="checkbox">
+          </label>
+          <label class="toggle-row">
+            <span>Vibration</span>
+            <input id="setting-vibration" type="checkbox">
+          </label>
+          <label class="toggle-row">
+            <span>Animations</span>
+            <input id="setting-animations" type="checkbox">
+          </label>
+          <label class="toggle-row">
+            <span>Colorblind-friendly symbols</span>
+            <input id="setting-colorblind" type="checkbox">
+          </label>
+          <label class="toggle-row">
+            <span>Show numbers on tiles</span>
+            <input id="setting-numbers" type="checkbox">
+          </label>
+        </section>
+      </main>
+    </div>
+
+    <div id="modal" class="modal" hidden>
+      <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <p class="kicker">Complete</p>
+        <h2 id="modal-title">Level Complete</h2>
+        <div id="modal-stars" class="modal-stars" aria-label="Stars earned"></div>
+        <dl class="result-list">
+          <div>
+            <dt>Moves Used</dt>
+            <dd id="result-moves">0</dd>
+          </div>
+          <div>
+            <dt>Minimum</dt>
+            <dd id="result-minimum">0</dd>
+          </div>
+          <div>
+            <dt>Best Moves</dt>
+            <dd id="result-best">0</dd>
+          </div>
+          <div>
+            <dt>Time</dt>
+            <dd id="result-time">0:00</dd>
+          </div>
+        </dl>
+        <div id="result-star-breakdown" class="star-breakdown modal-star-breakdown" aria-label="Star thresholds"></div>
+        <div class="modal-actions">
+          <button class="primary-action" data-action="next-level">Next Level</button>
+          <button class="menu-action" data-action="replay">Replay</button>
+          <button class="menu-action" data-action="level-select">Campaign</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

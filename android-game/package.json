@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "render:math": "node tools/render-math-assets.mjs"
+  },
+  "dependencies": {
+    "mathjax-full": "^3.2.2"
+  }
+}

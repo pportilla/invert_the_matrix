@@ -1,0 +1,7 @@
+<resources>
+    <color name="icon_background">#090B12</color>
+    <color name="invert_blue">#45C2F4</color>
+    <color name="invert_green">#5FE1AA</color>
+    <color name="invert_orange">#FFB45A</color>
+    <color name="invert_purple">#B58CFF</color>
+</resources>

@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Invert the Matrix</string>
+    <!-- Replace the remaining leaderboard values with the IDs from Google Play Console > Play Games Services. -->
+    <string name="game_services_project_id" translatable="false">383796002883</string>
+    <string name="leaderboard_daily_easy" translatable="false">CgkIw4CZ4JULEAIQAA</string>
+    <string name="leaderboard_daily_medium" translatable="false">CgkIw4CZ4JULEAIQAQ</string>
+    <string name="leaderboard_daily_hard" translatable="false">CgkIw4CZ4JULEAIQAg</string>
+    <string name="leaderboard_daily_global" translatable="false">CgkIw4CZ4JULEAIQAw</string>
+</resources>

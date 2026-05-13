@@ -1,0 +1,161 @@
+plugins {
+    id "com.android.application"
+}
+
+def keystorePropertiesFile = rootProject.file("signing/keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { stream ->
+        keystoreProperties.load(stream)
+    }
+}
+
+android {
+    namespace "invert_the_matrix.myapp"
+    compileSdk 35
+    buildToolsVersion "37.0.0"
+
+    defaultConfig {
+        applicationId "invert_the_matrix.myapp"
+        minSdk 23
+        targetSdk 35
+        versionCode 2
+        versionName "1.0.0"
+        ndk {
+            abiFilters "arm64-v8a", "x86_64"
+        }
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ["src/main/jniLibs"]
+        }
+    }
+
+    signingConfigs {
+        release {
+            if (keystoreProperties["storeFile"]) {
+                storeFile rootProject.file(keystoreProperties["storeFile"])
+                storePassword keystoreProperties["storePassword"]
+                keyAlias keystoreProperties["keyAlias"]
+                keyPassword keystoreProperties["keyPassword"]
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            if (keystoreProperties["storeFile"]) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+}
+
+def ndkRoot = rootProject.file("local-sdk/ndk/28.2.13676358")
+def skiaRoot = rootProject.file("third_party/skia")
+def skiaGnArgs = { String cpu ->
+    return "target_os=\"android\" target_cpu=\"${cpu}\" ndk=\"${ndkRoot}\" ndk_api=23 is_debug=false is_official_build=true skia_enable_tools=false skia_enable_pdf=false skia_enable_skottie=false skia_enable_svg=false skia_use_gl=true skia_use_vulkan=false skia_use_dawn=false skia_enable_graphite=false skia_use_icu=false skia_use_client_icu=false skia_use_bidi=false skia_use_expat=false skia_use_fontconfig=false skia_use_freetype=false skia_use_harfbuzz=false skia_use_libpng_decode=false skia_use_libpng_encode=false skia_use_libjpeg_turbo_decode=false skia_use_libjpeg_turbo_encode=false skia_use_libwebp_decode=false skia_use_libwebp_encode=false skia_use_wuffs=false skia_use_zlib=false skia_use_dng_sdk=false skia_use_piex=false skia_use_perfetto=false skia_use_partition_alloc=false skia_enable_fontmgr_empty=true skia_enable_fontmgr_android=false skia_enable_fontmgr_android_ndk=false"
+}
+
+def nativeTargets = [
+        [
+                suffix: "Arm64",
+                abi: "arm64-v8a",
+                skiaCpu: "arm64",
+                skiaOutName: "android-arm64-game",
+                clang: "aarch64-linux-android23-clang",
+                clangxx: "aarch64-linux-android23-clang++"
+        ],
+        [
+                suffix: "X64",
+                abi: "x86_64",
+                skiaCpu: "x64",
+                skiaOutName: "android-x64-game",
+                clang: "x86_64-linux-android23-clang",
+                clangxx: "x86_64-linux-android23-clang++"
+        ]
+]
+
+def nativeTaskNames = []
+
+nativeTargets.each { target ->
+    def skiaOut = skiaRoot.toPath().resolve("out/${target.skiaOutName}").toFile()
+    def nativeOut = file("src/main/jniLibs/${target.abi}/libinvertmatrix.so")
+    def nativeObjDir = layout.buildDirectory.dir("native/${target.abi}").get().asFile
+    def buildSkiaTask = "buildSkia${target.suffix}"
+    def buildNativeTask = "buildNative${target.suffix}"
+
+    tasks.register(buildSkiaTask, Exec) {
+        inputs.files(fileTree("${skiaRoot}/include"))
+        inputs.files(fileTree("${skiaRoot}/src"))
+        outputs.file(file("${skiaOut}/libskia.a"))
+
+        doFirst {
+            if (!skiaRoot.exists()) {
+                throw new GradleException("Skia source not found at ${skiaRoot}.")
+            }
+        }
+
+        executable "bash"
+        args "-lc", """
+            set -euo pipefail
+            cd '${skiaRoot}'
+            python3 bin/fetch-gn >/dev/null
+            bin/gn gen out/${target.skiaOutName} --args='${skiaGnArgs(target.skiaCpu)}'
+            ninja -C out/${target.skiaOutName} skia
+        """
+    }
+
+    tasks.register(buildNativeTask, Exec) {
+        inputs.files(fileTree("src/main/cpp"))
+        inputs.file(file("${skiaOut}/libskia.a"))
+        inputs.file(file("${skiaOut}/libskcms.a"))
+        inputs.file(file("${skiaOut}/libcpu-features.a"))
+        outputs.file(nativeOut)
+
+        doFirst {
+            if (!ndkRoot.exists()) {
+                throw new GradleException("NDK not found at ${ndkRoot}. Install it with: ANDROID_HOME=${rootProject.file("local-sdk")} ANDROID_SDK_ROOT=${rootProject.file("local-sdk")} sdkmanager --sdk_root=${rootProject.file("local-sdk")} 'ndk;28.2.13676358'")
+            }
+            nativeOut.parentFile.mkdirs()
+            nativeObjDir.mkdirs()
+        }
+
+        executable "bash"
+        args "-lc", """
+            set -euo pipefail
+            CLANG='${ndkRoot}/toolchains/llvm/prebuilt/linux-x86_64/bin/${target.clang}'
+            CLANGXX='${ndkRoot}/toolchains/llvm/prebuilt/linux-x86_64/bin/${target.clangxx}'
+            GLUE='${ndkRoot}/sources/android/native_app_glue/android_native_app_glue.c'
+            INC='${ndkRoot}/sources/android/native_app_glue'
+            SKIA='${skiaRoot}'
+            SKIA_OUT='${skiaOut}'
+            OUT='${nativeOut}'
+            OBJ='${nativeObjDir}'
+            STRIP='${ndkRoot}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
+            "\$CLANGXX" -std=c++17 -O2 -fPIC -DANDROID -DSK_GANESH -DSK_GL -DSK_ASSUME_GL_ES=1 -Wall -Wextra -Wno-unused-parameter -I"\$INC" -I"\$SKIA" -c src/main/cpp/main.cpp -o "\$OBJ/main.o"
+            "\$CLANG" -O2 -fPIC -DANDROID -I"\$INC" -c "\$GLUE" -o "\$OBJ/android_native_app_glue.o"
+            "\$CLANGXX" -shared "\$OBJ/main.o" "\$OBJ/android_native_app_glue.o" -o "\$OUT" -static-libstdc++ -Wl,--no-undefined -Wl,--start-group "\$SKIA_OUT/libskia.a" "\$SKIA_OUT/libskcms.a" "\$SKIA_OUT/libcpu-features.a" -Wl,--end-group -landroid -llog -lOpenSLES -lEGL -lGLESv2 -lm -latomic
+            "\$STRIP" --strip-unneeded "\$OUT"
+        """
+    }
+
+    tasks.named(buildNativeTask).configure {
+        dependsOn(buildSkiaTask)
+    }
+    nativeTaskNames << buildNativeTask
+}
+
+preBuild.dependsOn(nativeTaskNames)
+
+dependencies {
+    implementation "com.google.android.gms:play-services-games-v2:21.0.0"
+}

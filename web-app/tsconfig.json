@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "none",
+    "lib": ["DOM", "ES2019"],
+    "outFile": "app.js",
+    "sourceMap": true,
+    "strict": false,
+    "noEmitOnError": true,
+    "removeComments": false
+  },
+  "files": ["src/app.ts"]
+}

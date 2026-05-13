@@ -1,0 +1,55 @@
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Logs and environment overrides
+*.log
+.env
+.env.*
+
+# Node dependencies and generated caches
+node_modules/
+web-app/node_modules/
+android-game/node_modules/
+**/__pycache__/
+*.py[cod]
+
+# Web build/cache output
+web-app/dist/
+web-app/.cache/
+
+# Android local machine state
+android-game/.gradle/
+android-game/build/
+android-game/app/build/
+android-game/local.properties
+android-game/local-sdk/
+android-game/captures/
+android-game/.cxx/
+
+# Android generated binaries and release artifacts
+android-game/app/src/main/jniLibs/**/libinvertmatrix.so
+*.apk
+*.apks
+*.aab
+
+# Android release signing and private service material
+android-game/signing/keystore.properties
+android-game/signing/*.jks
+android-game/signing/*.keystore
+android-game/signing/*.p12
+android-game/signing/*.pem
+android-game/app/google-services.json
+android-game/app/src/**/google-services.json
+
+# Third-party source checked out locally for native builds
+android-game/third_party/skia/
+
+# Generated store bundles / duplicate local exports
+play-store-assets.zip
+play-store-assets (1)/

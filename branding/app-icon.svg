@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Invert the Matrix app icon</title>
+  <desc id="desc">A polished three by three grid of colored puzzle tiles on a dark background.</desc>
+  <defs>
+    <linearGradient id="bg" x1="64" y1="30" x2="448" y2="494" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#111722"/>
+      <stop offset="0.58" stop-color="#090b12"/>
+      <stop offset="1" stop-color="#171018"/>
+    </linearGradient>
+    <radialGradient id="blueGlow" cx="0" cy="0" r="1" gradientTransform="translate(193 138) rotate(54) scale(164)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#45c2f4" stop-opacity="0.52"/>
+      <stop offset="1" stop-color="#45c2f4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="greenGlow" cx="0" cy="0" r="1" gradientTransform="translate(354 278) rotate(122) scale(150)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5fe1aa" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#5fe1aa" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="board" x1="132" y1="80" x2="382" y2="414" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#202837"/>
+      <stop offset="1" stop-color="#111720"/>
+    </linearGradient>
+    <linearGradient id="zero" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#fffdf5"/>
+      <stop offset="1" stop-color="#dfe8f0"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#75ddff"/>
+      <stop offset="1" stop-color="#2faee2"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#ffd18d"/>
+      <stop offset="1" stop-color="#f69b39"/>
+    </linearGradient>
+    <linearGradient id="purple" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#d0b7ff"/>
+      <stop offset="1" stop-color="#9c75ee"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#83f1c1"/>
+      <stop offset="1" stop-color="#39c98d"/>
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="170%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#00040a" flood-opacity="0.52"/>
+    </filter>
+    <filter id="tileGlow" x="-28%" y="-28%" width="156%" height="156%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0" stdDeviation="9" flood-color="currentColor" flood-opacity="0.28"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#00040a" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="188" cy="128" r="162" fill="url(#blueGlow)"/>
+  <circle cx="354" cy="280" r="156" fill="url(#greenGlow)"/>
+
+  <g filter="url(#softShadow)">
+    <rect x="86" y="74" width="340" height="340" rx="46" fill="url(#board)"/>
+    <rect x="87" y="75" width="338" height="338" rx="45" fill="none" stroke="#eef5ff" stroke-opacity="0.16" stroke-width="3"/>
+    <rect x="119" y="107" width="274" height="274" rx="26" fill="#0b0f18"/>
+
+    <g transform="translate(127 115)">
+      <g color="#fffdf5">
+        <rect x="0" y="8" width="74" height="74" rx="16" fill="#01040a" opacity="0.36"/>
+        <rect x="0" y="0" width="74" height="74" rx="16" fill="url(#zero)" filter="url(#tileGlow)"/>
+        <rect x="8" y="8" width="58" height="15" rx="7.5" fill="#fff" opacity="0.36"/>
+        <path d="M0 54h74v4c0 8.8-7.2 16-16 16H16C7.2 74 0 66.8 0 58v-4Z" fill="#0a1119" opacity="0.12"/>
+      </g>
+      <g transform="translate(92)" color="#45c2f4">
+        <rect x="0" y="8" width="74" height="74" rx="16" fill="#01040a" opacity="0.36"/>
+        <rect x="0" y="0" width="74" height="74" rx="16" fill="url(#blue)" filter="url(#tileGlow)"/>
+        <rect x="8" y="8" width="58" height="15" rx="7.5" fill="#fff" opacity="0.3"/>
+        <path d="M0 54h74v4c0 8.8-7.2 16-16 16H16C7.2 74 0 66.8 0 58v-4Z" fill="#071019" opacity="0.16"/>
+      </g>
+      <g transform="translate(184)" color="#ffb45a">
+        <rect x="0" y="8" width="74" height="74" rx="16" fill="#01040a" opacity="0.36"/>
+        <rect x="0" y="0" width="74" height="74" rx="16" fill="url(#orange)" filter="url(#tileGlow)"/>
+        <rect x="8" y="8" width="58" height="15" rx="7.5" fill="#fff" opacity="0.28"/>
+        <path d="M0 54h74v4c0 8.8-7.2 16-16 16H16C7.2 74 0 66.8 0 58v-4Z" fill="#071019" opacity="0.16"/>
+      </g>
+
+      <g transform="translate(0 92)" color="#b58cff">
+        <rect x="0" y="8" width="74" height="74" rx="16" fill="#01040a" opacity="0.36"/>
+        <rect x="0" y="0" width="74" height="74" rx="16" fill="url(#purple)" filter="url(#tileGlow)"/>
+        <rect x="8" y="8" width="58" height="15" rx="7.5" fill="#fff" opacity="0.3"/>
+        <path d="M0 54h74v4c0 8.8-7.2 16-16 16H16C7.2 74 0 66.8 0 58v-4Z" fill="#071019" opacity="0.16"/>
+      </g>
+      <g transform="translate(92 92)" color="#fffdf5">
+        <rect x="0" y="8" width="74" height="74" rx="16" fill="#01040a" opacity="0.36"/>
+        <rect x="0" y="0" width="74" height="74" rx="16" fill="url(#zero)" filter="url(#tileGlow)"/>
+        <rect x="8" y="8" width="58" height="15" rx="7.5" fill="#fff" opacity="0.36"/>
+        <path d="M0 54h74v4c0 8.8-7.2 16-16 16H16C7.2 74 0 66.8 0 58v-4Z" fill="#0a1119" opacity="0.12"/>
+      </g>
+      <g transform="translate(184 92)" color="#5fe1aa">
+        <rect x="0" y="8" width="74" height="74" rx="16" fill="#01040a" opacity="0.36"/>
+        <rect x="0" y="0" width="74" height="74" rx="16" fill="url(#green)" filter="url(#tileGlow)"/>
+        <rect x="8" y="8" width="58" height="15" rx="7.5" fill="#fff" opacity="0.3"/>
+        <path d="M0 54h74v4c0 8.8-7.2 16-16 16H16C7.2 74 0 66.8 0 58v-4Z" fill="#071019" opacity="0.16"/>
+      </g>
+
+      <g transform="translate(0 184)" color="#45c2f4">
+        <rect x="0" y="8" width="74" height="74" rx="16" fill="#01040a" opacity="0.36"/>
+        <rect x="0" y="0" width="74" height="74" rx="16" fill="url(#blue)" filter="url(#tileGlow)"/>
+        <rect x="8" y="8" width="58" height="15" rx="7.5" fill="#fff" opacity="0.3"/>
+        <path d="M0 54h74v4c0 8.8-7.2 16-16 16H16C7.2 74 0 66.8 0 58v-4Z" fill="#071019" opacity="0.16"/>
+      </g>
+      <g transform="translate(92 184)" color="#ffb45a">
+        <rect x="0" y="8" width="74" height="74" rx="16" fill="#01040a" opacity="0.36"/>
+        <rect x="0" y="0" width="74" height="74" rx="16" fill="url(#orange)" filter="url(#tileGlow)"/>
+        <rect x="8" y="8" width="58" height="15" rx="7.5" fill="#fff" opacity="0.28"/>
+        <path d="M0 54h74v4c0 8.8-7.2 16-16 16H16C7.2 74 0 66.8 0 58v-4Z" fill="#071019" opacity="0.16"/>
+      </g>
+      <g transform="translate(184 184)" color="#fffdf5">
+        <rect x="0" y="8" width="74" height="74" rx="16" fill="#01040a" opacity="0.36"/>
+        <rect x="0" y="0" width="74" height="74" rx="16" fill="url(#zero)" filter="url(#tileGlow)"/>
+        <rect x="8" y="8" width="58" height="15" rx="7.5" fill="#fff" opacity="0.36"/>
+        <path d="M0 54h74v4c0 8.8-7.2 16-16 16H16C7.2 74 0 66.8 0 58v-4Z" fill="#0a1119" opacity="0.12"/>
+      </g>
+    </g>
+  </g>
+</svg>
