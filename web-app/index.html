@@ -433,7 +433,20 @@
                 \{x:\ Ax=-s\}=x_0+\ker(A)
               \]
             </div>
-            <p>So the algebraic solution is unique precisely when \(\ker(A)=\{0\}\). Over fields this is the same as saying the legal tap columns of \(A\) are independent. Over rings, the same kernel condition is the right statement, but it must be checked in the module over \(\mathbb Z/n\mathbb Z\).</p>
+            <p>Tap counts already live modulo \(n\), so pressing one tile \(n\) extra times is not a new algebraic solution. Unique means unique after ignoring those built-in do-nothing repetitions.</p>
+            <p>The real obstruction is a nonzero silent plan \(z\ne 0\) with \(Az=0\). If such a \(z\) exists, then \(x_0\) and \(x_0+z\) are genuinely different tap-count plans that solve the same board. Thus the algebraic solution is unique precisely when \(\ker(A)=\{0\}\). Over fields this is the same as saying the legal tap columns of \(A\) are independent. Over rings, the same kernel condition is the right statement, but it must be checked in the module over \(\mathbb Z/n\mathbb Z\).</p>
+          </article>
+          <article>
+            <h3>When does cross \(A\) have an inverse?</h3>
+            <p>On a plain \(w\times h\) board with no locks and no gaps, the cross pattern has exactly one legal tap for each tile, so \(A\) is a square \(wh\times wh\) matrix. It has an inverse exactly when every starting board has one and only one tap vector solution.</p>
+            <div class="formula-card">
+              \[
+                A^{-1}\text{ exists over }\mathbb Z/n\mathbb Z
+                \Longleftrightarrow
+                \gcd(\det A,n)=1
+              \]
+            </div>
+            <p>Equivalently, \(\det A\) must be a unit modulo \(n\). For prime state counts \(n=2,3,5\), that means \(\det A\not\equiv0\pmod n\), or rank \(wh\). For \(n=4\), it means \(\det A\) is odd. If this fails, the cross board either has unreachable states, nonzero silent pulse plans, or both. With locks or gaps \(A\) may be rectangular, so the image and kernel tests are the right language instead of a two-sided inverse.</p>
           </article>
           <article>
             <h3>Why the minimum matters</h3>

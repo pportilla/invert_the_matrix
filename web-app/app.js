@@ -65,7 +65,9 @@
         "Dense Detours", "Glyph Mix-Up", "Locked and Loaded", "Wide Awake", "Prime Time",
         "Lock Labyrinth", "Gap Galaxy", "Modular Mayhem", "Ninefold Knockout", "Final Flip"
     ];
-    var CAMPAIGN_VERSION = 2;
+    var CAMPAIGN_VERSION = 3;
+    var EXACT_BFS_STATE_LIMIT = 500000;
+    var EXACT_NULLSPACE_LIMIT = 500000;
     var HINT_COOLDOWN_MS = 500;
     var HINT_COMPLETION_DELAY_MS = 500;
     var DEFAULT_PROGRESS = {
@@ -556,7 +558,7 @@
                 continue;
             if (!solutionSolves(puzzle, board, solutionCounts))
                 continue;
-            fallback = makeCampaignLevelFromPuzzle(puzzle, board, solutionCounts, config, chapter, levelInChapter, index, knownMoves);
+            fallback = makeCampaignLevelFromPuzzle(puzzle, board, solutionCounts, config, chapter, levelInChapter, index);
             if (knownMoves >= config.preferredKnownMoves)
                 return fallback;
         }
@@ -647,16 +649,17 @@
         var jitter = randomInt(0, Math.max(1, Math.floor(activeCount * 0.08)), rng);
         return Math.max(config.preferredKnownMoves, base + statePressure + Math.floor(levelInChapter * 0.7) + jitter);
     }
-    function makeCampaignLevelFromPuzzle(puzzle, board, solutionCounts, config, chapter, levelInChapter, index, knownMoves) {
+    function makeCampaignLevelFromPuzzle(puzzle, board, solutionCounts, config, chapter, levelInChapter, index) {
         var title = CHAPTER_TITLES[chapter - 1] || "Inversion";
-        var minimumMoves = Math.max(1, knownMoves);
+        var solverPlan = exactSolverPlan(puzzle, board, solutionCounts);
+        var minimumMoves = Math.max(1, solverPlan.moveCount);
         return Object.assign(puzzle, {
             levelId: "c" + chapter + "-" + levelInChapter,
             campaignIndex: index,
             chapter: chapter,
             name: title + " " + levelInChapter,
             initialState: board,
-            knownSolution: normalizeSolution(solutionCounts, puzzle.states),
+            knownSolution: normalizeSolution(solverPlan.tapCounts, puzzle.states),
             minimumMoves: minimumMoves,
             targetMoves: minimumMoves + Math.max(2, Math.ceil(activeIndexes(puzzle).length * 0.16)),
             difficultyRating: rateDifficulty(puzzle, minimumMoves)
@@ -680,7 +683,7 @@
             applyPulse(puzzle, board, tap);
             solutionCounts[tap] = mod((solutionCounts[tap] || 0) - 1, puzzle.states);
         }
-        return makeCampaignLevelFromPuzzle(puzzle, board, solutionCounts, config, chapter, levelInChapter, index, sumObjectValues(solutionCounts));
+        return makeCampaignLevelFromPuzzle(puzzle, board, solutionCounts, config, chapter, levelInChapter, index);
     }
     function buildLevel(spec, index) {
         var puzzle = createPuzzleShell({
@@ -703,7 +706,7 @@
         });
         var solve = solvePuzzle(puzzle, board);
         var knownMoves = sumObjectValues(solutionCounts);
-        var minimumMoves = solve && solve.exists ? Math.min(knownMoves || solve.moveCount, solve.moveCount) : knownMoves;
+        var minimumMoves = solve && solve.exists && solve.exactMinimum ? solve.moveCount : knownMoves;
         if (!minimumMoves)
             minimumMoves = Math.max(1, Math.ceil(activeIndexes(puzzle).length * 0.25));
         var level = Object.assign(puzzle, {
@@ -712,7 +715,7 @@
             chapter: spec.chapter,
             name: spec.name,
             initialState: board,
-            knownSolution: solutionCounts,
+            knownSolution: solve && solve.exists && solve.exactMinimum ? solve.tapCounts : solutionCounts,
             minimumMoves: minimumMoves,
             targetMoves: minimumMoves + Math.max(1, Math.ceil(activeIndexes(puzzle).length * 0.18)),
             difficultyRating: rateDifficulty(puzzle, minimumMoves)
@@ -986,7 +989,7 @@
                 continue;
             var solve = solvePuzzle(puzzle, board);
             var knownMoves = sumObjectValues(solutionCounts);
-            var minimumMoves = solve && solve.exists ? Math.min(knownMoves || solve.moveCount, solve.moveCount) : knownMoves;
+            var minimumMoves = solve && solve.exists && solve.exactMinimum ? solve.moveCount : knownMoves;
             if (config.difficulty !== "Easy" && minimumMoves < 3)
                 continue;
             if (config.unique && solve && solve.exists && !solve.unique && attempt < attempts - 3)
@@ -995,7 +998,7 @@
                 levelId: "generated-" + (config.seed || Date.now()),
                 name: config.name || "Custom Level",
                 initialState: board,
-                knownSolution: solutionCounts,
+                knownSolution: solve && solve.exists && solve.exactMinimum ? solve.tapCounts : solutionCounts,
                 minimumMoves: minimumMoves || Math.max(1, knownMoves),
                 targetMoves: (minimumMoves || knownMoves) + Math.max(2, Math.ceil(activeIndexes(puzzle).length * 0.16)),
                 difficultyRating: rateDifficulty(puzzle, minimumMoves || knownMoves)
@@ -1798,10 +1801,31 @@
         });
     }
     function solvePuzzle(puzzle, board) {
+        var exactStateSpace = boardStateSpace(puzzle, EXACT_BFS_STATE_LIMIT);
+        if (exactStateSpace > 0) {
+            return solveByBreadthFirstSearch(puzzle, board, exactStateSpace);
+        }
         if (PRIME_STATES.indexOf(puzzle.states) === -1) {
-            return solveByBreadthFirstSearch(puzzle, board);
+            return { exists: false, exactMinimum: false };
         }
         return solveByGaussianElimination(puzzle, board);
+    }
+    function exactSolverPlan(puzzle, board, fallbackCounts) {
+        var solve = solvePuzzle(puzzle, board);
+        if (solve && solve.exists && solve.exactMinimum) {
+            return { tapCounts: solve.tapCounts, moveCount: solve.moveCount };
+        }
+        return { tapCounts: fallbackCounts, moveCount: sumObjectValues(fallbackCounts) };
+    }
+    function boardStateSpace(puzzle, limit) {
+        var total = 1;
+        var active = activeIndexes(puzzle).length;
+        for (var i = 0; i < active; i += 1) {
+            total *= puzzle.states;
+            if (total > limit)
+                return 0;
+        }
+        return total;
     }
     function solveByGaussianElimination(puzzle, board) {
         var k = puzzle.states;
@@ -1872,32 +1896,77 @@
         for (var pivot = 0; pivot < pivotColumns.length; pivot += 1) {
             vector[pivotColumns[pivot]] = matrix[pivot][tappable.length];
         }
+        var freeColumns = [];
+        for (var free = 0; free < tappable.length; free += 1) {
+            if (pivotColumns.indexOf(free) === -1)
+                freeColumns.push(free);
+        }
+        var exactMinimum = freeColumns.length === 0;
+        if (freeColumns.length > 0) {
+            var combinations = 1;
+            for (var comboSize = 0; comboSize < freeColumns.length; comboSize += 1) {
+                combinations *= k;
+                if (combinations > EXACT_NULLSPACE_LIMIT)
+                    break;
+            }
+            if (combinations <= EXACT_NULLSPACE_LIMIT) {
+                exactMinimum = true;
+                var basis = freeColumns.map(function (freeCol) {
+                    var basisVector = new Array(tappable.length).fill(0);
+                    basisVector[freeCol] = 1;
+                    for (var rowIndex = 0; rowIndex < pivotColumns.length; rowIndex += 1) {
+                        basisVector[pivotColumns[rowIndex]] = mod(-matrix[rowIndex][freeCol], k);
+                    }
+                    return basisVector;
+                });
+                var bestVector = vector.slice();
+                var bestMoves = sumArrayValues(bestVector);
+                for (var combo = 1; combo < combinations; combo += 1) {
+                    var cursor = combo;
+                    var candidate = vector.slice();
+                    for (var basisIndex = 0; basisIndex < basis.length; basisIndex += 1) {
+                        var coefficient = cursor % k;
+                        cursor = Math.floor(cursor / k);
+                        if (!coefficient)
+                            continue;
+                        for (var vectorColumn = 0; vectorColumn < candidate.length; vectorColumn += 1) {
+                            candidate[vectorColumn] = mod(candidate[vectorColumn] + coefficient * basis[basisIndex][vectorColumn], k);
+                        }
+                    }
+                    var moves = sumArrayValues(candidate);
+                    if (moves < bestMoves) {
+                        bestMoves = moves;
+                        bestVector = candidate;
+                    }
+                }
+                vector = bestVector;
+            }
+        }
         var tapCounts = {};
         vector.forEach(function (count, vectorIndex) {
-            tapCounts[tappable[vectorIndex]] = count;
+            if (count)
+                tapCounts[tappable[vectorIndex]] = count;
         });
         return {
             exists: true,
             vector: vector,
             tapCounts: tapCounts,
-            moveCount: vector.reduce(function (sum, count) { return sum + count; }, 0),
+            moveCount: sumArrayValues(vector),
             rank: pivotRow,
-            unique: pivotRow === tappable.length
+            unique: pivotRow === tappable.length,
+            exactMinimum: exactMinimum
         };
     }
-    function solveByBreadthFirstSearch(puzzle, board) {
+    function solveByBreadthFirstSearch(puzzle, board, maxVisited) {
         var active = activeIndexes(puzzle);
-        if (active.length > 10)
-            return { exists: false };
         var tappable = tappableIndexes(puzzle);
         var start = encodeBoard(board, active);
         var goal = active.map(function () { return "0"; }).join("");
         if (start === goal) {
-            return { exists: true, tapCounts: {}, moveCount: 0, unique: true };
+            return { exists: true, tapCounts: {}, moveCount: 0, unique: true, exactMinimum: true };
         }
         var queue = [{ board: board.slice(), counts: {}, depth: 0 }];
         var seen = new Set([start]);
-        var maxVisited = 30000;
         for (var head = 0; head < queue.length && seen.size < maxVisited; head += 1) {
             var item = queue[head];
             for (var i = 0; i < tappable.length; i += 1) {
@@ -1914,14 +1983,20 @@
                         exists: true,
                         tapCounts: nextCounts,
                         moveCount: sumObjectValues(nextCounts),
-                        unique: false
+                        unique: false,
+                        exactMinimum: true
                     };
                 }
                 seen.add(encoded);
                 queue.push({ board: nextBoard, counts: nextCounts, depth: item.depth + 1 });
             }
         }
-        return { exists: false };
+        return { exists: false, exactMinimum: seen.size >= maxVisited };
+    }
+    function sumArrayValues(items) {
+        return items.reduce(function (sum, value) {
+            return sum + Number(value || 0);
+        }, 0);
     }
     function encodeBoard(board, active) {
         return active.map(function (idx) {

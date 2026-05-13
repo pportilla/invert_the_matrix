@@ -51,6 +51,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -123,6 +124,8 @@ const Color GREEN = rgba(95, 225, 170);
 const Color DANGER = rgba(255, 111, 130);
 constexpr int64_t HINT_COOLDOWN_MS = 500;
 constexpr int64_t HINT_COMPLETION_DELAY_MS = 500;
+constexpr int EXACT_BFS_STATE_LIMIT = 500000;
+constexpr int EXACT_NULLSPACE_LIMIT = 500000;
 
 int64_t nowMs() {
     using namespace std::chrono;
@@ -1089,6 +1092,7 @@ struct Puzzle {
     int minimumMoves = 1;
     int targetMoves = 3;
     int difficultyRating = 0;
+    int scrambleMoves = 0;
 };
 
 struct Config {
@@ -1210,6 +1214,259 @@ int rateDifficulty(const Puzzle &p, int minMoves) {
     return 3;
 }
 
+struct SolveResult {
+    bool exists = false;
+    bool exactMinimum = false;
+    bool unique = false;
+    int moveCount = 0;
+    int rank = 0;
+    std::map<int, int> tapCounts;
+    std::vector<int> vector;
+};
+
+int sumVectorValues(const std::vector<int> &items) {
+    int sum = 0;
+    for (int value : items) sum += value;
+    return sum;
+}
+
+std::map<int, int> countsFromVector(const std::vector<int> &tappable, const std::vector<int> &vector) {
+    std::map<int, int> out;
+    for (size_t i = 0; i < tappable.size() && i < vector.size(); ++i) {
+        if (vector[i]) out[tappable[i]] = vector[i];
+    }
+    return out;
+}
+
+int modularInverse(int value, int modulus) {
+    int normalizedValue = mod(value, modulus);
+    for (int i = 1; i < modulus; ++i) {
+        if (mod(normalizedValue * i, modulus) == 1) return i;
+    }
+    return 1;
+}
+
+bool primeStates(int states) {
+    return states == 2 || states == 3 || states == 5;
+}
+
+int boardStateSpace(const Puzzle &p, int limit) {
+    int64_t total = 1;
+    for (int i : activeIndexes(p)) {
+        (void) i;
+        total *= p.states;
+        if (total > limit) return 0;
+    }
+    return static_cast<int>(total);
+}
+
+std::string encodeBoard(const std::vector<int> &board, const std::vector<int> &active) {
+    std::string encoded;
+    encoded.reserve(active.size());
+    for (int idx : active) encoded.push_back(static_cast<char>('0' + board[idx]));
+    return encoded;
+}
+
+SolveResult solveByBreadthFirstSearch(const Puzzle &p, const std::vector<int> &board, int maxVisited) {
+    SolveResult result;
+    std::vector<int> active = activeIndexes(p);
+    std::vector<int> tappable = tappableIndexes(p);
+    std::string start = encodeBoard(board, active);
+    std::string goal(active.size(), '0');
+    if (start == goal) {
+        result.exists = true;
+        result.exactMinimum = true;
+        result.unique = true;
+        return result;
+    }
+
+    struct Node {
+        std::vector<int> board;
+        std::map<int, int> counts;
+    };
+
+    std::vector<Node> queue;
+    queue.reserve(std::min(maxVisited, 65536));
+    queue.push_back({board, {}});
+    std::unordered_set<std::string> seen;
+    seen.reserve(std::min(maxVisited, 65536));
+    seen.insert(start);
+
+    for (size_t head = 0; head < queue.size() && static_cast<int>(seen.size()) < maxVisited; ++head) {
+        const Node item = queue[head];
+        for (int tap : tappable) {
+            std::vector<int> nextBoard = item.board;
+            applyPulse(p, nextBoard, tap);
+            std::string encoded = encodeBoard(nextBoard, active);
+            if (seen.count(encoded)) continue;
+
+            std::map<int, int> nextCounts = item.counts;
+            nextCounts[tap] += 1;
+            if (encoded == goal) {
+                result.exists = true;
+                result.exactMinimum = true;
+                result.tapCounts = nextCounts;
+                result.moveCount = sumCounts(nextCounts);
+                return result;
+            }
+
+            seen.insert(encoded);
+            queue.push_back({nextBoard, nextCounts});
+        }
+    }
+
+    result.exactMinimum = static_cast<int>(seen.size()) >= maxVisited;
+    return result;
+}
+
+SolveResult solveByGaussianElimination(const Puzzle &p, const std::vector<int> &board) {
+    SolveResult result;
+    int k = p.states;
+    std::vector<int> active = activeIndexes(p);
+    std::vector<int> tappable = tappableIndexes(p);
+    std::map<int, int> rowForIndex;
+    for (size_t row = 0; row < active.size(); ++row) rowForIndex[active[row]] = static_cast<int>(row);
+
+    std::vector<std::vector<int>> matrix(active.size(), std::vector<int>(tappable.size() + 1, 0));
+    for (size_t row = 0; row < active.size(); ++row) {
+        matrix[row][tappable.size()] = mod(-board[active[row]], k);
+    }
+
+    for (size_t col = 0; col < tappable.size(); ++col) {
+        for (int affected : affectedIndexes(p, tappable[col])) {
+            auto rowIt = rowForIndex.find(affected);
+            if (rowIt != rowForIndex.end()) {
+                matrix[rowIt->second][col] = mod(matrix[rowIt->second][col] + 1, k);
+            }
+        }
+    }
+
+    std::vector<int> pivotColumns;
+    int pivotRow = 0;
+
+    for (size_t col = 0; col < tappable.size() && pivotRow < static_cast<int>(active.size()); ++col) {
+        int found = -1;
+        for (int searchRow = pivotRow; searchRow < static_cast<int>(active.size()); ++searchRow) {
+            if (mod(matrix[searchRow][col], k) != 0) {
+                found = searchRow;
+                break;
+            }
+        }
+        if (found == -1) continue;
+
+        std::swap(matrix[pivotRow], matrix[found]);
+        int inv = modularInverse(matrix[pivotRow][col], k);
+        for (size_t normalizeCol = col; normalizeCol <= tappable.size(); ++normalizeCol) {
+            matrix[pivotRow][normalizeCol] = mod(matrix[pivotRow][normalizeCol] * inv, k);
+        }
+
+        for (int eliminateRow = 0; eliminateRow < static_cast<int>(active.size()); ++eliminateRow) {
+            if (eliminateRow == pivotRow) continue;
+            int factor = matrix[eliminateRow][col];
+            if (factor == 0) continue;
+            for (size_t eliminateCol = col; eliminateCol <= tappable.size(); ++eliminateCol) {
+                matrix[eliminateRow][eliminateCol] = mod(matrix[eliminateRow][eliminateCol] - factor * matrix[pivotRow][eliminateCol], k);
+            }
+        }
+
+        pivotColumns.push_back(static_cast<int>(col));
+        ++pivotRow;
+    }
+
+    for (int row = pivotRow; row < static_cast<int>(active.size()); ++row) {
+        bool allZero = true;
+        for (size_t col = 0; col < tappable.size(); ++col) {
+            if (matrix[row][col] != 0) {
+                allZero = false;
+                break;
+            }
+        }
+        if (allZero && matrix[row][tappable.size()] != 0) return result;
+    }
+
+    std::vector<int> vector(tappable.size(), 0);
+    for (size_t pivot = 0; pivot < pivotColumns.size(); ++pivot) {
+        vector[pivotColumns[pivot]] = matrix[pivot][tappable.size()];
+    }
+
+    std::vector<int> freeColumns;
+    for (size_t freeCol = 0; freeCol < tappable.size(); ++freeCol) {
+        if (std::find(pivotColumns.begin(), pivotColumns.end(), static_cast<int>(freeCol)) == pivotColumns.end()) {
+            freeColumns.push_back(static_cast<int>(freeCol));
+        }
+    }
+
+    bool exactMinimum = freeColumns.empty();
+    if (!freeColumns.empty()) {
+        int64_t combinations = 1;
+        for (size_t i = 0; i < freeColumns.size(); ++i) {
+            combinations *= k;
+            if (combinations > EXACT_NULLSPACE_LIMIT) break;
+        }
+        if (combinations <= EXACT_NULLSPACE_LIMIT) {
+            exactMinimum = true;
+            std::vector<std::vector<int>> basis;
+            basis.reserve(freeColumns.size());
+            for (int freeCol : freeColumns) {
+                std::vector<int> basisVector(tappable.size(), 0);
+                basisVector[freeCol] = 1;
+                for (size_t row = 0; row < pivotColumns.size(); ++row) {
+                    basisVector[pivotColumns[row]] = mod(-matrix[row][freeCol], k);
+                }
+                basis.push_back(basisVector);
+            }
+
+            std::vector<int> bestVector = vector;
+            int bestMoves = sumVectorValues(bestVector);
+            for (int64_t combo = 1; combo < combinations; ++combo) {
+                int64_t cursor = combo;
+                std::vector<int> candidate = vector;
+                for (size_t basisIndex = 0; basisIndex < basis.size(); ++basisIndex) {
+                    int coefficient = static_cast<int>(cursor % k);
+                    cursor /= k;
+                    if (!coefficient) continue;
+                    for (size_t col = 0; col < candidate.size(); ++col) {
+                        candidate[col] = mod(candidate[col] + coefficient * basis[basisIndex][col], k);
+                    }
+                }
+                int moves = sumVectorValues(candidate);
+                if (moves < bestMoves) {
+                    bestMoves = moves;
+                    bestVector = candidate;
+                }
+            }
+            vector = bestVector;
+        }
+    }
+
+    result.exists = true;
+    result.vector = vector;
+    result.tapCounts = countsFromVector(tappable, vector);
+    result.moveCount = sumVectorValues(vector);
+    result.rank = pivotRow;
+    result.unique = pivotRow == static_cast<int>(tappable.size());
+    result.exactMinimum = exactMinimum;
+    return result;
+}
+
+SolveResult solvePuzzle(const Puzzle &p, const std::vector<int> &board) {
+    int exactStateSpace = boardStateSpace(p, EXACT_BFS_STATE_LIMIT);
+    if (exactStateSpace > 0) return solveByBreadthFirstSearch(p, board, exactStateSpace);
+    if (!primeStates(p.states)) return {};
+    return solveByGaussianElimination(p, board);
+}
+
+SolveResult exactSolverPlan(const Puzzle &p, const std::vector<int> &board, const std::map<int, int> &fallbackCounts) {
+    SolveResult solvedPlan = solvePuzzle(p, board);
+    if (solvedPlan.exists && solvedPlan.exactMinimum) return solvedPlan;
+
+    SolveResult fallback;
+    fallback.exists = solutionSolves(p, board, fallbackCounts);
+    fallback.tapCounts = normalized(fallbackCounts, p.states);
+    fallback.moveCount = sumCounts(fallback.tapCounts);
+    return fallback;
+}
+
 Puzzle generatedShell(const Config &config, Rng &rng) {
     Puzzle p;
     p.width = config.width;
@@ -1277,10 +1534,7 @@ Puzzle makePuzzleFromShell(Puzzle p, const Config &config, const std::string &id
         solution[tap] = mod(solution[tap] - 1, p.states);
     }
     p.solution = normalized(solution, p.states);
-    int known = std::max(1, sumCounts(p.solution));
-    p.minimumMoves = known;
-    p.targetMoves = known + std::max(2, static_cast<int>(std::ceil(activeIndexes(p).size() * 0.16f)));
-    p.difficultyRating = rateDifficulty(p, known);
+    p.scrambleMoves = std::max(1, sumCounts(p.solution));
     p.levelId = id;
     p.name = name;
     p.campaignIndex = campaignIndex;
@@ -1290,9 +1544,16 @@ Puzzle makePuzzleFromShell(Puzzle p, const Config &config, const std::string &id
             applyPulse(p, p.initial, taps[0]);
             p.solution[taps[0]] = mod(p.solution[taps[0]] + p.states - 1, p.states);
             p.solution = normalized(p.solution, p.states);
-            p.minimumMoves = std::max(1, sumCounts(p.solution));
+            p.scrambleMoves = std::max(1, sumCounts(p.solution));
         }
     }
+    // Android 1.0.4: display and hint from the shortest provable plan, not merely the scramble length.
+    SolveResult solverPlan = exactSolverPlan(p, p.initial, p.solution);
+    p.solution = normalized(solverPlan.tapCounts, p.states);
+    int known = std::max(1, solverPlan.moveCount);
+    p.minimumMoves = known;
+    p.targetMoves = known + std::max(2, static_cast<int>(std::ceil(activeIndexes(p).size() * 0.16f)));
+    p.difficultyRating = rateDifficulty(p, known);
     return p;
 }
 
@@ -1366,7 +1627,7 @@ Puzzle createCampaignLevel(int index) {
         int base = static_cast<int>(std::floor(active * std::min(0.78f, ratio)));
         int scramble = std::max(c.preferredKnownMoves, base + c.states - 1 + static_cast<int>(std::floor(level * 0.7f)) + randomInt(0, std::max(1, static_cast<int>(std::floor(active * 0.08f))), rng));
         Puzzle p = makePuzzleFromShell(shell, c, "c" + std::to_string(chapter) + "-" + std::to_string(level), chapterTitles[chapter - 1] + " " + std::to_string(level), index, chapter, rng, scramble);
-        if (!solved(p, p.initial) && p.minimumMoves >= c.minimumKnownMoves) return p;
+        if (!solved(p, p.initial) && p.scrambleMoves >= c.minimumKnownMoves && solutionSolves(p, p.initial, p.solution)) return p;
     }
     Rng rng("campaign-fallback-" + std::to_string(chapter) + "-" + std::to_string(level));
     Puzzle shell = generatedShell(c, rng);
@@ -1535,7 +1796,7 @@ struct Progress {
     }
 };
 
-constexpr int CAMPAIGN_PROGRESS_VERSION = 2;
+constexpr int CAMPAIGN_PROGRESS_VERSION = 3;
 
 void migrateCampaignProgress(Progress &progress) {
     if (progress.getInt("campaign_version", 0) == CAMPAIGN_PROGRESS_VERSION) return;
@@ -3715,10 +3976,22 @@ void drawMath(AppState *s) {
     drawMathBlock(s, y, "When Is It Unique?",
                   {"If x0 solves the puzzle, every other solution is x0 plus a silent plan.",
                    "A silent plan lives in ker(A), because it changes no tile.",
+                   "Tap counts already live modulo n, so tapping one tile n extra times is the zero coordinate.",
+                   "Unique means unique after ignoring those built-in do-nothing repetitions.",
                    "Thus the full solution set is x0 + ker(A).",
                    "The solution is unique exactly when ker(A) has only the zero vector.",
-                   "If the kernel is larger, there are several algebraic ways to solve the same board."},
+                   "If a nonzero silent plan remains, there are genuinely different ways to solve the same board."},
                   FormulaKind::Kernel, BLUE, 58.0f);
+    // Android 1.0.5: clarify cross-pattern invertibility and modulo silent-pulse uniqueness.
+    drawGuideBlock(s, y, "Cross Pattern: When Is A Invertible?",
+                   {"On a plain board with no locks or gaps, the cross pattern has one tap column per tile.",
+                    "Then A is square, and an inverse means every starting board has one unique tap vector.",
+                    "Over Z/nZ, this happens exactly when det(A) is a unit modulo n.",
+                    "Equivalently, gcd(det(A), n) = 1.",
+                    "For prime n, this is the same as full rank, or det(A) not equal to 0 modulo n.",
+                    "For n = 4, det(A) must be odd.",
+                    "With locks or gaps, A may be rectangular, so image and kernel are the useful tests instead."},
+                   GREEN);
     drawMathBlock(s, y, "Why The Minimum Matters",
                   {"Linear algebra may give many valid plans.",
                    "For play, the app cares about the shortest physical plan.",
