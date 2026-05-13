@@ -114,3 +114,8 @@ Google Play Games support is Android-only. The web app has no leaderboard or
 Play Services dependency. Android resource IDs for Play Games live in
 `android-game/app/src/main/res/values/strings.xml`; update those values to match
 your Play Console project and leaderboards before publishing your own app.
+
+## License
+
+Invert the Matrix is licensed under the MIT License. See `LICENSE` for the full
+license text.

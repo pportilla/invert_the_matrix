@@ -1,4 +1,5 @@
 {
+  "license": "MIT",
   "scripts": {
     "render:math": "node tools/render-math-assets.mjs"
   },
