@@ -2,6 +2,13 @@
 
 All notable changes to Invert the Matrix will be recorded here.
 
+## Android 1.0.3 - 2026-05-13
+
+Version code: 5
+
+- Settings controls on Android are now vertically centered more naturally, so
+  the menu no longer feels crowded against the top header.
+
 ## Android 1.0.2 - 2026-05-13
 
 Version code: 4

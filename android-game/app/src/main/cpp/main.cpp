@@ -3745,13 +3745,20 @@ void drawMath(AppState *s) {
 }
 
 void drawSettings(AppState *s) {
-    float contentTop = safeTop(s) + dp(s, 98);
+    Renderer &r = s->renderer;
+    float buttonH = dp(s, 52);
+    float gap = dp(s, 12);
+    float stackH = buttonH * 5.0f + gap * 4.0f;
+    float minTop = safeTop(s) + dp(s, 118);
+    float maxTop = std::max(minTop, static_cast<float>(r.height) - safeBottom(s) - stackH - dp(s, 18));
+    // Changelog note: Android settings controls are vertically centered instead of hugging the header.
+    float contentTop = std::min(std::max((static_cast<float>(r.height) - stackH) * 0.5f, minTop), maxTop);
     float y = beginScrollContent(s, contentTop);
-    drawButton(s, {dp(s, 18), y, s->renderer.width - dp(s, 36), dp(s, 52)}, std::string("Sound ") + (s->sound ? "ON" : "OFF"), Action::ToggleSetting, 0, false, s->sound); y += dp(s, 64);
-    drawButton(s, {dp(s, 18), y, s->renderer.width - dp(s, 36), dp(s, 52)}, std::string("Vibration ") + (s->vibration ? "ON" : "OFF"), Action::ToggleSetting, 1, false, s->vibration); y += dp(s, 64);
-    drawButton(s, {dp(s, 18), y, s->renderer.width - dp(s, 36), dp(s, 52)}, std::string("Animations ") + (s->animations ? "ON" : "OFF"), Action::ToggleSetting, 2, false, s->animations); y += dp(s, 64);
-    drawButton(s, {dp(s, 18), y, s->renderer.width - dp(s, 36), dp(s, 52)}, std::string("Colorblind-friendly symbols ") + (s->colorblind ? "ON" : "OFF"), Action::ToggleSetting, 3, false, s->colorblind); y += dp(s, 64);
-    drawButton(s, {dp(s, 18), y, s->renderer.width - dp(s, 36), dp(s, 52)}, std::string("Show numbers on tiles ") + (!s->hideNumbers ? "ON" : "OFF"), Action::ToggleSetting, 4, false, !s->hideNumbers); y += dp(s, 64);
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Sound ") + (s->sound ? "ON" : "OFF"), Action::ToggleSetting, 0, false, s->sound); y += buttonH + gap;
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Vibration ") + (s->vibration ? "ON" : "OFF"), Action::ToggleSetting, 1, false, s->vibration); y += buttonH + gap;
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Animations ") + (s->animations ? "ON" : "OFF"), Action::ToggleSetting, 2, false, s->animations); y += buttonH + gap;
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Colorblind-friendly symbols ") + (s->colorblind ? "ON" : "OFF"), Action::ToggleSetting, 3, false, s->colorblind); y += buttonH + gap;
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Show numbers on tiles ") + (!s->hideNumbers ? "ON" : "OFF"), Action::ToggleSetting, 4, false, !s->hideNumbers); y += buttonH;
     finishScrollContent(s, y);
     drawStickyScreenHeader(s, "Options", "Settings", Action::BackReturn, contentTop);
 }
