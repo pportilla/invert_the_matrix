@@ -121,6 +121,8 @@ const Color ORANGE = rgba(255, 180, 90);
 const Color PURPLE = rgba(181, 140, 255);
 const Color GREEN = rgba(95, 225, 170);
 const Color DANGER = rgba(255, 111, 130);
+constexpr int64_t HINT_COOLDOWN_MS = 500;
+constexpr int64_t HINT_COMPLETION_DELAY_MS = 500;
 
 int64_t nowMs() {
     using namespace std::chrono;
@@ -1801,6 +1803,8 @@ struct AppState {
     int64_t previewClearAt = 0;
     std::vector<int> hintChanged;
     int64_t hintChangedUntil = 0;
+    int64_t hintCooldownUntil = 0;
+    int64_t hintCompletionDueAt = 0;
     std::vector<int> pulseTiles;
     int64_t pulseUntil = 0;
     std::array<int, 25> splashState{};
@@ -2011,6 +2015,7 @@ void go(AppState *s, Screen screen) {
     s->scroll = 0.0f;
     s->completion = false;
     s->dailyExitConfirm = false;
+    s->hintCompletionDueAt = 0;
 }
 
 void startGame(AppState *s, const Puzzle &p, const std::string &mode) {
@@ -2028,6 +2033,8 @@ void startGame(AppState *s, const Puzzle &p, const std::string &mode) {
     s->previewClearAt = 0;
     s->hintChanged.clear();
     s->hintChangedUntil = 0;
+    s->hintCooldownUntil = 0;
+    s->hintCompletionDueAt = 0;
     s->pulseTiles.clear();
     s->pulseUntil = 0;
     go(s, Screen::Game);
@@ -2437,9 +2444,10 @@ void drawUndoToolButton(AppState *s, Rect rect, bool enabled) {
     drawMaterialUndoIcon(s, rect, color);
 }
 
-void drawHintToolButton(AppState *s, Rect rect) {
-    drawToolIconShell(s, rect, Action::Hint, true, DANGER);
-    drawHintEye(s, rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f, std::min(rect.w, rect.h) * 0.36f, DANGER);
+void drawHintToolButton(AppState *s, Rect rect, bool enabled = true) {
+    drawToolIconShell(s, rect, Action::Hint, enabled, DANGER);
+    drawHintEye(s, rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f, std::min(rect.w, rect.h) * 0.36f,
+                enabled ? DANGER : withAlpha(MUTED, 0.45f));
 }
 
 void drawPixelLabel(AppState *s, const std::string &label, float cx, float cy, float unit, Color color) {
@@ -2470,9 +2478,10 @@ void drawPixelLabel(AppState *s, const std::string &label, float cx, float cy, f
     }
 }
 
-void drawResetToolButton(AppState *s, Rect rect) {
-    drawToolIconShell(s, rect, Action::Reset, true);
-    drawPixelLabel(s, "Reset", rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f, dp(s, 2.45f), TEXT);
+void drawResetToolButton(AppState *s, Rect rect, bool enabled = true) {
+    drawToolIconShell(s, rect, Action::Reset, enabled);
+    drawPixelLabel(s, "Reset", rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f, dp(s, 2.45f),
+                   enabled ? TEXT : withAlpha(MUTED, 0.45f));
 }
 
 void drawBackIcon(AppState *s, Rect rect, Action action) {
@@ -4019,10 +4028,15 @@ void drawBoard(AppState *s) {
     }
 }
 
+bool hintCompletionPending(AppState *s) {
+    return s && s->hintCompletionDueAt > 0;
+}
+
 void drawGame(AppState *s) {
     Renderer &r = s->renderer;
     Session &g = s->session;
-    if (!g.completed) g.elapsed = static_cast<int>((nowMs() - g.started) / 1000);
+    int64_t t = nowMs();
+    if (!g.completed) g.elapsed = static_cast<int>((t - g.started) / 1000);
     float top = safeTop(s) + dp(s, 8);
     drawBackIcon(s, {dp(s, 14), top, dp(s, 50), dp(s, 44)}, Action::ExitGame);
     drawGearIcon(s, {r.width - dp(s, 64), top, dp(s, 50), dp(s, 44)}, Action::Settings);
@@ -4060,7 +4074,8 @@ void drawGame(AppState *s) {
     float iconW = dp(s, 70);
     float resetW = r.width - dp(s, 28) - iconW * 2.0f - gap * 2.0f;
     bool leaderboardAttempt = g.mode == "daily" && g.leaderboardAttempt && !g.completed;
-    drawUndoToolButton(s, {dp(s, 14), y, iconW, dp(s, 52)}, !g.history.empty());
+    bool waitingForHintCompletion = hintCompletionPending(s);
+    drawUndoToolButton(s, {dp(s, 14), y, iconW, dp(s, 52)}, !waitingForHintCompletion && !g.history.empty());
     if (leaderboardAttempt) {
         Rect notice{dp(s, 14) + iconW + gap, y, r.width - dp(s, 28) - iconW - gap, dp(s, 52)};
         drawGlassPanel(s, notice, rgba(22, 27, 38, 0.82f), rgba(255, 180, 90, 0.030f));
@@ -4068,8 +4083,9 @@ void drawGame(AppState *s) {
         drawFittedText(s, "No reset or hints", notice.x + dp(s, 10), notice.y + dp(s, 31),
                        notice.w - dp(s, 20), dp(s, 2.05f), TEXT);
     } else {
-        drawResetToolButton(s, {dp(s, 14) + iconW + gap, y, resetW, dp(s, 52)});
-        drawHintToolButton(s, {r.width - dp(s, 14) - iconW, y, iconW, dp(s, 52)});
+        drawResetToolButton(s, {dp(s, 14) + iconW + gap, y, resetW, dp(s, 52)}, !waitingForHintCompletion);
+        drawHintToolButton(s, {r.width - dp(s, 14) - iconW, y, iconW, dp(s, 52)},
+                           !waitingForHintCompletion && t >= s->hintCooldownUntil);
     }
     drawBoard(s);
     if (!s->hintLine.empty()) {
@@ -4172,6 +4188,13 @@ void drawGame(AppState *s) {
 
 void updateInteractionState(AppState *s) {
     int64_t t = nowMs();
+    if (s->hintCompletionDueAt > 0 && t >= s->hintCompletionDueAt) {
+        s->hintCompletionDueAt = 0;
+        if (s->hasSession && s->screen == Screen::Game && !s->session.completed &&
+            solved(s->session.puzzle, s->session.board)) {
+            completeGame(s);
+        }
+    }
     if (s->previewTile >= 0 && s->previewClearAt > 0 && t >= s->previewClearAt) {
         s->previewTile = -1;
         s->previewClearAt = 0;
@@ -4355,7 +4378,7 @@ void handleAction(AppState *s, const Button &b) {
             s->dailyExitConfirm = false;
             break;
         case Action::Undo:
-            if (s->hasSession && !s->session.history.empty() && !s->session.completed) {
+            if (s->hasSession && !s->session.history.empty() && !s->session.completed && !hintCompletionPending(s)) {
                 playSound(s, SoundCue::Undo);
                 Snapshot snap = s->session.history.back();
                 s->session.history.pop_back();
@@ -4369,7 +4392,8 @@ void handleAction(AppState *s, const Button &b) {
             }
             break;
         case Action::Reset:
-            if (s->hasSession && !(s->session.mode == "daily" && s->session.leaderboardAttempt)) {
+            if (s->hasSession && !hintCompletionPending(s) &&
+                !(s->session.mode == "daily" && s->session.leaderboardAttempt)) {
                 playSound(s, SoundCue::Reset);
                 bool usedHint = s->session.usedHint;
                 s->session.reset();
@@ -4382,7 +4406,12 @@ void handleAction(AppState *s, const Button &b) {
             }
             break;
         case Action::Hint:
-            if (s->hasSession && !s->session.completed && !(s->session.mode == "daily" && s->session.leaderboardAttempt)) {
+            if (s->hasSession && !s->session.completed && !hintCompletionPending(s) &&
+                !(s->session.mode == "daily" && s->session.leaderboardAttempt)) {
+                int64_t t = nowMs();
+                if (t < s->hintCooldownUntil) break;
+                // Changelog note: Hints throttle rapid taps and delay the result modal after a final hint move.
+                s->hintCooldownUntil = t + HINT_COOLDOWN_MS;
                 s->previewTile = -1;
                 s->hintChanged.clear();
                 int tap = -1;
@@ -4403,12 +4432,14 @@ void handleAction(AppState *s, const Button &b) {
                     s->session.moves++;
                     s->session.usedHint = true;
                     s->hintChanged = affected;
-                    s->hintChangedUntil = nowMs() + 2600;
+                    s->hintChangedUntil = t + 2600;
                     s->pulseTiles = affected;
-                    s->pulseUntil = nowMs() + 280;
+                    s->pulseUntil = t + 280;
                     s->hintLine = "Hint applied. This try is worth 0 stars.";
                     playSound(s, SoundCue::Hint);
-                    if (solved(s->session.puzzle, s->session.board)) completeGame(s);
+                    if (solved(s->session.puzzle, s->session.board)) {
+                        s->hintCompletionDueAt = t + HINT_COMPLETION_DELAY_MS;
+                    }
                 } else {
                     playSound(s, SoundCue::Invalid);
                     s->hintLine = "No useful move is available.";
@@ -4447,7 +4478,8 @@ void handleAction(AppState *s, const Button &b) {
 }
 
 int tileAt(AppState *s, float x, float y) {
-    if (!s->hasSession || s->screen != Screen::Game || s->completion || s->dailyExitConfirm) return -1;
+    if (!s->hasSession || s->screen != Screen::Game || s->completion || s->dailyExitConfirm ||
+        hintCompletionPending(s)) return -1;
     Rect board = currentBoardRect(s);
     if (!board.contains(x, y)) return -1;
     Puzzle &p = s->session.puzzle;
@@ -4460,7 +4492,7 @@ int tileAt(AppState *s, float x, float y) {
 }
 
 void tapTile(AppState *s, int idx) {
-    if (!s->hasSession || s->session.completed || s->dailyExitConfirm) return;
+    if (!s->hasSession || s->session.completed || s->dailyExitConfirm || hintCompletionPending(s)) return;
     if (!isTappable(s->session.puzzle, idx)) {
         playSound(s, SoundCue::Invalid);
         vibrate(s, 16);

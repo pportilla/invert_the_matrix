@@ -69,6 +69,8 @@
     "Lock Labyrinth", "Gap Galaxy", "Modular Mayhem", "Ninefold Knockout", "Final Flip"
   ];
   var CAMPAIGN_VERSION = 2;
+  var HINT_COOLDOWN_MS = 500;
+  var HINT_COMPLETION_DELAY_MS = 500;
 
   var DEFAULT_PROGRESS = {
     campaignVersion: CAMPAIGN_VERSION,
@@ -111,6 +113,8 @@
     lastCampaignIndex: 0,
     audio: null,
     hintMarkTimer: null,
+    hintCooldownUntil: 0,
+    hintCooldownTimer: null,
     splashTimer: null,
     splashTiles: [],
     splashState: [],
@@ -884,6 +888,7 @@
       hint: null,
       usedHint: false,
       completed: false,
+      hintCompletionPending: false,
       startedAt: Date.now(),
       elapsedSeconds: 0
     };
@@ -964,6 +969,7 @@
       hint: null,
       usedHint: false,
       completed: false,
+      hintCompletionPending: false,
       startedAt: Date.now(),
       elapsedSeconds: 0
     };
@@ -1116,6 +1122,7 @@
   function startGame(game) {
     stopTimer();
     clearHintMark(false);
+    clearHintCooldown();
     app.currentGame = game;
     els.modal.hidden = true;
     els.modeLabel.textContent = modeLabel(game.mode);
@@ -1157,8 +1164,13 @@
     els.starRanking.innerHTML = renderStatusStarRanking(app.currentGame);
     els.timeCounter.textContent = formatSeconds(app.currentGame.elapsedSeconds || 0);
     if (els.personalBest) els.personalBest.textContent = personalBestText(app.currentGame);
+    var hintCompletionPending = Boolean(app.currentGame.hintCompletionPending);
     var undoButton = document.querySelector('[data-action="undo"]');
-    if (undoButton) undoButton.disabled = !app.currentGame.history.length;
+    if (undoButton) undoButton.disabled = hintCompletionPending || !app.currentGame.history.length;
+    var resetButton = document.querySelector('[data-action="reset"]');
+    if (resetButton) resetButton.disabled = hintCompletionPending || app.currentGame.completed;
+    var hintButton = document.querySelector('[data-action="hint"]');
+    if (hintButton) hintButton.disabled = hintCompletionPending || app.currentGame.completed || Date.now() < app.hintCooldownUntil;
   }
 
   function renderPatternIndicator(game) {
@@ -1262,7 +1274,7 @@
 
   function handlePointerDown(event) {
     var tile = event.target.closest(".tile");
-    if (!tile || !app.currentGame) return;
+    if (!tile || !app.currentGame || app.currentGame.hintCompletionPending) return;
     var index = Number(tile.getAttribute("data-index"));
     if (els.board.setPointerCapture && event.pointerId !== undefined) {
       try {
@@ -1311,6 +1323,7 @@
 
   function handleBoardClick(event) {
     if (event.detail !== 0) return;
+    if (app.currentGame && app.currentGame.hintCompletionPending) return;
     var tile = event.target.closest(".tile");
     if (!tile) return;
     tapTile(Number(tile.getAttribute("data-index")));
@@ -1325,7 +1338,7 @@
 
   function previewPulse(index) {
     var game = app.currentGame;
-    if (!game || !isTappable(game, index)) {
+    if (!game || game.hintCompletionPending || !isTappable(game, index)) {
       playSound("invalid");
       return;
     }
@@ -1347,7 +1360,7 @@
 
   function tapTile(index) {
     var game = app.currentGame;
-    if (!game || game.completed) return;
+    if (!game || game.completed || game.hintCompletionPending) return;
     var clearedMark = clearHintMark(false);
     if (!isTappable(game, index)) {
       if (clearedMark) renderBoard();
@@ -1374,7 +1387,7 @@
 
   function undoMove() {
     var game = app.currentGame;
-    if (!game || game.completed) return;
+    if (!game || game.completed || game.hintCompletionPending) return;
     clearHintMark(false);
     if (!game.history.length) {
       playSound("invalid");
@@ -1393,8 +1406,9 @@
 
   function resetGame() {
     var game = app.currentGame;
-    if (!game || game.completed) return;
+    if (!game || game.completed || game.hintCompletionPending) return;
     clearHintMark(false);
+    game.hintCompletionPending = false;
     game.board = game.initialState.slice();
     game.remainingSolution = normalizeSolution(game.knownSolution || {}, game.states);
     game.moves = 0;
@@ -1411,7 +1425,9 @@
 
   function showHint() {
     var game = app.currentGame;
-    if (!game || game.completed) return;
+    if (!game || game.completed || game.hintCompletionPending) return;
+    if (Date.now() < app.hintCooldownUntil) return;
+    beginHintCooldown();
     clearHintMark(false);
     var solve = solvePuzzle(game, game.board);
     var tapIndex = nextTapFromKnownSolution(game);
@@ -1447,15 +1463,38 @@
     game.hintLevel = 0;
     game.hint = null;
     game.changedByHint = affected;
+    var solvedByHint = isSolved(game, game.board);
+    if (solvedByHint) game.hintCompletionPending = true;
     els.hintLine.textContent = "Hint applied. Red tiles changed. This try is worth 0 stars.";
     renderBoard(affected);
     updateCounters();
     playSound("hint");
     vibrate(10);
     scheduleHintMarkClear(game);
-    if (isSolved(game, game.board)) {
-      window.setTimeout(completeGame, app.progress.settings.animations ? 360 : 20);
+    if (solvedByHint) {
+      window.setTimeout(function () {
+        if (app.currentGame !== game) return;
+        game.hintCompletionPending = false;
+        if (isSolved(game, game.board)) completeGame();
+        else updateCounters();
+      }, HINT_COMPLETION_DELAY_MS);
     }
+  }
+
+  function beginHintCooldown() {
+    app.hintCooldownUntil = Date.now() + HINT_COOLDOWN_MS;
+    if (app.hintCooldownTimer) window.clearTimeout(app.hintCooldownTimer);
+    app.hintCooldownTimer = window.setTimeout(function () {
+      app.hintCooldownTimer = null;
+      updateCounters();
+    }, HINT_COOLDOWN_MS);
+    updateCounters();
+  }
+
+  function clearHintCooldown() {
+    if (app.hintCooldownTimer) window.clearTimeout(app.hintCooldownTimer);
+    app.hintCooldownTimer = null;
+    app.hintCooldownUntil = 0;
   }
 
   function scheduleHintMarkClear(game) {
@@ -1546,6 +1585,7 @@
   function completeGame() {
     var game = app.currentGame;
     if (!game || game.completed) return;
+    game.hintCompletionPending = false;
     game.completed = true;
     game.elapsedSeconds = Math.floor((Date.now() - game.startedAt) / 1000);
     stopTimer();
@@ -1665,6 +1705,7 @@
     game.remainingSolution = normalizeSolution(game.knownSolution || {}, game.states);
     game.usedHint = false;
     game.completed = false;
+    game.hintCompletionPending = false;
     game.startedAt = Date.now();
     game.elapsedSeconds = 0;
     startGame(game);
@@ -1689,6 +1730,7 @@
   function exitGame() {
     stopTimer();
     clearHintMark(false);
+    clearHintCooldown();
     els.modal.hidden = true;
     var mode = app.currentGame && app.currentGame.mode;
     app.currentGame = null;
