@@ -1,22 +1,30 @@
 :root {
   color-scheme: dark;
-  --bg: #0b0d13;
-  --panel: rgba(22, 26, 35, 0.9);
-  --panel-strong: #171c25;
-  --line: rgba(229, 236, 245, 0.16);
-  --line-strong: rgba(229, 236, 245, 0.3);
-  --text: #fff8ef;
-  --muted: #aab3c0;
-  --blue: #45c2f4;
-  --orange: #ffb45a;
-  --purple: #b58cff;
-  --green: #5fe1aa;
-  --danger: #ff6f82;
-  --shadow-blue: 0 0 18px rgba(69, 194, 244, 0.32);
-  --shadow-orange: 0 0 18px rgba(255, 180, 90, 0.3);
-  --shadow-purple: 0 0 18px rgba(181, 140, 255, 0.3);
-  --shadow-green: 0 0 18px rgba(95, 225, 170, 0.28);
+  --bg: #0c1118;
+  --surface: #151b24;
+  --surface-2: #1b2330;
+  --surface-3: #202a37;
+  --panel: rgba(21, 27, 36, 0.96);
+  --panel-strong: #1b2330;
+  --line: rgba(190, 203, 220, 0.18);
+  --line-strong: rgba(190, 203, 220, 0.32);
+  --text: #f4f7fb;
+  --muted: #a2adba;
+  --muted-strong: #c0cad6;
+  --blue: #58b8e8;
+  --orange: #dca458;
+  --purple: #a58ce5;
+  --green: #63d49d;
+  --danger: #e56f7e;
+  --focus: #8bd4ff;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.26);
+  --shadow-2: 0 12px 28px rgba(0, 0, 0, 0.22);
+  --shadow-blue: inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+  --shadow-orange: inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+  --shadow-purple: inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+  --shadow-green: inset 0 -1px 0 rgba(0, 0, 0, 0.18);
   --radius: 8px;
+  --radius-sm: 6px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -326,6 +334,8 @@ h3 {
 .icon-button:focus-visible,
 .chip:focus-visible,
 .daily-card:focus-visible,
+.guide-size-button:focus-visible,
+.level-node:not([disabled]):focus-visible,
 .tile:focus-visible,
 select:focus-visible,
 input:focus-visible {
@@ -674,34 +684,27 @@ input:focus-visible {
 }
 
 .daily-card-top {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 12px;
+  display: block;
 }
 
-.daily-card-top strong {
+.daily-tier-label {
   display: block;
-  margin-top: 3px;
   font-size: 1.12rem;
   line-height: 1.15;
+  color: var(--blue);
+  font-weight: 840;
 }
 
-.daily-status {
-  min-width: 76px;
-  padding: 6px 8px;
-  border: 1px solid rgba(229, 236, 245, 0.14);
-  border-radius: var(--radius);
-  background: rgba(10, 13, 19, 0.38);
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 820;
-  text-align: center;
-}
-
-.daily-card.is-complete .daily-status {
-  border-color: rgba(95, 225, 170, 0.32);
+.daily-card-easy .daily-tier-label {
   color: var(--green);
+}
+
+.daily-card-medium .daily-tier-label {
+  color: var(--blue);
+}
+
+.daily-card-hard .daily-tier-label {
+  color: var(--orange);
 }
 
 .daily-card-meta {
@@ -1469,6 +1472,24 @@ body.hide-numbers.colorblind .tile.solution::after {
   color: var(--text);
 }
 
+.guide-bullets {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 1.15rem;
+  color: var(--muted);
+  font-size: var(--guide-body-size);
+  line-height: var(--guide-line-height);
+}
+
+.guide-bullets-spaced {
+  gap: 10px;
+}
+
+.guide-bullets strong {
+  color: var(--text);
+}
+
 .howto-grid h3,
 .math-grid h3,
 .equation-panel h3 {
@@ -1722,6 +1743,605 @@ body.hide-numbers.colorblind .tile.solution::after {
   gap: 10px;
 }
 
+/* Restrained product design system */
+.app-shell {
+  background: var(--bg);
+}
+
+.ambient-grid {
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(190, 203, 220, 0.10) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(190, 203, 220, 0.10) 1px, transparent 1px);
+  background-size: 44px 44px;
+  animation: none;
+}
+
+.ambient-grid::before,
+.ambient-grid::after {
+  display: none;
+}
+
+.screen {
+  width: min(100%, 720px);
+  padding: calc(24px + var(--safe-top)) 18px calc(28px + var(--safe-bottom));
+}
+
+.screen-main {
+  width: min(100%, 920px);
+  gap: 28px;
+}
+
+.screen-game {
+  width: min(100%, 740px);
+}
+
+.brand-panel {
+  gap: 12px;
+  padding-top: 0;
+}
+
+.brand-mark,
+.chapter,
+.daily-card,
+.setup-group,
+.settings-list,
+.advanced-note,
+.math-intro,
+.howto-grid article,
+.math-grid.small article,
+.equation-panel,
+.modal-sheet {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow-1);
+}
+
+.brand-mark {
+  padding: 9px;
+  box-shadow: var(--shadow-2);
+}
+
+.brand-mark span,
+.brand-mark .splash-state-0 {
+  border-radius: var(--radius-sm);
+  border-color: rgba(255, 255, 255, 0.54);
+  background: #eef2f6;
+  box-shadow: inset 0 -1px 0 rgba(12, 17, 24, 0.14);
+}
+
+.brand-mark .splash-state-1,
+.tile.state-1,
+.mini-board .lit-blue {
+  background: linear-gradient(180deg, #65c5ef, #348ec4);
+  border-color: rgba(139, 212, 255, 0.46);
+  box-shadow: var(--shadow-blue);
+}
+
+.brand-mark .splash-state-2,
+.tile.state-2,
+.mini-board .lit-orange {
+  background: linear-gradient(180deg, #e7b76f, #b67531);
+  border-color: rgba(248, 205, 137, 0.48);
+  box-shadow: var(--shadow-orange);
+}
+
+.brand-mark .splash-state-3,
+.tile.state-3,
+.mini-board .lit-purple {
+  background: linear-gradient(180deg, #b7a2ec, #7459bd);
+  border-color: rgba(210, 195, 255, 0.48);
+  box-shadow: var(--shadow-purple);
+}
+
+.brand-mark .is-splash-tap {
+  outline-color: rgba(244, 247, 251, 0.78);
+}
+
+.kicker {
+  color: var(--green);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+h1 {
+  font-size: 2.7rem;
+  line-height: 1.03;
+  font-weight: 820;
+  text-shadow: none;
+}
+
+h2 {
+  font-size: 1.45rem;
+  line-height: 1.16;
+}
+
+h3 {
+  font-size: 0.96rem;
+  line-height: 1.24;
+}
+
+.primary-action,
+.menu-action,
+.tool-button,
+.icon-button,
+.chip,
+.daily-card,
+.guide-size-button,
+.level-node {
+  border-radius: var(--radius);
+  box-shadow: none;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 120ms ease, filter 120ms ease;
+}
+
+.menu-action,
+.tool-button,
+.icon-button,
+.chip,
+.daily-card {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+.menu-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0 16px;
+  text-align: left;
+  font-size: 1.12rem;
+  font-weight: 780;
+}
+
+.menu-action::after {
+  content: "";
+  width: 0.48rem;
+  height: 0.48rem;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  opacity: 0.54;
+  transform: rotate(45deg);
+}
+
+.primary-action {
+  min-height: 52px;
+  border-color: rgba(99, 212, 157, 0.58);
+  background: var(--green);
+  color: #07130f;
+  font-weight: 820;
+  box-shadow: var(--shadow-1);
+}
+
+.primary-action:hover {
+  border-color: rgba(137, 232, 183, 0.78);
+  background: #75dfad;
+  box-shadow: var(--shadow-1);
+}
+
+.primary-action:active,
+.menu-action:active,
+.tool-button:active,
+.icon-button:active,
+.chip:active,
+.daily-card:active,
+.guide-size-button:active,
+.level-node:not([disabled]):active {
+  transform: translateY(1px) scale(0.985);
+  filter: brightness(1.08);
+}
+
+.primary-action:active {
+  background: #69d3a4;
+}
+
+.menu-action:active,
+.tool-button:active,
+.icon-button:active,
+.chip:active,
+.daily-card:active,
+.guide-size-button:active,
+.level-node:not([disabled]):active {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+.level-node:not([disabled]):hover,
+.menu-action:hover,
+.tool-button:hover,
+.icon-button:hover,
+.chip:hover,
+.daily-card:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
+button:disabled,
+.tool-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+  transform: none;
+}
+
+.primary-action:focus-visible,
+.menu-action:focus-visible,
+.tool-button:focus-visible,
+.icon-button:focus-visible,
+.chip:focus-visible,
+.daily-card:focus-visible,
+.guide-size-button:focus-visible,
+.level-node:not([disabled]):focus-visible,
+.tile:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.screen-header,
+.game-header {
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.sticky-screen-header,
+#screen-howto .guide-header,
+#screen-math .guide-header {
+  border-bottom-color: var(--line);
+  background: rgba(12, 17, 24, 0.96);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.20);
+}
+
+.icon-button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--muted-strong);
+}
+
+.icon-button.icon-only {
+  width: 44px;
+  padding: 0;
+}
+
+.settings-mark,
+.back-mark {
+  width: 21px;
+  height: 21px;
+}
+
+.chapter-list {
+  gap: 14px;
+}
+
+.chapter {
+  padding: 14px;
+}
+
+.chapter h3 {
+  margin-bottom: 12px;
+}
+
+.level-grid {
+  gap: 8px;
+}
+
+.level-node {
+  min-height: 68px;
+  border-color: var(--line);
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+.level-node[disabled] {
+  opacity: 0.50;
+  background: rgba(21, 27, 36, 0.52);
+}
+
+.daily-list,
+.setup-panel,
+.toggle-list,
+.settings-list {
+  gap: 12px;
+}
+
+.daily-card {
+  gap: 10px;
+  padding: 15px 16px;
+}
+
+.daily-card::before {
+  width: 3px;
+}
+
+.daily-card.is-complete {
+  border-color: rgba(99, 212, 157, 0.34);
+}
+
+.daily-card.daily-card-easy {
+  border-color: rgba(99, 212, 157, 0.34);
+  background:
+    linear-gradient(135deg, rgba(99, 212, 157, 0.26), rgba(99, 212, 157, 0.10) 46%, rgba(21, 27, 36, 0.96)),
+    var(--surface);
+}
+
+.daily-card.daily-card-medium {
+  border-color: rgba(88, 184, 232, 0.34);
+  background:
+    linear-gradient(135deg, rgba(88, 184, 232, 0.26), rgba(88, 184, 232, 0.10) 46%, rgba(21, 27, 36, 0.96)),
+    var(--surface);
+}
+
+.daily-card.daily-card-hard {
+  border-color: rgba(220, 164, 88, 0.36);
+  background:
+    linear-gradient(135deg, rgba(220, 164, 88, 0.27), rgba(220, 164, 88, 0.10) 46%, rgba(21, 27, 36, 0.96)),
+    var(--surface);
+}
+
+.daily-card.daily-card-easy.is-complete {
+  border-color: rgba(99, 212, 157, 0.48);
+  background:
+    linear-gradient(135deg, rgba(99, 212, 157, 0.34), rgba(99, 212, 157, 0.13) 48%, rgba(21, 27, 36, 0.96)),
+    var(--surface);
+}
+
+.daily-card.daily-card-medium.is-complete {
+  border-color: rgba(88, 184, 232, 0.48);
+  background:
+    linear-gradient(135deg, rgba(88, 184, 232, 0.34), rgba(88, 184, 232, 0.13) 48%, rgba(21, 27, 36, 0.96)),
+    var(--surface);
+}
+
+.daily-card.daily-card-hard.is-complete {
+  border-color: rgba(220, 164, 88, 0.50);
+  background:
+    linear-gradient(135deg, rgba(220, 164, 88, 0.36), rgba(220, 164, 88, 0.14) 48%, rgba(21, 27, 36, 0.96)),
+    var(--surface);
+}
+
+.setup-group,
+.settings-list,
+.advanced-note {
+  padding: 15px;
+}
+
+.chip-row {
+  gap: 8px;
+}
+
+.chip {
+  min-height: 44px;
+  padding: 0 10px;
+}
+
+.chip.is-selected {
+  border-color: rgba(88, 184, 232, 0.68);
+  background: rgba(88, 184, 232, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(88, 184, 232, 0.10);
+}
+
+.custom-size input,
+.select-field,
+.toggle-row {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+.custom-size input:hover,
+.select-field:hover,
+.toggle-row:hover {
+  border-color: var(--line-strong);
+}
+
+.toggle-row {
+  min-height: 50px;
+  font-weight: 700;
+}
+
+.status-strip,
+.pattern-strip,
+.tool-strip {
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.status-strip > div,
+.pattern-card,
+.personal-best-card {
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.status-strip > div > span,
+.pattern-strip span,
+.result-list dt,
+.star-breakdown strong {
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.tool-button {
+  background: var(--surface);
+  color: var(--muted-strong);
+}
+
+.hint-tool {
+  border-color: rgba(229, 111, 126, 0.38);
+  background: rgba(229, 111, 126, 0.09);
+  box-shadow: none;
+}
+
+.board {
+  border-color: var(--line-strong);
+  background: #101821;
+  box-shadow: var(--shadow-2);
+}
+
+.tile,
+.hole {
+  border-radius: var(--radius-sm);
+}
+
+.tile {
+  border-color: rgba(244, 247, 251, 0.12);
+  background: rgba(244, 247, 251, 0.05);
+  box-shadow: none;
+}
+
+.tile::before {
+  display: none;
+}
+
+.tile.state-0 {
+  border-color: rgba(255, 255, 255, 0.66);
+  background: linear-gradient(180deg, #f8fafc, #dde5ee);
+  color: #101821;
+  box-shadow: inset 0 -1px 0 rgba(12, 17, 24, 0.16);
+}
+
+.tile.state-4,
+.mini-board .lit-green {
+  background: linear-gradient(180deg, #77ddb0, #3c9f74);
+  border-color: rgba(142, 234, 188, 0.48);
+  box-shadow: var(--shadow-green);
+}
+
+.tile.preview {
+  border-width: 3px;
+  border-color: rgba(99, 212, 157, 0.96);
+  box-shadow: inset 0 0 0 2px rgba(99, 212, 157, 0.46);
+}
+
+.tile.preview::before {
+  display: block;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(12, 17, 24, 0.24);
+  opacity: 1;
+  transform: none;
+}
+
+.tile.hint,
+.tile.preview.hint {
+  border-color: rgba(220, 164, 88, 0.96);
+  box-shadow: inset 0 0 0 2px rgba(220, 164, 88, 0.38);
+}
+
+.tile.hint-affected,
+.tile.hint-suggested,
+.tile.hint-changed {
+  border-color: rgba(229, 111, 126, 0.92);
+  box-shadow: inset 0 0 0 2px rgba(229, 111, 126, 0.44);
+}
+
+.hole {
+  border-color: rgba(190, 203, 220, 0.16);
+  background: rgba(5, 8, 12, 0.58);
+}
+
+.math-intro,
+.equation-panel {
+  padding: 15px;
+}
+
+.formula-card,
+.hero-formula {
+  border-color: rgba(190, 203, 220, 0.18);
+  background: rgba(8, 12, 18, 0.62);
+  box-shadow: none;
+}
+
+.mini-board span {
+  border-radius: var(--radius-sm);
+  background: #eef2f6;
+  box-shadow: inset 0 -1px 0 rgba(12, 17, 24, 0.14);
+}
+
+.mini-board .preview,
+.mini-board .hinted {
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.mini-board .preview {
+  color: var(--green);
+}
+
+.mini-board .hinted {
+  color: var(--danger);
+}
+
+.advanced-note summary {
+  outline-offset: 4px;
+}
+
+.modal {
+  background: rgba(4, 7, 11, 0.72);
+}
+
+.modal-sheet {
+  background: var(--panel-strong);
+  box-shadow: var(--shadow-2);
+}
+
+.result-list div,
+.star-breakdown span {
+  border-color: var(--line);
+  background: rgba(12, 17, 24, 0.58);
+}
+
+.empty-state,
+.error-state,
+.loading-state {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--muted);
+  box-shadow: var(--shadow-1);
+}
+
+.empty-state h3,
+.error-state h3,
+.loading-state h3 {
+  margin: 0;
+  color: var(--text);
+}
+
+.empty-state p,
+.error-state p,
+.loading-state p {
+  margin: 0;
+}
+
+.error-state {
+  border-color: rgba(229, 111, 126, 0.42);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.data-table th {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 @keyframes gridCurrent {
   from {
     background-position: 0 0, 0 0, 0 0, 0 0;
@@ -1858,5 +2478,178 @@ body.hide-numbers.colorblind .tile.solution::after {
   .mini-board {
     grid-template-columns: repeat(3, 21px);
     grid-auto-rows: 21px;
+  }
+}
+
+@media (min-width: 760px) {
+  .screen-main.is-active {
+    grid-template-columns: minmax(280px, 0.95fr) minmax(300px, 0.82fr);
+    align-items: center;
+    gap: 48px;
+  }
+
+  .brand-panel {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .menu-stack {
+    width: 100%;
+    max-width: 420px;
+    margin: 0;
+  }
+
+  h1 {
+    font-size: 3.05rem;
+  }
+}
+
+@media (max-width: 430px) {
+  h1 {
+    font-size: 2.32rem;
+  }
+
+  .brand-mark {
+    grid-template-columns: repeat(5, 23px);
+    grid-auto-rows: 23px;
+  }
+
+  .menu-stack {
+    gap: 10px;
+  }
+
+  .menu-action {
+    min-height: 50px;
+    font-size: 1.08rem;
+  }
+}
+
+/* Math guide layout pass: keep cards readable and contain long formulas. */
+#screen-math {
+  width: min(100%, 900px);
+}
+
+#screen-math .math-intro,
+#screen-math .equation-panel,
+#screen-math .howto-grid.math-grid article,
+#screen-math .math-grid.small article,
+#screen-math .advanced-note {
+  overflow: hidden;
+}
+
+#screen-math .math-intro,
+#screen-math .equation-panel {
+  gap: 16px;
+  padding: 18px;
+}
+
+#screen-math .math-intro p {
+  max-width: 76ch;
+  font-weight: 680;
+}
+
+#screen-math .howto-grid.math-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+#screen-math .howto-grid.math-grid article {
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  padding: 16px;
+}
+
+#screen-math .howto-grid.math-grid .mini-board {
+  margin-top: 2px;
+}
+
+#screen-math .math-grid.small {
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 12px;
+}
+
+#screen-math .math-grid.small article {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+}
+
+#screen-math .howto-grid h3,
+#screen-math .math-grid h3,
+#screen-math .equation-panel h3 {
+  margin: 0;
+}
+
+#screen-math .howto-grid p,
+#screen-math .math-grid p,
+#screen-math .equation-panel p,
+#screen-math .advanced-note p,
+#screen-math .symbol-list dd {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+#screen-math .formula-card {
+  width: 100%;
+  max-width: 100%;
+  padding: 10px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  font-size: min(var(--guide-formula-size), 1.08rem);
+}
+
+#screen-math .hero-formula {
+  font-size: min(var(--guide-formula-size), 1.14rem);
+}
+
+#screen-math .formula-card mjx-container {
+  display: block !important;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+#screen-math .formula-card mjx-container[jax="SVG"] > svg {
+  max-width: 100%;
+  height: auto;
+}
+
+#screen-math p mjx-container,
+#screen-math li mjx-container,
+#screen-math dd mjx-container {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  vertical-align: middle;
+}
+
+#screen-math .symbol-list div {
+  grid-template-columns: minmax(52px, max-content) minmax(0, 1fr);
+}
+
+@media (min-width: 780px) {
+  #screen-math .equation-panel {
+    grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+    align-items: start;
+  }
+
+  #screen-math .math-grid.small {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+body.guide-size-large #screen-math .equation-panel,
+body.guide-size-large #screen-math .math-grid.small {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 560px) {
+  #screen-math .howto-grid.math-grid article {
+    grid-template-columns: 1fr;
   }
 }

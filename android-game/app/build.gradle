@@ -19,8 +19,8 @@ android {
         applicationId "invert_the_matrix.myapp"
         minSdk 23
         targetSdk 35
-        versionCode 7
-        versionName "1.0.5"
+        versionCode 9
+        versionName "1.0.7"
         ndk {
             abiFilters "arm64-v8a", "x86_64"
         }
@@ -51,6 +51,9 @@ android {
         release {
             minifyEnabled true
             shrinkResources true
+            ndk {
+                debugSymbolLevel "SYMBOL_TABLE"
+            }
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             if (keystoreProperties["storeFile"]) {
                 signingConfig signingConfigs.release
@@ -89,6 +92,7 @@ def nativeTaskNames = []
 nativeTargets.each { target ->
     def skiaOut = skiaRoot.toPath().resolve("out/${target.skiaOutName}").toFile()
     def nativeOut = file("src/main/jniLibs/${target.abi}/libinvertmatrix.so")
+    def nativeSymbolOut = layout.buildDirectory.file("intermediates/native-symbols/release/obj/${target.abi}/libinvertmatrix.so").get().asFile
     def nativeObjDir = layout.buildDirectory.dir("native/${target.abi}").get().asFile
     def buildSkiaTask = "buildSkia${target.suffix}"
     def buildNativeTask = "buildNative${target.suffix}"
@@ -120,12 +124,14 @@ nativeTargets.each { target ->
         inputs.file(file("${skiaOut}/libskcms.a"))
         inputs.file(file("${skiaOut}/libcpu-features.a"))
         outputs.file(nativeOut)
+        outputs.file(nativeSymbolOut)
 
         doFirst {
             if (!ndkRoot.exists()) {
                 throw new GradleException("NDK not found at ${ndkRoot}. Install it with: ANDROID_HOME=${rootProject.file("local-sdk")} ANDROID_SDK_ROOT=${rootProject.file("local-sdk")} sdkmanager --sdk_root=${rootProject.file("local-sdk")} 'ndk;28.2.13676358'")
             }
             nativeOut.parentFile.mkdirs()
+            nativeSymbolOut.parentFile.mkdirs()
             nativeObjDir.mkdirs()
         }
 
@@ -139,11 +145,16 @@ nativeTargets.each { target ->
             SKIA='${skiaRoot}'
             SKIA_OUT='${skiaOut}'
             OUT='${nativeOut}'
+            SYMBOL_OUT='${nativeSymbolOut}'
             OBJ='${nativeObjDir}'
             STRIP='${ndkRoot}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
-            "\$CLANGXX" -std=c++17 -O2 -fPIC -DANDROID -DSK_GANESH -DSK_GL -DSK_ASSUME_GL_ES=1 -Wall -Wextra -Wno-unused-parameter -I"\$INC" -I"\$SKIA" -c src/main/cpp/main.cpp -o "\$OBJ/main.o"
-            "\$CLANG" -O2 -fPIC -DANDROID -I"\$INC" -c "\$GLUE" -o "\$OBJ/android_native_app_glue.o"
-            "\$CLANGXX" -shared "\$OBJ/main.o" "\$OBJ/android_native_app_glue.o" -o "\$OUT" -static-libstdc++ -Wl,--no-undefined -Wl,--start-group "\$SKIA_OUT/libskia.a" "\$SKIA_OUT/libskcms.a" "\$SKIA_OUT/libcpu-features.a" -Wl,--end-group -landroid -llog -lOpenSLES -lEGL -lGLESv2 -lm -latomic
+            UNSTRIPPED="\$OBJ/libinvertmatrix.unstripped.so"
+            "\$CLANGXX" -std=c++17 -O2 -g -fPIC -DANDROID -DSK_GANESH -DSK_GL -DSK_ASSUME_GL_ES=1 -Wall -Wextra -Wno-unused-parameter -I"\$INC" -I"\$SKIA" -c src/main/cpp/main.cpp -o "\$OBJ/main.o"
+            "\$CLANG" -O2 -g -fPIC -DANDROID -I"\$INC" -c "\$GLUE" -o "\$OBJ/android_native_app_glue.o"
+            "\$CLANGXX" -shared "\$OBJ/main.o" "\$OBJ/android_native_app_glue.o" -o "\$UNSTRIPPED" -static-libstdc++ -Wl,--no-undefined -Wl,--start-group "\$SKIA_OUT/libskia.a" "\$SKIA_OUT/libskcms.a" "\$SKIA_OUT/libcpu-features.a" -Wl,--end-group -landroid -llog -lOpenSLES -lEGL -lGLESv2 -lm -latomic
+            cp "\$UNSTRIPPED" "\$SYMBOL_OUT"
+            "\$STRIP" --strip-debug "\$SYMBOL_OUT"
+            cp "\$UNSTRIPPED" "\$OUT"
             "\$STRIP" --strip-unneeded "\$OUT"
         """
     }
@@ -152,6 +163,20 @@ nativeTargets.each { target ->
         dependsOn(buildSkiaTask)
     }
     nativeTaskNames << buildNativeTask
+}
+
+// Android 1.0.6: keep uploadable native symbols for Play Console crash reports.
+tasks.register("packageNativeDebugSymbols", Zip) {
+    dependsOn(nativeTaskNames)
+    archiveFileName = "native-debug-symbols.zip"
+    destinationDirectory = layout.buildDirectory.dir("outputs/native-debug-symbols/release")
+    from(layout.buildDirectory.dir("intermediates/native-symbols/release/obj"))
+}
+
+tasks.configureEach {
+    if (name == "bundleRelease" || name == "assembleRelease") {
+        dependsOn("packageNativeDebugSymbols")
+    }
 }
 
 preBuild.dependsOn(nativeTaskNames)
