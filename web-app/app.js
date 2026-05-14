@@ -6,6 +6,26 @@
 (function () {
     "use strict";
     var STORAGE_KEY = "resonance-grid-progress-v1";
+    var APP_VERSION = "1.0.7";
+    var CAMPAIGN_DATA_URL = "campaign-levels.json";
+    var MATHJAX_URL = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js";
+    var CHANGELOG_ENTRIES = [
+        {
+            version: "1.0.7",
+            date: "2026-05-14",
+            text: "Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows credits and version history."
+        },
+        {
+            version: "1.0.6",
+            date: "2026-05-13",
+            text: "Release builds keep native debug symbols for Play Console crash reports."
+        },
+        {
+            version: "1.0.5",
+            date: "2026-05-13",
+            text: "The Math guide explains uniqueness, silent plans, and cross-pattern invertibility."
+        }
+    ];
     var PATTERNS = {
         cross: {
             label: "Cross",
@@ -47,7 +67,6 @@
     var DIFFICULTIES = ["Easy", "Medium", "Hard", "Expert"];
     var PRIME_STATES = [2, 3, 5];
     var STATE_NUMBERS = ["0", "1", "2", "3", "4"];
-    var STATE_SYMBOLS = ["", "*", "+", "^", "#"];
     var PATTERN_BADGES = {
         cross: "+",
         diagonal: "D",
@@ -79,9 +98,6 @@
         daily: {},
         settings: {
             sound: true,
-            vibration: true,
-            animations: true,
-            colorblind: false,
             hideNumbers: true,
             guideTextSize: "small"
         },
@@ -100,6 +116,9 @@
     var app = {
         progress: loadProgress(),
         campaignLevels: [],
+        campaignLoadState: "idle",
+        campaignLoadError: "",
+        campaignLoadPromise: null,
         screens: {},
         activeScreen: "main",
         returnScreen: "main",
@@ -112,6 +131,7 @@
         hintMarkTimer: null,
         hintCooldownUntil: 0,
         hintCooldownTimer: null,
+        mathJaxPromise: null,
         splashTimer: null,
         splashTiles: [],
         splashState: [],
@@ -121,15 +141,15 @@
     document.addEventListener("DOMContentLoaded", init);
     function init() {
         app.audio = createAudioManager();
-        app.campaignLevels = createCampaignLevels();
         cacheElements();
         bindEvents();
         renderFreeplayControls();
-        renderCampaign();
         renderDaily();
+        renderAbout();
         syncSettingsUI();
         applySettings();
         showScreen("main");
+        ensureCampaignLevels({ allowGeneratedFallback: false });
     }
     function cacheElements() {
         document.querySelectorAll(".screen").forEach(function (screen) {
@@ -169,18 +189,11 @@
         els.nextLevelButton = document.querySelector('[data-action="next-level"]');
         els.levelSelectButton = document.querySelector('[data-action="level-select"]');
         els.settingSound = document.getElementById("setting-sound");
-        els.settingVibration = document.getElementById("setting-vibration");
-        els.settingAnimations = document.getElementById("setting-animations");
-        els.settingColorblind = document.getElementById("setting-colorblind");
         els.settingNumbers = document.getElementById("setting-numbers");
+        els.aboutVersion = document.getElementById("about-version");
+        els.aboutChangelog = document.getElementById("about-changelog");
     }
     function bindEvents() {
-        document.addEventListener("pointerdown", function (event) {
-            var button = event.target.closest("button");
-            if (!button || button.disabled || button.classList.contains("tile"))
-                return;
-            vibrate(button.classList.contains("primary-action") ? 10 : 8);
-        });
         document.addEventListener("click", function (event) {
             var actionButton = event.target.closest("[data-action]");
             if (!actionButton)
@@ -240,7 +253,7 @@
                 saveProgress();
             });
         });
-        [els.settingSound, els.settingVibration, els.settingAnimations, els.settingColorblind, els.settingNumbers].forEach(function (input) {
+        [els.settingSound, els.settingNumbers].forEach(function (input) {
             input.addEventListener("change", updateSettingsFromUI);
         });
         els.board.addEventListener("pointerdown", handlePointerDown);
@@ -261,6 +274,7 @@
         if (action === "show-campaign") {
             renderCampaign();
             showScreen("campaign");
+            ensureCampaignLevels({ allowGeneratedFallback: true }).then(renderCampaign);
         }
         if (action === "show-freeplay") {
             renderFreeplayControls();
@@ -284,6 +298,10 @@
             openSettings();
         if (action === "close-settings")
             showScreen(app.returnScreen || "main");
+        if (action === "show-about")
+            openAbout();
+        if (action === "close-about")
+            showScreen("settings");
         if (action === "generate-freeplay")
             startFreeplay();
         if (action === "start-daily")
@@ -310,21 +328,51 @@
         app.activeScreen = name;
     }
     function typesetMath() {
-        if (!window.MathJax || !window.MathJax.typesetPromise)
-            return;
-        var targets = [];
-        if (app.screens.howto)
-            targets.push(app.screens.howto);
-        if (app.screens.math)
-            targets.push(app.screens.math);
-        if (!targets.length)
-            return;
-        window.MathJax.typesetPromise(targets).catch(function () { });
+        loadMathJax().then(function () {
+            if (!window.MathJax || !window.MathJax.typesetPromise)
+                return;
+            var targets = [];
+            if (app.screens.howto)
+                targets.push(app.screens.howto);
+            if (app.screens.math)
+                targets.push(app.screens.math);
+            if (!targets.length)
+                return;
+            window.MathJax.typesetPromise(targets).catch(function () { });
+        }).catch(function () { });
+    }
+    function loadMathJax() {
+        if (window.MathJax && window.MathJax.typesetPromise)
+            return Promise.resolve();
+        if (app.mathJaxPromise)
+            return app.mathJaxPromise;
+        window.MathJax = {
+            tex: {
+                inlineMath: [["\\(", "\\)"]],
+                displayMath: [["\\[", "\\]"]]
+            },
+            svg: {
+                fontCache: "global"
+            }
+        };
+        app.mathJaxPromise = new Promise(function (resolve, reject) {
+            var script = document.createElement("script");
+            script.src = MATHJAX_URL;
+            script.defer = true;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+        return app.mathJaxPromise;
     }
     function openSettings() {
         app.returnScreen = app.activeScreen;
         syncSettingsUI();
         showScreen("settings");
+    }
+    function openAbout() {
+        renderAbout();
+        showScreen("about");
     }
     function loadProgress() {
         var stored = null;
@@ -371,32 +419,21 @@
     function syncSettingsUI() {
         var settings = app.progress.settings;
         els.settingSound.checked = settings.sound;
-        els.settingVibration.checked = settings.vibration;
-        els.settingAnimations.checked = settings.animations;
-        els.settingColorblind.checked = settings.colorblind;
         els.settingNumbers.checked = !Boolean(settings.hideNumbers);
     }
     function updateSettingsFromUI() {
         var soundWasOff = !app.progress.settings.sound;
-        var vibrationWasOff = !app.progress.settings.vibration;
         app.progress.settings.sound = els.settingSound.checked;
-        app.progress.settings.vibration = els.settingVibration.checked;
-        app.progress.settings.animations = els.settingAnimations.checked;
-        app.progress.settings.colorblind = els.settingColorblind.checked;
         app.progress.settings.hideNumbers = !els.settingNumbers.checked;
         saveProgress();
         applySettings();
         renderBoard();
         if (soundWasOff && app.progress.settings.sound)
             playSound("ui");
-        if (vibrationWasOff && app.progress.settings.vibration)
-            vibrate(10);
     }
     function applySettings() {
         var guideSize = normalizeGuideTextSize(app.progress.settings.guideTextSize);
         document.body.classList.toggle("hide-numbers", Boolean(app.progress.settings.hideNumbers));
-        document.body.classList.toggle("colorblind", app.progress.settings.colorblind);
-        document.body.classList.toggle("reduced-motion", !app.progress.settings.animations);
         document.body.classList.toggle("guide-size-medium", guideSize === "medium");
         document.body.classList.toggle("guide-size-large", guideSize === "large");
         syncGuideSizeControls();
@@ -438,8 +475,6 @@
             applySplashMove(randomSplashTap(rng));
         }
         renderSplashBoard([], -1);
-        if (!app.progress.settings.animations)
-            return;
         app.splashTimer = window.setInterval(function () {
             var tapIndex = randomSplashTap(rng);
             var affected = applySplashMove(tapIndex);
@@ -480,7 +515,7 @@
             tile.classList.remove("splash-state-0", "splash-state-1", "splash-state-2", "splash-state-3", "is-splash-pulse", "is-splash-tap");
             tile.classList.add("splash-state-" + app.splashState[index]);
         });
-        if (!changed.size || !app.progress.settings.animations)
+        if (!changed.size)
             return;
         void app.splashTiles[changedIndexes[0]].offsetWidth;
         changed.forEach(function (index) {
@@ -489,6 +524,16 @@
         if (tapIndex >= 0 && app.splashTiles[tapIndex]) {
             app.splashTiles[tapIndex].classList.add("is-splash-tap");
         }
+    }
+    function renderAbout() {
+        if (els.aboutVersion) {
+            els.aboutVersion.textContent = "Version " + APP_VERSION;
+        }
+        if (!els.aboutChangelog)
+            return;
+        els.aboutChangelog.innerHTML = CHANGELOG_ENTRIES.map(function (entry) {
+            return "<li><strong>" + entry.version + "</strong> - " + entry.date + ": " + entry.text + "</li>";
+        }).join("");
     }
     function renderFreeplayControls() {
         var prefs = app.progress.freePrefs;
@@ -525,6 +570,174 @@
         els.customWidth.value = app.progress.freePrefs.customWidth;
         els.customHeight.value = app.progress.freePrefs.customHeight;
         saveProgress();
+    }
+    function ensureCampaignLevels(options) {
+        var opts = options || {};
+        if (app.campaignLevels.length)
+            return Promise.resolve(app.campaignLevels);
+        if (app.campaignLoadState === "error" && opts.allowGeneratedFallback) {
+            return generateCampaignLevelsFallback();
+        }
+        if (app.campaignLoadPromise)
+            return app.campaignLoadPromise;
+        if (!window.fetch) {
+            return opts.allowGeneratedFallback ? generateCampaignLevelsFallback() : Promise.resolve([]);
+        }
+        app.campaignLoadState = "loading";
+        app.campaignLoadError = "";
+        app.campaignLoadPromise = fetch(CAMPAIGN_DATA_URL + "?v=" + CAMPAIGN_VERSION)
+            .then(function (response) {
+            if (!response.ok)
+                throw new Error("Campaign data request failed with " + response.status);
+            return response.json();
+        })
+            .then(function (data) {
+            app.campaignLevels = campaignLevelsFromData(data);
+            app.campaignLoadState = "ready";
+            app.campaignLoadPromise = null;
+            if (app.activeScreen === "campaign")
+                renderCampaign();
+            return app.campaignLevels;
+        })
+            .catch(function (error) {
+            app.campaignLoadState = "error";
+            app.campaignLoadError = error && error.message ? error.message : "Campaign data could not be loaded.";
+            app.campaignLoadPromise = null;
+            if (opts.allowGeneratedFallback)
+                return generateCampaignLevelsFallback();
+            return [];
+        });
+        return app.campaignLoadPromise;
+    }
+    function generateCampaignLevelsFallback() {
+        app.campaignLoadState = "generating";
+        app.campaignLoadError = "";
+        if (app.activeScreen === "campaign")
+            renderCampaign();
+        return new Promise(function (resolve) {
+            window.setTimeout(function () {
+                app.campaignLevels = createCampaignLevels();
+                app.campaignLoadState = "ready";
+                if (app.activeScreen === "campaign")
+                    renderCampaign();
+                resolve(app.campaignLevels);
+            }, 0);
+        });
+    }
+    function campaignLevelsFromData(data) {
+        if (!data || data.campaignVersion !== CAMPAIGN_VERSION || !Array.isArray(data.levels)) {
+            throw new Error("Campaign data version mismatch.");
+        }
+        var levels = data.levels.map(campaignLevelFromData);
+        if (levels.length !== 300)
+            throw new Error("Campaign data is incomplete.");
+        return levels;
+    }
+    function campaignLevelFromData(raw) {
+        var width = Number(raw.width) || 5;
+        var height = Number(raw.height) || 5;
+        var states = Number(raw.states) || 2;
+        var initial = Array.isArray(raw.initialState) ? raw.initialState.map(function (value) {
+            return mod(Number(value) || 0, states);
+        }) : [];
+        while (initial.length < width * height)
+            initial.push(0);
+        return {
+            width: width,
+            height: height,
+            states: states,
+            defaultPattern: raw.defaultPattern || "cross",
+            locked: new Set(numberArray(raw.locked)),
+            disabled: new Set(numberArray(raw.disabled)),
+            tilePatterns: stringMap(raw.tilePatterns),
+            levelId: String(raw.levelId || ""),
+            campaignIndex: Number(raw.campaignIndex) || 0,
+            chapter: Number(raw.chapter) || 1,
+            name: String(raw.name || "Level"),
+            initialState: initial.slice(0, width * height),
+            knownSolution: normalizeSolution(numberMap(raw.knownSolution), states),
+            minimumMoves: Math.max(1, Number(raw.minimumMoves) || 1),
+            targetMoves: Math.max(1, Number(raw.targetMoves) || 1),
+            difficultyRating: raw.difficultyRating || "Easy"
+        };
+    }
+    function campaignLevelsToData(levels) {
+        return {
+            schemaVersion: 1,
+            campaignVersion: CAMPAIGN_VERSION,
+            levelCount: levels.length,
+            levels: levels.map(campaignLevelToData)
+        };
+    }
+    function campaignLevelToData(level) {
+        return {
+            levelId: level.levelId,
+            name: level.name,
+            campaignIndex: level.campaignIndex,
+            chapter: level.chapter,
+            width: level.width,
+            height: level.height,
+            states: level.states,
+            defaultPattern: level.defaultPattern,
+            locked: sortedNumberArray(level.locked),
+            disabled: sortedNumberArray(level.disabled),
+            tilePatterns: sortedStringMap(level.tilePatterns),
+            initialState: level.initialState.slice(),
+            knownSolution: sortedNumberMap(level.knownSolution),
+            minimumMoves: level.minimumMoves,
+            targetMoves: level.targetMoves,
+            difficultyRating: level.difficultyRating
+        };
+    }
+    function numberArray(value) {
+        return Array.isArray(value) ? value.map(function (item) {
+            return Number(item);
+        }).filter(function (item) {
+            return Number.isFinite(item);
+        }) : [];
+    }
+    function numberMap(value) {
+        var out = {};
+        Object.keys(value || {}).forEach(function (key) {
+            var idx = Number(key);
+            var item = Number(value[key]);
+            if (Number.isFinite(idx) && Number.isFinite(item) && item)
+                out[idx] = item;
+        });
+        return out;
+    }
+    function stringMap(value) {
+        var out = {};
+        Object.keys(value || {}).forEach(function (key) {
+            var idx = Number(key);
+            var item = String(value[key] || "");
+            if (Number.isFinite(idx) && item)
+                out[idx] = item;
+        });
+        return out;
+    }
+    function sortedNumberArray(value) {
+        return Array.from(value || []).map(Number).sort(function (a, b) {
+            return a - b;
+        });
+    }
+    function sortedNumberMap(value) {
+        var out = {};
+        Object.keys(value || {}).map(Number).sort(function (a, b) {
+            return a - b;
+        }).forEach(function (key) {
+            out[key] = Number(value[key]) || 0;
+        });
+        return out;
+    }
+    function sortedStringMap(value) {
+        var out = {};
+        Object.keys(value || {}).map(Number).sort(function (a, b) {
+            return a - b;
+        }).forEach(function (key) {
+            out[key] = String(value[key]);
+        });
+        return out;
     }
     function createCampaignLevels() {
         var levels = [];
@@ -923,6 +1136,18 @@
         };
     }
     function renderCampaign() {
+        if (app.campaignLoadState === "loading" || app.campaignLoadState === "idle") {
+            els.campaignList.innerHTML = '<section class="loading-state"><h3>Loading campaign</h3><p>Preparing the level list.</p></section>';
+            return;
+        }
+        if (app.campaignLoadState === "generating") {
+            els.campaignList.innerHTML = '<section class="loading-state"><h3>Preparing campaign</h3><p>Building fallback levels for this session.</p></section>';
+            return;
+        }
+        if (app.campaignLoadState === "error") {
+            els.campaignList.innerHTML = '<section class="empty-state"><h3>Campaign data unavailable</h3><p>Reload the app, or try again to build fallback levels.</p></section>';
+            return;
+        }
         if (!app.campaignLevels.length) {
             els.campaignList.innerHTML = '<section class="empty-state"><h3>No campaign levels found</h3><p>The campaign could not be prepared. Reload the app to rebuild the level list.</p></section>';
             return;
@@ -1418,7 +1643,7 @@
                 var solutionValue = showSolution ? (game.hint.solution[idx] || 0) : "";
                 var lockMark = game.locked.has(idx) ? '<span class="lock-badge" aria-hidden="true"><svg class="lock-mark" viewBox="0 0 24 24"><path class="lock-shackle" d="M7.25 10.25V8.1a4.75 4.75 0 0 1 9.5 0v2.15"></path><rect class="lock-body" x="5.25" y="10.25" width="13.5" height="10" rx="2.6"></rect><path class="lock-key" d="M12 14.2v2.45"></path></svg></span>' : "";
                 var ariaLabel = "Row " + (y + 1) + ", column " + (x + 1) + ", state " + state + ", " + pattern.label + " pattern" + (game.locked.has(idx) ? ", locked" : "");
-                html.push('<button class="' + classes.join(" ") + '" data-index="' + idx + '" data-number="' + STATE_NUMBERS[state] + '" data-symbol="' + STATE_SYMBOLS[state] + '" data-solution="' + solutionValue + '" aria-label="' + ariaLabel + '"' + (game.locked.has(idx) ? ' aria-disabled="true"' : "") + '>' +
+                html.push('<button class="' + classes.join(" ") + '" data-index="' + idx + '" data-number="' + STATE_NUMBERS[state] + '" data-solution="' + solutionValue + '" aria-label="' + ariaLabel + '"' + (game.locked.has(idx) ? ' aria-disabled="true"' : "") + '>' +
                     patternMark +
                     lockMark +
                     '</button>');
@@ -1446,7 +1671,6 @@
                 return;
             app.pressInfo.longPress = true;
             previewPulse(index);
-            vibrate(8);
         }, 380);
     }
     function handlePointerUp(event) {
@@ -1524,7 +1748,6 @@
             if (clearedMark)
                 renderBoard();
             playSound("invalid");
-            vibrate(16);
             return;
         }
         var affected = getAffectedIndexes(game, index);
@@ -1538,9 +1761,8 @@
         renderBoard(affected);
         updateCounters();
         playSound("pulse", { state: game.board[index] || 0, states: game.states, affected: affected.length });
-        vibrate(6);
         if (isSolved(game, game.board)) {
-            window.setTimeout(completeGame, app.progress.settings.animations ? 360 : 20);
+            window.setTimeout(completeGame, 360);
         }
     }
     function undoMove() {
@@ -1626,7 +1848,6 @@
         renderBoard(affected);
         updateCounters();
         playSound("hint");
-        vibrate(10);
         scheduleHintMarkClear(game);
         if (solvedByHint) {
             window.setTimeout(function () {
@@ -2512,15 +2733,12 @@
             play: play
         };
     }
-    function vibrate(ms) {
-        if (app.progress.settings.vibration && navigator.vibrate) {
-            navigator.vibrate(ms);
-        }
-    }
     window.ResonanceGridDebug = {
         patterns: PATTERNS,
         solvePuzzle: solvePuzzle,
         generatePuzzle: generatePuzzle,
+        generateCampaignLevels: createCampaignLevels,
+        campaignLevelsToData: campaignLevelsToData,
         getCampaignLevels: function () {
             return app.campaignLevels.slice();
         }

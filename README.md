@@ -30,8 +30,8 @@ Platform services such as Play Games leaderboards should remain Android-only.
 - Daily challenge tiers with deterministic same-day puzzles.
 - Solver-backed hints that apply the next move and mark that attempt as a
   zero-star solve.
-- Settings for sound, vibration, animations, number labels, colorblind styling,
-  and guide text size.
+- Settings for sound, number labels, guide text size, and Android haptic
+  feedback.
 - In-game explanations of the linear algebra behind the generator.
 - Android Play Games leaderboards for daily challenge scoring.
 

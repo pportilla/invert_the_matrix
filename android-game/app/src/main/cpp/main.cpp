@@ -50,6 +50,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -129,6 +130,8 @@ constexpr int64_t HINT_COOLDOWN_MS = 500;
 constexpr int64_t HINT_COMPLETION_DELAY_MS = 500;
 constexpr int EXACT_BFS_STATE_LIMIT = 500000;
 constexpr int EXACT_NULLSPACE_LIMIT = 500000;
+constexpr const char *APP_VERSION_NAME = "1.0.7";
+constexpr const char *GITHUB_PROFILE_URL = "https://github.com/pportilla";
 
 int64_t nowMs() {
     using namespace std::chrono;
@@ -1975,9 +1978,9 @@ void migrateCampaignProgress(Progress &progress) {
     progress.setInt("campaign_version", CAMPAIGN_PROGRESS_VERSION);
 }
 
-enum class Screen { Main, Campaign, Freeplay, Daily, HowTo, Math, Settings, Game };
+enum class Screen { Main, Campaign, Freeplay, Daily, HowTo, Math, Settings, About, Game };
 enum class Action {
-    Main, BackReturn, Campaign, Freeplay, Daily, HowTo, Math, Settings, StartCampaign, Generate,
+    Main, BackReturn, Campaign, Freeplay, Daily, HowTo, Math, Settings, About, OpenGithub, StartCampaign, Generate,
     DailyChallenge, Leaderboard,
     Size, States, Pattern, Difficulty, ToggleLocked, ToggleIrregular, ToggleUnique,
     WidthMinus, WidthPlus, HeightMinus, HeightPlus, ExitGame, Undo, Reset, Hint,
@@ -2193,6 +2196,8 @@ struct AppState {
     Renderer renderer;
     SoundEngine audio;
     Progress progress;
+    std::vector<Puzzle> campaignLevels;
+    bool campaignLevelsLoaded = false;
     Screen screen = Screen::Main;
     Screen returnScreen = Screen::Main;
     std::vector<Button> buttons;
@@ -2233,9 +2238,7 @@ struct AppState {
     bool freeUnique = true;
     bool sound = true;
     bool vibration = true;
-    bool animations = true;
     bool hideNumbers = true;
-    bool colorblind = false;
     int guideTextSize = 0;
     std::string hintLine;
     int pressTile = -1;
@@ -2264,7 +2267,8 @@ float safeBottom(AppState *s) { return dp(s, 30); }
 
 bool scrollable(Screen screen) {
     return screen == Screen::Campaign || screen == Screen::Freeplay || screen == Screen::HowTo ||
-           screen == Screen::Daily || screen == Screen::Math || screen == Screen::Settings;
+           screen == Screen::Daily || screen == Screen::Math || screen == Screen::Settings ||
+           screen == Screen::About;
 }
 
 float maxScrollOffset(AppState *s) {
@@ -2308,6 +2312,311 @@ bool readAssetBytes(AppState *s, const char *path, std::vector<unsigned char> &o
         return false;
     }
     return true;
+}
+
+struct JsonValue {
+    enum class Type { Null, Bool, Number, String, Array, Object };
+    Type type = Type::Null;
+    bool boolean = false;
+    double number = 0.0;
+    std::string text;
+    std::vector<JsonValue> array;
+    std::map<std::string, JsonValue> object;
+};
+
+struct JsonParser {
+    const std::string &src;
+    size_t pos = 0;
+
+    explicit JsonParser(const std::string &input) : src(input) {}
+
+    JsonValue parse() {
+        JsonValue value = parseValue();
+        skipWhitespace();
+        if (pos != src.size()) fail("Unexpected trailing data");
+        return value;
+    }
+
+    void fail(const char *message) const {
+        throw std::runtime_error(message);
+    }
+
+    void skipWhitespace() {
+        while (pos < src.size() && std::isspace(static_cast<unsigned char>(src[pos]))) ++pos;
+    }
+
+    bool consume(char expected) {
+        skipWhitespace();
+        if (pos < src.size() && src[pos] == expected) {
+            ++pos;
+            return true;
+        }
+        return false;
+    }
+
+    bool consumeLiteral(const char *literal) {
+        skipWhitespace();
+        size_t len = std::strlen(literal);
+        if (src.compare(pos, len, literal) == 0) {
+            pos += len;
+            return true;
+        }
+        return false;
+    }
+
+    JsonValue parseValue() {
+        skipWhitespace();
+        if (pos >= src.size()) fail("Unexpected end of JSON");
+        char c = src[pos];
+        if (c == '{') return parseObject();
+        if (c == '[') return parseArray();
+        if (c == '"') {
+            JsonValue value;
+            value.type = JsonValue::Type::String;
+            value.text = parseString();
+            return value;
+        }
+        if (c == '-' || (c >= '0' && c <= '9')) return parseNumber();
+        if (consumeLiteral("true")) {
+            JsonValue value;
+            value.type = JsonValue::Type::Bool;
+            value.boolean = true;
+            return value;
+        }
+        if (consumeLiteral("false")) {
+            JsonValue value;
+            value.type = JsonValue::Type::Bool;
+            value.boolean = false;
+            return value;
+        }
+        if (consumeLiteral("null")) return {};
+        fail("Invalid JSON value");
+        return {};
+    }
+
+    JsonValue parseObject() {
+        JsonValue value;
+        value.type = JsonValue::Type::Object;
+        if (!consume('{')) fail("Expected object");
+        if (consume('}')) return value;
+        while (true) {
+            skipWhitespace();
+            if (pos >= src.size() || src[pos] != '"') fail("Expected object key");
+            std::string key = parseString();
+            if (!consume(':')) fail("Expected ':' after object key");
+            value.object[key] = parseValue();
+            if (consume('}')) break;
+            if (!consume(',')) fail("Expected ',' in object");
+        }
+        return value;
+    }
+
+    JsonValue parseArray() {
+        JsonValue value;
+        value.type = JsonValue::Type::Array;
+        if (!consume('[')) fail("Expected array");
+        if (consume(']')) return value;
+        while (true) {
+            value.array.push_back(parseValue());
+            if (consume(']')) break;
+            if (!consume(',')) fail("Expected ',' in array");
+        }
+        return value;
+    }
+
+    std::string parseString() {
+        if (pos >= src.size() || src[pos] != '"') fail("Expected string");
+        ++pos;
+        std::string out;
+        while (pos < src.size()) {
+            char c = src[pos++];
+            if (c == '"') return out;
+            if (c != '\\') {
+                out.push_back(c);
+                continue;
+            }
+            if (pos >= src.size()) fail("Invalid string escape");
+            char escaped = src[pos++];
+            if (escaped == '"' || escaped == '\\' || escaped == '/') out.push_back(escaped);
+            else if (escaped == 'b') out.push_back('\b');
+            else if (escaped == 'f') out.push_back('\f');
+            else if (escaped == 'n') out.push_back('\n');
+            else if (escaped == 'r') out.push_back('\r');
+            else if (escaped == 't') out.push_back('\t');
+            else if (escaped == 'u') {
+                if (pos + 4 > src.size()) fail("Invalid unicode escape");
+                pos += 4;
+                out.push_back('?');
+            } else {
+                fail("Invalid string escape");
+            }
+        }
+        fail("Unterminated string");
+        return out;
+    }
+
+    JsonValue parseNumber() {
+        size_t start = pos;
+        if (src[pos] == '-') ++pos;
+        while (pos < src.size() && std::isdigit(static_cast<unsigned char>(src[pos]))) ++pos;
+        if (pos < src.size() && src[pos] == '.') {
+            ++pos;
+            while (pos < src.size() && std::isdigit(static_cast<unsigned char>(src[pos]))) ++pos;
+        }
+        if (pos < src.size() && (src[pos] == 'e' || src[pos] == 'E')) {
+            ++pos;
+            if (pos < src.size() && (src[pos] == '+' || src[pos] == '-')) ++pos;
+            while (pos < src.size() && std::isdigit(static_cast<unsigned char>(src[pos]))) ++pos;
+        }
+        JsonValue value;
+        value.type = JsonValue::Type::Number;
+        value.number = std::strtod(src.c_str() + start, nullptr);
+        return value;
+    }
+};
+
+const JsonValue *jsonField(const JsonValue &value, const std::string &key) {
+    if (value.type != JsonValue::Type::Object) return nullptr;
+    auto it = value.object.find(key);
+    return it == value.object.end() ? nullptr : &it->second;
+}
+
+int jsonInt(const JsonValue &value, int fallback = 0) {
+    if (value.type == JsonValue::Type::Number) return static_cast<int>(std::lround(value.number));
+    if (value.type == JsonValue::Type::String) return std::atoi(value.text.c_str());
+    if (value.type == JsonValue::Type::Bool) return value.boolean ? 1 : 0;
+    return fallback;
+}
+
+int jsonIntField(const JsonValue &value, const std::string &key, int fallback = 0) {
+    const JsonValue *field = jsonField(value, key);
+    return field ? jsonInt(*field, fallback) : fallback;
+}
+
+std::string jsonString(const JsonValue &value, const std::string &fallback = "") {
+    if (value.type == JsonValue::Type::String) return value.text;
+    return fallback;
+}
+
+std::string jsonStringField(const JsonValue &value, const std::string &key, const std::string &fallback = "") {
+    const JsonValue *field = jsonField(value, key);
+    return field ? jsonString(*field, fallback) : fallback;
+}
+
+std::vector<int> jsonIntArrayField(const JsonValue &value, const std::string &key) {
+    std::vector<int> out;
+    const JsonValue *field = jsonField(value, key);
+    if (!field || field->type != JsonValue::Type::Array) return out;
+    out.reserve(field->array.size());
+    for (const JsonValue &item : field->array) out.push_back(jsonInt(item, 0));
+    return out;
+}
+
+std::map<int, int> jsonIntMapField(const JsonValue &value, const std::string &key) {
+    std::map<int, int> out;
+    const JsonValue *field = jsonField(value, key);
+    if (!field || field->type != JsonValue::Type::Object) return out;
+    for (const auto &entry : field->object) {
+        int idx = std::atoi(entry.first.c_str());
+        int amount = jsonInt(entry.second, 0);
+        if (amount) out[idx] = amount;
+    }
+    return out;
+}
+
+std::map<int, std::string> jsonStringMapField(const JsonValue &value, const std::string &key) {
+    std::map<int, std::string> out;
+    const JsonValue *field = jsonField(value, key);
+    if (!field || field->type != JsonValue::Type::Object) return out;
+    for (const auto &entry : field->object) {
+        int idx = std::atoi(entry.first.c_str());
+        std::string item = jsonString(entry.second);
+        if (!item.empty()) out[idx] = item;
+    }
+    return out;
+}
+
+int campaignDifficultyRating(const JsonValue &level) {
+    const JsonValue *field = jsonField(level, "difficultyRating");
+    if (!field) return 0;
+    if (field->type == JsonValue::Type::Number) return clampInt(jsonInt(*field, 0), 0, 3);
+    std::string label = jsonString(*field);
+    if (label == "Medium") return 1;
+    if (label == "Hard") return 2;
+    if (label == "Expert") return 3;
+    return 0;
+}
+
+Puzzle campaignLevelFromJson(const JsonValue &level) {
+    Puzzle p;
+    p.levelId = jsonStringField(level, "levelId");
+    p.name = jsonStringField(level, "name", "Level");
+    p.campaignIndex = jsonIntField(level, "campaignIndex", 0);
+    p.chapter = jsonIntField(level, "chapter", p.campaignIndex / 10 + 1);
+    p.width = jsonIntField(level, "width", 5);
+    p.height = jsonIntField(level, "height", 5);
+    p.states = jsonIntField(level, "states", 2);
+    p.defaultPattern = jsonStringField(level, "defaultPattern", "cross");
+
+    for (int idx : jsonIntArrayField(level, "locked")) p.locked.insert(idx);
+    for (int idx : jsonIntArrayField(level, "disabled")) p.disabled.insert(idx);
+    p.tilePatterns = jsonStringMapField(level, "tilePatterns");
+
+    int total = std::max(0, p.width * p.height);
+    p.initial.assign(static_cast<size_t>(total), 0);
+    const JsonValue *initial = jsonField(level, "initialState");
+    if (initial && initial->type == JsonValue::Type::Array) {
+        for (size_t i = 0; i < initial->array.size() && i < p.initial.size(); ++i) {
+            p.initial[i] = mod(jsonInt(initial->array[i], 0), p.states);
+        }
+    }
+
+    p.solution = normalized(jsonIntMapField(level, "knownSolution"), p.states);
+    p.minimumMoves = std::max(1, jsonIntField(level, "minimumMoves", 1));
+    p.targetMoves = std::max(1, jsonIntField(level, "targetMoves", p.minimumMoves + 2));
+    p.difficultyRating = campaignDifficultyRating(level);
+    p.scrambleMoves = std::max(1, sumCounts(p.solution));
+    return p;
+}
+
+bool loadCampaignLevels(AppState *s) {
+    std::vector<unsigned char> bytes;
+    if (!readAssetBytes(s, "campaign-levels.json", bytes)) {
+        LOGE("Unable to load campaign-levels.json; campaign levels will be generated on demand.");
+        return false;
+    }
+    try {
+        std::string text(bytes.begin(), bytes.end());
+        JsonParser parser(text);
+        JsonValue root = parser.parse();
+        if (jsonIntField(root, "campaignVersion", 0) != CAMPAIGN_PROGRESS_VERSION) {
+            throw std::runtime_error("Campaign version mismatch");
+        }
+        const JsonValue *levels = jsonField(root, "levels");
+        if (!levels || levels->type != JsonValue::Type::Array || levels->array.size() != 300) {
+            throw std::runtime_error("Campaign level count mismatch");
+        }
+        std::vector<Puzzle> parsed;
+        parsed.reserve(levels->array.size());
+        for (const JsonValue &level : levels->array) parsed.push_back(campaignLevelFromJson(level));
+        s->campaignLevels = parsed;
+        s->campaignLevelsLoaded = true;
+        LOGI("Loaded %zu precomputed campaign levels.", s->campaignLevels.size());
+        return true;
+    } catch (const std::exception &error) {
+        LOGE("Unable to parse campaign-levels.json: %s", error.what());
+        s->campaignLevels.clear();
+        s->campaignLevelsLoaded = false;
+        return false;
+    }
+}
+
+Puzzle campaignLevel(AppState *s, int index) {
+    int clamped = clampInt(index, 0, 299);
+    if (s && s->campaignLevelsLoaded && clamped < static_cast<int>(s->campaignLevels.size())) {
+        return s->campaignLevels[static_cast<size_t>(clamped)];
+    }
+    return createCampaignLevel(clamped);
 }
 
 Color stateTopColor(int state);
@@ -2369,9 +2678,7 @@ void loadPrefs(AppState *s) {
     s->freeUnique = s->progress.getBool("free_unique", true);
     s->sound = s->progress.getBool("setting_sound", true);
     s->vibration = s->progress.getBool("setting_vibration", true);
-    s->animations = s->progress.getBool("setting_animations", true);
     s->hideNumbers = s->progress.getBool("setting_hide_numbers", true);
-    s->colorblind = s->progress.getBool("setting_colorblind", false);
     s->guideTextSize = clampInt(s->progress.getInt("setting_guide_text_size", 0), 0, 2);
 }
 
@@ -2472,6 +2779,48 @@ void playGamesSubmitScore(AppState *s, int leaderboard, int score) {
 
 void playGamesShowLeaderboard(AppState *s, int leaderboard) {
     callPlayGamesVoid(s, "showLeaderboard", "(Landroid/app/Activity;I)V", leaderboard);
+}
+
+void openUrl(AppState *s, const char *url) {
+    if (!s || !url || !s->native || !s->native->activity) return;
+    JavaVM *vm = s->native->activity->vm;
+    jobject activity = s->native->activity->clazz;
+    if (!vm || !activity) return;
+
+    JNIEnv *env = nullptr;
+    bool detach = false;
+    if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
+        if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK) return;
+        detach = true;
+    }
+
+    jclass uriClass = env->FindClass("android/net/Uri");
+    jmethodID parse = uriClass ? env->GetStaticMethodID(uriClass, "parse", "(Ljava/lang/String;)Landroid/net/Uri;") : nullptr;
+    jstring urlString = env->NewStringUTF(url);
+    jobject uri = parse && urlString ? env->CallStaticObjectMethod(uriClass, parse, urlString) : nullptr;
+    if (env->ExceptionCheck()) env->ExceptionClear();
+
+    jclass intentClass = env->FindClass("android/content/Intent");
+    jstring actionString = env->NewStringUTF("android.intent.action.VIEW");
+    jmethodID intentCtor = intentClass ? env->GetMethodID(intentClass, "<init>", "(Ljava/lang/String;Landroid/net/Uri;)V") : nullptr;
+    jobject intent = intentCtor && actionString && uri ? env->NewObject(intentClass, intentCtor, actionString, uri) : nullptr;
+    if (env->ExceptionCheck()) env->ExceptionClear();
+
+    jclass activityClass = env->GetObjectClass(activity);
+    jmethodID startActivity = activityClass ? env->GetMethodID(activityClass, "startActivity", "(Landroid/content/Intent;)V") : nullptr;
+    if (startActivity && intent) {
+        env->CallVoidMethod(activity, startActivity, intent);
+        if (env->ExceptionCheck()) env->ExceptionClear();
+    }
+
+    if (intent) env->DeleteLocalRef(intent);
+    if (actionString) env->DeleteLocalRef(actionString);
+    if (intentClass) env->DeleteLocalRef(intentClass);
+    if (uri) env->DeleteLocalRef(uri);
+    if (urlString) env->DeleteLocalRef(urlString);
+    if (uriClass) env->DeleteLocalRef(uriClass);
+    if (activityClass) env->DeleteLocalRef(activityClass);
+    if (detach) vm->DetachCurrentThread();
 }
 
 void go(AppState *s, Screen screen) {
@@ -3177,7 +3526,6 @@ void initSplashBoard(AppState *s) {
 
 void updateSplashBoard(AppState *s) {
     initSplashBoard(s);
-    if (!s->animations) return;
     int64_t t = nowMs();
     if (t >= s->splashNextAt) {
         applySplashMove(s, randomSplashTap(s), true);
@@ -4105,10 +4453,8 @@ void drawHowTo(AppState *s) {
                    BLUE, GuideDiagramKind::Moves);
     drawGuideBlock(s, y, "Settings",
                    {"- Sound toggles audio effects.",
-                    "- Vibration toggles haptic feedback.",
-                    "- Animations can be turned off.",
-                    "- Colorblind-friendly symbols add shape labels.",
-                    "- Show numbers on tiles displays state values when you want them."},
+                    "- Show numbers on tiles displays state values when you want them.",
+                    "- Android also includes haptic feedback controls."},
                    ORANGE, GuideDiagramKind::Options);
     finishScrollContent(s, y);
     drawGuideHeader(s);
@@ -4266,6 +4612,16 @@ void drawMath(AppState *s) {
                    "The physical length is the sum of those representatives.",
                    "The three-star target is based on a shortest solution found for that board."},
                   FormulaKind::Minimum, ORANGE, 64.0f);
+    drawGuideBlock(s, y, "How The Shortest Solver Works",
+                   {"Small boards use breadth-first search through board states.",
+                    "Each edge is one legal tap, so the first solved state reached is a true minimum.",
+                    "Larger prime-state boards row-reduce A x = -s.",
+                    "If free variables remain and the nullspace search is small enough, the app enumerates x0 + ker(A).",
+                    "It chooses the vector with the smallest sum of residues from 0 through n - 1.",
+                    "If exact search is too large, or composite n is too large for BFS, the game uses a known solving plan.",
+                    "The shortest tap-count vector need not be unique; ties are possible.",
+                    "The app keeps one deterministic shortest plan, but does not mark shortest-plan uniqueness."},
+                   ORANGE);
     drawGuideBlock(s, y, "Locked Tiles And Gaps",
                    {"Locked tiles remain rows because their values must become zero.",
                     "They are not columns, because they cannot be tapped directly.",
@@ -4290,7 +4646,7 @@ void drawSettings(AppState *s) {
     Renderer &r = s->renderer;
     float buttonH = dp(s, 52);
     float gap = dp(s, 12);
-    float stackH = buttonH * 5.0f + gap * 4.0f;
+    float stackH = buttonH * 4.0f + gap * 3.0f;
     float minTop = safeTop(s) + dp(s, 118);
     float maxTop = std::max(minTop, static_cast<float>(r.height) - safeBottom(s) - stackH - dp(s, 18));
     // Changelog note: Android settings controls are vertically centered instead of hugging the header.
@@ -4298,12 +4654,97 @@ void drawSettings(AppState *s) {
     float y = beginScrollContent(s, contentTop);
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Sound ") + (s->sound ? "ON" : "OFF"), Action::ToggleSetting, 0, false, s->sound); y += buttonH + gap;
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Vibration ") + (s->vibration ? "ON" : "OFF"), Action::ToggleSetting, 1, false, s->vibration); y += buttonH + gap;
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Animations ") + (s->animations ? "ON" : "OFF"), Action::ToggleSetting, 2, false, s->animations); y += buttonH + gap;
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Colorblind-friendly symbols ") + (s->colorblind ? "ON" : "OFF"), Action::ToggleSetting, 3, false, s->colorblind); y += buttonH + gap;
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Show numbers on tiles ") + (!s->hideNumbers ? "ON" : "OFF"), Action::ToggleSetting, 4, false, !s->hideNumbers); y += buttonH;
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Show numbers on tiles ") + (!s->hideNumbers ? "ON" : "OFF"), Action::ToggleSetting, 2, false, !s->hideNumbers); y += buttonH + gap;
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, "About", Action::About); y += buttonH;
     finishScrollContent(s, y);
     drawScreenHeaderChrome(s, safeTop(s) + dp(s, 64), 12.0f);
     drawHeader(s, "Options", "Settings", Action::BackReturn);
+}
+
+void drawGithubLogo(AppState *s, float cx, float cy, float size) {
+    Renderer &r = s->renderer;
+    r.circle(cx, cy, size * 0.5f, TEXT, 48);
+    Color ink = rgba(7, 10, 14, 0.96f);
+    if (r.skiaReady()) {
+        SkPaint paint;
+        paint.setAntiAlias(true);
+        paint.setColor(Renderer::skColor(ink));
+        paint.setStyle(SkPaint::kFill_Style);
+
+        SkPathBuilder ears;
+        ears.moveTo(cx - size * 0.23f, cy - size * 0.18f);
+        ears.lineTo(cx - size * 0.30f, cy - size * 0.39f);
+        ears.lineTo(cx - size * 0.08f, cy - size * 0.30f);
+        ears.moveTo(cx + size * 0.23f, cy - size * 0.18f);
+        ears.lineTo(cx + size * 0.30f, cy - size * 0.39f);
+        ears.lineTo(cx + size * 0.08f, cy - size * 0.30f);
+        r.skCanvas->drawPath(ears.close().detach(), paint);
+
+        SkPathBuilder head;
+        head.moveTo(cx - size * 0.29f, cy - size * 0.08f);
+        head.cubicTo(cx - size * 0.29f, cy - size * 0.27f, cx - size * 0.14f, cy - size * 0.37f, cx, cy - size * 0.37f);
+        head.cubicTo(cx + size * 0.14f, cy - size * 0.37f, cx + size * 0.29f, cy - size * 0.27f, cx + size * 0.29f, cy - size * 0.08f);
+        head.cubicTo(cx + size * 0.31f, cy + size * 0.09f, cx + size * 0.22f, cy + size * 0.25f, cx + size * 0.11f, cy + size * 0.30f);
+        head.lineTo(cx + size * 0.09f, cy + size * 0.42f);
+        head.lineTo(cx - size * 0.09f, cy + size * 0.42f);
+        head.lineTo(cx - size * 0.11f, cy + size * 0.30f);
+        head.cubicTo(cx - size * 0.22f, cy + size * 0.25f, cx - size * 0.31f, cy + size * 0.09f, cx - size * 0.29f, cy - size * 0.08f);
+        r.skCanvas->drawPath(head.close().detach(), paint);
+        return;
+    }
+
+    r.tri(cx - size * 0.23f, cy - size * 0.18f, cx - size * 0.30f, cy - size * 0.39f,
+          cx - size * 0.08f, cy - size * 0.30f, ink);
+    r.tri(cx + size * 0.23f, cy - size * 0.18f, cx + size * 0.30f, cy - size * 0.39f,
+          cx + size * 0.08f, cy - size * 0.30f, ink);
+    r.circle(cx, cy - size * 0.06f, size * 0.31f, ink, 32);
+    r.roundedRect(cx - size * 0.09f, cy + size * 0.18f, size * 0.18f, size * 0.22f, size * 0.04f, ink);
+}
+
+void drawAbout(AppState *s) {
+    Renderer &r = s->renderer;
+    float contentTop = safeTop(s) + dp(s, 96);
+    float y = beginScrollContent(s, contentTop);
+    float x = dp(s, 18);
+    float w = r.width - dp(s, 36);
+    float gap = dp(s, 14);
+
+    Rect version{x, y, w, dp(s, 76)};
+    drawGlassPanel(s, version, PANEL);
+    float versionScale = dp(s, 3.15f);
+    drawFittedText(s, std::string("Version ") + APP_VERSION_NAME,
+                   version.x + version.w * 0.5f,
+                   version.y + version.h * 0.5f - versionScale * 4.0f,
+                   version.w - dp(s, 32), versionScale, TEXT, 1, true, 1.6f);
+    y += version.h + gap;
+
+    drawGuideBlock(s, y, "Changelog",
+                   {"- 1.0.7 - 2026-05-14: Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows credits and version history.",
+                    "- 1.0.6 - 2026-05-13: Release builds keep native debug symbols for Play Console crash reports.",
+                    "- 1.0.5 - 2026-05-13: The Math guide explains uniqueness, silent plans, and cross-pattern invertibility."},
+                   BLUE);
+    drawGuideBlock(s, y, "Credits",
+                   {"pportilla - github.com/pportilla"},
+                   GREEN);
+    y += dp(s, 84);
+    finishScrollContent(s, y);
+    drawScreenHeaderChrome(s, contentTop, 12.0f);
+    drawHeader(s, "About", "About", Action::BackReturn);
+
+    float barH = dp(s, 54);
+    float barW = std::min(r.width - dp(s, 36), dp(s, 420));
+    Rect credit{(r.width - barW) * 0.5f, r.height - safeBottom(s) - dp(s, 16) - barH, barW, barH};
+    drawGlassPanel(s, credit, PANEL_2);
+    if (isPressedButton(s, credit, Action::OpenGithub, 0)) drawPressedButtonFeedback(s, credit, dp(s, 8));
+    float logo = dp(s, 24);
+    float textScale = dp(s, 2.55f);
+    float textW = r.textWidth("pportilla", textScale);
+    float groupW = logo + dp(s, 10) + textW;
+    float startX = credit.x + (credit.w - groupW) * 0.5f;
+    drawGithubLogo(s, startX + logo * 0.5f, credit.y + credit.h * 0.5f, logo);
+    r.textHeavy("pportilla", startX + logo + dp(s, 10), credit.y + credit.h * 0.5f - textScale * 4.0f,
+                textScale, TEXT, 0, 0.9f);
+    addButton(s, credit, Action::OpenGithub, 0, true);
 }
 
 std::string formatTime(int total) {
@@ -4553,8 +4994,7 @@ void drawBoard(AppState *s) {
             }
             std::string label;
             if (state > 0) {
-                if (s->hideNumbers && s->colorblind) label = std::string(1, "*+^#"[state - 1]);
-                else if (!s->hideNumbers) label = std::to_string(state);
+                if (!s->hideNumbers) label = std::to_string(state);
             }
             if (!label.empty()) {
                 r.text(label, tile.x + tile.w * 0.5f, tile.y + tile.h * 0.5f - tile.w * 0.13f, std::max(2.0f, tile.w / 24.0f), state ? TEXT : rgba(24, 32, 43), 1);
@@ -4797,6 +5237,7 @@ void render(AppState *s) {
         case Screen::HowTo: drawHowTo(s); break;
         case Screen::Math: drawMath(s); break;
         case Screen::Settings: drawSettings(s); break;
+        case Screen::About: drawAbout(s); break;
         case Screen::Game: drawGame(s); break;
     }
     s->renderer.flush();
@@ -4847,6 +5288,15 @@ void handleAction(AppState *s, const Button &b) {
             s->returnScreen = s->screen;
             go(s, Screen::Settings);
             break;
+        case Action::About:
+            playSound(s, SoundCue::Ui);
+            s->returnScreen = Screen::Settings;
+            go(s, Screen::About);
+            break;
+        case Action::OpenGithub:
+            playSound(s, SoundCue::Ui);
+            openUrl(s, GITHUB_PROFILE_URL);
+            break;
         case Action::DailyChallenge:
             playSound(s, SoundCue::Start);
             startDailyChallenge(s, b.value);
@@ -4858,7 +5308,7 @@ void handleAction(AppState *s, const Button &b) {
         case Action::StartCampaign:
             playSound(s, SoundCue::Start);
             s->lastCampaign = b.value;
-            startGame(s, createCampaignLevel(b.value), "campaign");
+            startGame(s, campaignLevel(s, b.value), "campaign");
             break;
         case Action::Size: {
             playSound(s, SoundCue::Ui);
@@ -4911,14 +5361,6 @@ void handleAction(AppState *s, const Button &b) {
                 s->progress.setInt("setting_vibration", s->vibration ? 1 : 0);
                 if (s->vibration) vibrate(s, 10);
             } else if (b.value == 2) {
-                playSound(s, SoundCue::Ui);
-                s->animations = !s->animations;
-                s->progress.setInt("setting_animations", s->animations ? 1 : 0);
-            } else if (b.value == 3) {
-                playSound(s, SoundCue::Ui);
-                s->colorblind = !s->colorblind;
-                s->progress.setInt("setting_colorblind", s->colorblind ? 1 : 0);
-            } else if (b.value == 4) {
                 playSound(s, SoundCue::Ui);
                 s->hideNumbers = !s->hideNumbers;
                 s->progress.setInt("setting_hide_numbers", s->hideNumbers ? 1 : 0);
@@ -5016,7 +5458,7 @@ void handleAction(AppState *s, const Button &b) {
             if (s->session.mode == "campaign") {
                 int next = std::min(299, s->lastCampaign + 1);
                 s->lastCampaign = next;
-                startGame(s, createCampaignLevel(next), "campaign");
+                startGame(s, campaignLevel(s, next), "campaign");
             } else {
                 startFreeplay(s);
             }
@@ -5089,6 +5531,8 @@ void back(AppState *s) {
         requestExitGame(s);
     } else if (s->screen == Screen::Settings) {
         go(s, s->returnScreen);
+    } else if (s->screen == Screen::About) {
+        go(s, Screen::Settings);
     } else if (s->screen != Screen::Main) {
         go(s, Screen::Main);
     }
@@ -5288,6 +5732,7 @@ extern "C" void android_main(android_app *app) {
     }
     state.progress.load(app->activity->internalDataPath);
     migrateCampaignProgress(state.progress);
+    loadCampaignLevels(&state);
     loadPrefs(&state);
     app->userData = &state;
     app->onAppCmd = handleCmd;

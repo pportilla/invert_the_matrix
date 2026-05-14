@@ -6,6 +6,7 @@ TypeScript source:
 ```sh
 npm install
 npm run build
+npm run generate:campaign
 ```
 
 Source of truth:
@@ -18,3 +19,4 @@ Generated browser output:
 
 - `app.js`
 - `app.js.map`
+- `campaign-levels.json`

@@ -35,8 +35,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type-check and build
-        run: npm run build
+      - name: Type-check, build, and generate campaign data
+        run: |
+          npm run build
+          npm run generate:campaign
 
       - name: Configure Pages
         uses: actions/configure-pages@v6
@@ -45,7 +47,7 @@ jobs:
         run: |
           rm -rf ../dist-pages
           mkdir -p ../dist-pages
-          cp index.html styles.css app.js app.js.map ../dist-pages/
+          cp index.html styles.css app.js app.js.map campaign-levels.json ../dist-pages/
           touch ../dist-pages/.nojekyll
 
       - name: Upload Pages artifact

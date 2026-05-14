@@ -9,6 +9,7 @@ if (keystorePropertiesFile.exists()) {
         keystoreProperties.load(stream)
     }
 }
+def campaignAssetsDir = layout.buildDirectory.dir("generated/assets/campaign")
 
 android {
     namespace "invert_the_matrix.myapp"
@@ -29,6 +30,7 @@ android {
     sourceSets {
         main {
             jniLibs.srcDirs = ["src/main/jniLibs"]
+            assets.srcDirs += [campaignAssetsDir.get().asFile]
         }
     }
 
@@ -88,6 +90,13 @@ def nativeTargets = [
 ]
 
 def nativeTaskNames = []
+
+tasks.register("syncCampaignLevels", Copy) {
+    def campaignSource = rootProject.file("../web-app/campaign-levels.json")
+    inputs.file(campaignSource)
+    from(campaignSource)
+    into(campaignAssetsDir)
+}
 
 nativeTargets.each { target ->
     def skiaOut = skiaRoot.toPath().resolve("out/${target.skiaOutName}").toFile()
@@ -179,7 +188,13 @@ tasks.configureEach {
     }
 }
 
-preBuild.dependsOn(nativeTaskNames)
+tasks.configureEach {
+    if (name.startsWith("merge") && name.endsWith("Assets")) {
+        dependsOn("syncCampaignLevels")
+    }
+}
+
+preBuild.dependsOn("syncCampaignLevels", nativeTaskNames)
 
 dependencies {
     implementation "com.google.android.gms:play-services-games-v2:21.0.0"

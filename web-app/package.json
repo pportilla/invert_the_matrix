@@ -3,7 +3,8 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check": "tsc -p tsconfig.json --noEmit"
+    "check": "tsc -p tsconfig.json --noEmit",
+    "generate:campaign": "node ../scripts/generate-campaign-data.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.3"

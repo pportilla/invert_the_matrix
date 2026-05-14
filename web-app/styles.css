@@ -135,15 +135,6 @@ button {
   animation: gridPhase 18s linear infinite;
 }
 
-body.reduced-motion .ambient-grid,
-body.reduced-motion .ambient-grid::before,
-body.reduced-motion .ambient-grid::after,
-body.reduced-motion .tile,
-body.reduced-motion .brand-mark span {
-  animation: none !important;
-  transition: none !important;
-}
-
 .screen {
   display: none;
   position: relative;
@@ -474,13 +465,15 @@ input:focus-visible {
 }
 
 .settings-mark,
-.back-mark {
+.back-mark,
+.chevron-mark {
   width: 22px;
   height: 22px;
 }
 
 .settings-mark path,
-.back-mark path {
+.back-mark path,
+.chevron-mark path {
   fill: none;
   stroke: currentColor;
   stroke-width: 1.9;
@@ -811,6 +804,128 @@ input:focus-visible {
   width: 48px;
   height: 28px;
   accent-color: var(--green);
+}
+
+.settings-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 52px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(25, 31, 43, 0.74);
+  color: var(--text);
+  font-weight: 720;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-button:hover {
+  border-color: var(--line-strong);
+  background: rgba(31, 39, 54, 0.94);
+}
+
+.settings-button:focus-visible {
+  outline: 3px solid rgba(69, 194, 244, 0.45);
+  outline-offset: 2px;
+}
+
+.settings-button .chevron-mark {
+  color: var(--muted);
+}
+
+#screen-about {
+  padding-bottom: calc(104px + var(--safe-bottom));
+}
+
+.about-panel {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 28px;
+}
+
+.github-credit,
+.about-version-card,
+.about-changelog-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+    var(--panel);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.github-credit {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + var(--safe-bottom));
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: min(calc(100% - 36px), 420px);
+  min-height: 54px;
+  padding: 0 18px;
+  transform: translateX(-50%);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 820;
+}
+
+.github-credit:hover {
+  border-color: var(--line-strong);
+  background: rgba(31, 39, 54, 0.94);
+}
+
+.github-logo {
+  width: 24px;
+  height: 24px;
+  color: var(--text);
+}
+
+.github-logo path {
+  fill: currentColor;
+}
+
+.github-credit strong,
+.about-version-card strong {
+  display: block;
+}
+
+.about-changelog {
+  color: var(--muted);
+}
+
+.about-version-card,
+.about-changelog-card {
+  padding: 16px;
+}
+
+.about-version-card {
+  display: grid;
+  place-items: center start;
+  min-height: 74px;
+}
+
+.about-version-card strong {
+  color: var(--text);
+  font-size: 1.42rem;
+  line-height: 1.12;
+}
+
+.about-changelog-card h3 {
+  margin-bottom: 12px;
+}
+
+.about-changelog {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 1.1rem;
+  line-height: 1.45;
 }
 
 .status-strip {
@@ -1200,13 +1315,7 @@ body.hide-numbers .tile::after {
   opacity: 0;
 }
 
-body.hide-numbers.colorblind .tile::after {
-  content: attr(data-symbol);
-  opacity: 0.92;
-}
-
-.tile.solution::after,
-body.hide-numbers.colorblind .tile.solution::after {
+.tile.solution::after {
   content: attr(data-solution);
   color: #111411;
   opacity: 0.92;

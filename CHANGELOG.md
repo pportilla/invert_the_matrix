@@ -1,6 +1,22 @@
-# Android Changelog
+# Changelog
 
-Summarized release notes for the Android app.
+Summarized release notes for Invert the Matrix.
+
+## 1.0.7 - 2026-05-14
+
+Version code: 9
+
+- Settings now hide platform-specific controls: the web app no longer shows
+  vibration, and both apps no longer show animation or colorblind-symbol
+  toggles.
+- Added an About screen with pportilla GitHub credit, the current version, and
+  version history.
+
+## Android 1.0.6 - 2026-05-13
+
+Version code: 8
+
+- Release bundles keep uploadable native symbols for Play Console crash reports.
 
 ## Android 1.0.5 - 2026-05-13
 
