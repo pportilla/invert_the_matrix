@@ -112,16 +112,19 @@ Color withAlpha(Color c, float a) {
     return c;
 }
 
-const Color BG = rgba(11, 13, 19);
-const Color PANEL = rgba(22, 26, 35, 0.94f);
-const Color PANEL_2 = rgba(31, 39, 52, 0.96f);
-const Color TEXT = rgba(255, 248, 239);
-const Color MUTED = rgba(170, 179, 192);
-const Color BLUE = rgba(69, 194, 244);
-const Color ORANGE = rgba(255, 180, 90);
-const Color PURPLE = rgba(181, 140, 255);
-const Color GREEN = rgba(95, 225, 170);
-const Color DANGER = rgba(255, 111, 130);
+const Color BG = rgba(12, 17, 24);
+const Color PANEL = rgba(21, 27, 36, 0.96f);
+const Color PANEL_2 = rgba(27, 35, 48, 0.96f);
+const Color LINE = rgba(190, 203, 220, 0.18f);
+const Color LINE_STRONG = rgba(190, 203, 220, 0.32f);
+const Color TEXT = rgba(244, 247, 251);
+const Color MUTED = rgba(162, 173, 186);
+const Color MUTED_STRONG = rgba(192, 202, 214);
+const Color BLUE = rgba(88, 184, 232);
+const Color ORANGE = rgba(220, 164, 88);
+const Color PURPLE = rgba(165, 140, 229);
+const Color GREEN = rgba(99, 212, 157);
+const Color DANGER = rgba(229, 111, 126);
 constexpr int64_t HINT_COOLDOWN_MS = 500;
 constexpr int64_t HINT_COMPLETION_DELAY_MS = 500;
 constexpr int EXACT_BFS_STATE_LIMIT = 500000;
@@ -224,6 +227,7 @@ struct Renderer {
             LOGE("Unable to eglMakeCurrent");
             return false;
         }
+        eglSwapInterval(display, 1);
         eglQuerySurface(display, surface, EGL_WIDTH, &width);
         eglQuerySurface(display, surface, EGL_HEIGHT, &height);
         initGl();
@@ -1207,8 +1211,10 @@ float difficultyRatio(const std::string &difficulty) {
 int rateDifficulty(const Puzzle &p, int minMoves) {
     std::set<std::string> specials;
     for (auto &entry : p.tilePatterns) specials.insert(entry.second);
-    float score = activeIndexes(p).size() * 0.4f + p.states * 2.0f + p.locked.size() * 1.5f + specials.size() * 2.0f + minMoves * 1.2f;
-    if (score < 18) return 0;
+    float stateWeight = p.states <= 2 ? 0.0f : p.states == 3 ? 12.0f : p.states == 4 ? 16.0f : 21.0f;
+    float score = activeIndexes(p).size() * 0.34f + stateWeight + p.locked.size() * 1.4f +
+                  p.disabled.size() * 1.2f + specials.size() * 2.2f + minMoves * 1.15f;
+    if (score < 17) return 0;
     if (score < 30) return 1;
     if (score < 45) return 2;
     return 3;
@@ -1514,8 +1520,9 @@ int scrambleCount(const std::string &difficulty, int activeCount, int states, Rn
     if (difficulty == "Easy") base = 0.32f;
     if (difficulty == "Hard") base = 0.88f;
     if (difficulty == "Expert") base = 1.18f;
+    base = std::max(0.22f, base - static_cast<float>(std::max(0, states - 2)) * 0.06f);
     int jitter = randomInt(0, std::max(2, static_cast<int>(std::floor(activeCount * 0.18f))), rng);
-    return std::max(2, static_cast<int>(std::floor(activeCount * base)) + states - 1 + jitter);
+    return std::max(2, static_cast<int>(std::floor(activeCount * base)) + (states == 2 ? 1 : 0) + jitter);
 }
 
 Puzzle makePuzzleFromShell(Puzzle p, const Config &config, const std::string &id, const std::string &name, int campaignIndex, int chapter, Rng &rng, int scrambleLength) {
@@ -1558,60 +1565,221 @@ Puzzle makePuzzleFromShell(Puzzle p, const Config &config, const std::string &id
 }
 
 std::array<std::string, 30> chapterTitles = {
-        "Spark Switches", "Bit Flip Boulevard", "Color Pop Lab", "Triple-Tap Tango", "Corner Carnival",
-        "Five by Fun", "Diagonal Disco", "Tiny Tangles", "Line Dance", "Square Wave Rave",
-        "Lockstep Launch", "Mind the Gaps", "Circuit Jam", "Color Cascade", "Knight Shift",
-        "Zigzag Frames", "Six-Sided Shuffle", "Amber Afterburners", "Purple Pulse Party", "Four-State Frenzy",
-        "Dense Detours", "Glyph Mix-Up", "Locked and Loaded", "Wide Awake", "Prime Time",
-        "Lock Labyrinth", "Gap Galaxy", "Modular Mayhem", "Ninefold Knockout", "Final Flip"
+        "Binary Beginnings", "Fourfold Flips", "Locked Lights", "Lockstep Squares", "First Holes",
+        "Binary Breakaways", "Fivefold Binary", "Three-Color Start", "Triple Grid", "Triple Locks",
+        "Triple Holes", "Triple Combine", "Pattern Primer", "Pattern Locks", "Color Gauntlet",
+        "Four-State Start", "Four-State Locks", "Four-State Gaps", "Four-State Patterns", "Four-State Matrix",
+        "Five-State Start", "Five-State Locks", "Five-State Gaps", "Five-State Patterns", "Dense Dimensions",
+        "Prime Pressure", "Modular Maze", "Wide Matrix", "Endgame Circuit", "Final Inversion"
 };
+
+int campaignOptionAt(const std::vector<int> &options, int level) {
+    return options[static_cast<size_t>((level - 1) % static_cast<int>(options.size()))];
+}
+
+std::string campaignOptionAt(const std::vector<std::string> &options, int level) {
+    return options[static_cast<size_t>((level - 1) % static_cast<int>(options.size()))];
+}
+
+std::string campaignPatternForChapter(int chapter, int level) {
+    if (chapter <= 12) return "cross";
+    if (chapter == 13) return campaignOptionAt(std::vector<std::string>{"diagonal", "horizontal", "vertical"}, level);
+    if (chapter == 14) return level % 4 == 0 ? "square" : (level % 2 ? "diagonal" : "cross");
+    if (chapter == 15) return level % 3 == 0 ? "randomMixed" : campaignOptionAt(std::vector<std::string>{"cross", "diagonal", "square", "horizontal", "vertical"}, level);
+    if (chapter <= 18) return "cross";
+    if (chapter == 19) return campaignOptionAt(std::vector<std::string>{"horizontal", "vertical", "square", "diagonal"}, level);
+    if (chapter == 20) return level % 2 ? "randomMixed" : campaignOptionAt(std::vector<std::string>{"cross", "diagonal", "square"}, level);
+    if (chapter <= 23) return "cross";
+    if (chapter == 24) return level % 2 ? "randomMixed" : campaignOptionAt(std::vector<std::string>{"diagonal", "horizontal", "vertical", "square"}, level);
+    return level % 3 == 0 ? "randomMixed" : campaignOptionAt(std::vector<std::string>{"cross", "diagonal", "square", "horizontal", "vertical", "knight"}, level);
+}
+
+int campaignMinimumKnownMoves(int width, int height, int states, bool locked, bool irregular,
+                              const std::string &pattern, const std::string &difficulty,
+                              int chapter, int level) {
+    float featurePressure = (locked ? 0.45f : 0.0f) + (irregular ? 0.65f : 0.0f) +
+                            (pattern != "cross" ? 0.45f : 0.0f) + (pattern == "randomMixed" ? 0.7f : 0.0f);
+    float statePressure = static_cast<float>(std::max(0, states - 2)) * 0.75f + (states >= 5 ? 0.4f : 0.0f);
+    float sizePressure = static_cast<float>(width * height - 9) * 0.025f;
+    float chapterPressure = static_cast<float>(std::max(0, chapter - 1)) * 0.055f;
+    float levelPressure = static_cast<float>(level - 1) * 0.13f;
+    int floorByDifficulty = difficulty == "Expert" ? 5 : difficulty == "Hard" ? 4 : difficulty == "Medium" ? 3 : 2;
+    int measured = static_cast<int>(std::floor(1.55f + featurePressure + statePressure + sizePressure + chapterPressure + levelPressure));
+    return std::max(floorByDifficulty, std::min(12, measured));
+}
+
+int campaignPreferredKnownMoves(int minimumKnownMoves, int width, int states, bool locked,
+                                bool irregular, const std::string &pattern, int level) {
+    int spread = 1 + (level - 1) / 3;
+    if (width >= 5) spread += 1;
+    if (locked && irregular) spread += 1;
+    if (states >= 4) spread += 1;
+    if (pattern == "randomMixed") spread += 1;
+    return std::min(18, minimumKnownMoves + spread);
+}
 
 Config campaignConfig(int chapter, int level) {
     Config c;
-    int size = 5;
-    if (chapter == 1) size = 3;
-    else if (chapter == 2) size = 4;
-    else if (chapter == 3) size = 3;
-    else if (chapter == 4) size = 4;
-    else if (chapter <= 6) size = 5;
-    else if (chapter <= 8) size = level <= 5 ? 4 : 5;
-    else if (chapter <= 10) size = 5;
-    else if (chapter <= 18) size = 6;
-    else if (chapter <= 25) size = 7;
-    else if (chapter <= 28) size = 8;
-    else size = 9;
+    std::vector<int> sizes = {5};
+    c.states = 2;
+    c.difficulty = "Easy";
+    c.locked = false;
+    c.irregular = false;
+
+    if (chapter == 1) {
+        sizes = {3};
+    } else if (chapter == 2) {
+        sizes = {4};
+    } else if (chapter == 3) {
+        sizes = {3};
+        c.locked = true;
+    } else if (chapter == 4) {
+        sizes = {4};
+        c.locked = true;
+        c.difficulty = "Medium";
+    } else if (chapter == 5) {
+        sizes = {3, 4};
+        c.irregular = true;
+        c.difficulty = "Medium";
+    } else if (chapter == 6) {
+        sizes = {3, 4};
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Medium";
+    } else if (chapter == 7) {
+        sizes = {5};
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Hard";
+    } else if (chapter == 8) {
+        sizes = {3};
+        c.states = 3;
+    } else if (chapter == 9) {
+        sizes = {4};
+        c.states = 3;
+        c.difficulty = "Medium";
+    } else if (chapter == 10) {
+        sizes = {3};
+        c.states = 3;
+        c.locked = true;
+        c.difficulty = "Medium";
+    } else if (chapter == 11) {
+        sizes = {3, 4};
+        c.states = 3;
+        c.irregular = true;
+        c.difficulty = "Medium";
+    } else if (chapter == 12) {
+        sizes = {3, 4};
+        c.states = 3;
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Hard";
+    } else if (chapter == 13) {
+        sizes = {4};
+        c.states = 3;
+        c.difficulty = "Hard";
+    } else if (chapter == 14) {
+        sizes = {4, 5};
+        c.states = 3;
+        c.locked = true;
+        c.difficulty = "Hard";
+    } else if (chapter == 15) {
+        sizes = {5, 6};
+        c.states = 3;
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Hard";
+    } else if (chapter == 16) {
+        sizes = {3};
+        c.states = 4;
+        c.difficulty = "Medium";
+    } else if (chapter == 17) {
+        sizes = {4};
+        c.states = 4;
+        c.locked = true;
+        c.difficulty = "Hard";
+    } else if (chapter == 18) {
+        sizes = {4, 5};
+        c.states = 4;
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Hard";
+    } else if (chapter == 19) {
+        sizes = {5};
+        c.states = 4;
+        c.difficulty = "Hard";
+    } else if (chapter == 20) {
+        sizes = {5, 6};
+        c.states = 4;
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Expert";
+    } else if (chapter == 21) {
+        sizes = {3};
+        c.states = 5;
+        c.difficulty = "Hard";
+    } else if (chapter == 22) {
+        sizes = {4};
+        c.states = 5;
+        c.locked = true;
+        c.difficulty = "Hard";
+    } else if (chapter == 23) {
+        sizes = {4, 5};
+        c.states = 5;
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Expert";
+    } else if (chapter == 24) {
+        sizes = {5, 6};
+        c.states = 5;
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Expert";
+    } else if (chapter == 25) {
+        sizes = {6, 7};
+        c.states = 3;
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Expert";
+    } else if (chapter == 26) {
+        sizes = {6, 7};
+        c.states = 4;
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Expert";
+    } else if (chapter == 27) {
+        sizes = {5, 6, 7};
+        c.states = 5;
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Expert";
+    } else if (chapter == 28) {
+        sizes = {7, 8};
+        c.states = campaignOptionAt(std::vector<int>{3, 4, 5, 3, 4, 5, 4, 5, 3, 5}, level);
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Expert";
+    } else if (chapter == 29) {
+        sizes = {8, 9};
+        c.states = campaignOptionAt(std::vector<int>{4, 5, 3, 4, 5, 3, 5, 4, 5, 5}, level);
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Expert";
+    } else {
+        sizes = {9};
+        c.states = campaignOptionAt(std::vector<int>{3, 4, 5, 4, 5, 5, 4, 5, 5, 5}, level);
+        c.locked = true;
+        c.irregular = true;
+        c.difficulty = "Expert";
+    }
+
+    int size = campaignOptionAt(sizes, level);
     c.width = size;
     c.height = size;
-    if (chapter >= 9 && level % 5 == 0 && c.width < 9) c.width++;
-    if (chapter >= 13 && level % 7 == 0 && c.height < 9) c.height++;
-
-    if (chapter <= 2) c.states = 2;
-    else if (chapter <= 4) c.states = 3;
-    else if (chapter == 5) c.states = 2;
-    else if (chapter <= 15) c.states = 3;
-    else if (chapter <= 20) c.states = level % 3 == 0 ? 4 : 3;
-    else if (chapter <= 24) c.states = level % 2 == 0 ? 5 : 3;
-    else if (chapter <= 26) c.states = level % 3 == 0 ? 4 : 5;
-    else c.states = level % 4 == 0 ? 4 : 5;
-
-    c.pattern = "cross";
-    if (chapter >= 7 && chapter <= 8) c.pattern = level % 2 ? "diagonal" : "cross";
-    if (chapter >= 9 && chapter <= 10) c.pattern = level % 2 ? "horizontal" : "vertical";
-    if (chapter >= 11 && chapter <= 13) c.pattern = level % 3 == 0 ? "square" : "cross";
-    if (chapter >= 14 && chapter <= 16) c.pattern = level % 4 == 0 ? "knight" : "diagonal";
-    if (chapter >= 17) {
-        std::vector<std::string> keys = {"cross", "diagonal", "square", "horizontal", "vertical", "knight"};
-        c.pattern = level % 3 == 0 ? "randomMixed" : keys[level % keys.size()];
-    }
-    if (chapter >= 22) c.pattern = level % 2 ? "randomMixed" : c.pattern;
-    c.difficulty = chapter <= 6 ? "Easy" : chapter <= 14 ? "Medium" : chapter <= 23 ? "Hard" : "Expert";
-    c.locked = chapter >= 11 && level % 2 == 0;
-    c.irregular = chapter >= 12 && level % 3 == 0;
+    c.pattern = campaignPatternForChapter(chapter, level);
     c.unique = false;
-    float sizePressure = static_cast<float>(c.width * c.height - 9) * 0.035f;
-    float statePressure = static_cast<float>(c.states - 2) * 0.65f;
-    c.minimumKnownMoves = std::max(2, static_cast<int>(std::floor(1.4f + chapter * 0.22f + level * 0.16f + sizePressure + statePressure)));
-    c.preferredKnownMoves = c.minimumKnownMoves + chapter / 6 + (level > 6 ? 1 : 0) + (c.states > 3 ? 1 : 0);
+    c.minimumKnownMoves = campaignMinimumKnownMoves(c.width, c.height, c.states, c.locked, c.irregular, c.pattern, c.difficulty, chapter, level);
+    c.preferredKnownMoves = campaignPreferredKnownMoves(c.minimumKnownMoves, c.width, c.states, c.locked, c.irregular, c.pattern, level);
     return c;
 }
 
@@ -1623,9 +1791,11 @@ Puzzle createCampaignLevel(int index) {
         Rng rng("campaign-" + std::to_string(chapter) + "-" + std::to_string(level) + "-" + std::to_string(attempt));
         Puzzle shell = generatedShell(c, rng);
         int active = static_cast<int>(activeIndexes(shell).size());
-        float ratio = 0.18f + chapter * 0.018f;
-        int base = static_cast<int>(std::floor(active * std::min(0.78f, ratio)));
-        int scramble = std::max(c.preferredKnownMoves, base + c.states - 1 + static_cast<int>(std::floor(level * 0.7f)) + randomInt(0, std::max(1, static_cast<int>(std::floor(active * 0.08f))), rng));
+        float ratio = std::max(0.14f, std::min(0.64f, 0.16f + chapter * 0.012f - static_cast<float>(std::max(0, c.states - 2)) * 0.018f));
+        int base = static_cast<int>(std::floor(active * ratio));
+        int featureBonus = (c.locked ? 1 : 0) + (c.irregular ? 1 : 0) + (c.pattern != "cross" ? 1 : 0) + (c.pattern == "randomMixed" ? 1 : 0);
+        int stateBonus = c.states == 2 ? 1 : 0;
+        int scramble = std::max(c.preferredKnownMoves, base + stateBonus + featureBonus + static_cast<int>(std::floor(level * 0.38f)) + randomInt(0, std::max(1, static_cast<int>(std::floor(active * 0.06f))), rng));
         Puzzle p = makePuzzleFromShell(shell, c, "c" + std::to_string(chapter) + "-" + std::to_string(level), chapterTitles[chapter - 1] + " " + std::to_string(level), index, chapter, rng, scramble);
         if (!solved(p, p.initial) && p.scrambleMoves >= c.minimumKnownMoves && solutionSolves(p, p.initial, p.solution)) return p;
     }
@@ -1666,15 +1836,16 @@ Config dailyConfig(int tier, const std::string &date) {
     } else if (tier == 1) {
         c.width = 5;
         c.height = 5;
-        c.states = 3;
+        c.states = 2;
         c.pattern = "cross";
         c.difficulty = "Medium";
         c.locked = true;
+        c.irregular = true;
     } else {
-        c.width = 6;
-        c.height = 6;
-        c.states = 4;
-        c.pattern = "randomMixed";
+        c.width = 4;
+        c.height = 4;
+        c.states = 3;
+        c.pattern = "cross";
         c.difficulty = "Hard";
         c.locked = true;
         c.irregular = true;
@@ -1796,7 +1967,7 @@ struct Progress {
     }
 };
 
-constexpr int CAMPAIGN_PROGRESS_VERSION = 3;
+constexpr int CAMPAIGN_PROGRESS_VERSION = 4;
 
 void migrateCampaignProgress(Progress &progress) {
     if (progress.getInt("campaign_version", 0) == CAMPAIGN_PROGRESS_VERSION) return;
@@ -2039,8 +2210,17 @@ struct AppState {
     float downX = 0.0f;
     float downY = 0.0f;
     float startScroll = 0.0f;
+    float lastTouchY = 0.0f;
+    float scrollVelocity = 0.0f;
     bool dragging = false;
     int64_t downTime = 0;
+    int64_t lastTouchTime = 0;
+    int64_t lastScrollFrameTime = 0;
+    Rect pressedButtonRect{};
+    Action pressedButtonAction = Action::Main;
+    int pressedButtonValue = 0;
+    bool hasPressedButton = false;
+    int64_t pressedButtonUntil = 0;
 
     std::string freeSize = "5x5";
     int customW = 5;
@@ -2082,6 +2262,30 @@ float dp(AppState *s, float v) { return v * s->density; }
 float safeTop(AppState *s) { return dp(s, 70); }
 float safeBottom(AppState *s) { return dp(s, 30); }
 
+bool scrollable(Screen screen) {
+    return screen == Screen::Campaign || screen == Screen::Freeplay || screen == Screen::HowTo ||
+           screen == Screen::Daily || screen == Screen::Math || screen == Screen::Settings;
+}
+
+float maxScrollOffset(AppState *s) {
+    return std::max(0.0f, s->contentHeight - s->renderer.height + safeBottom(s));
+}
+
+float clampScrollOffset(AppState *s, float value) {
+    float maxScroll = maxScrollOffset(s);
+    return std::max(0.0f, std::min(maxScroll, value));
+}
+
+void stopScrollMomentum(AppState *s) {
+    s->scrollVelocity = 0.0f;
+    s->lastScrollFrameTime = 0;
+}
+
+bool nearViewport(AppState *s, Rect rect, float marginDp = 72.0f) {
+    float margin = dp(s, marginDp);
+    return rect.y < s->renderer.height + margin && rect.y + rect.h > -margin;
+}
+
 bool readAssetBytes(AppState *s, const char *path, std::vector<unsigned char> &out) {
     if (!s || !s->native || !s->native->activity || !s->native->activity->assetManager) return false;
     AAsset *asset = AAssetManager_open(s->native->activity->assetManager, path, AASSET_MODE_BUFFER);
@@ -2106,7 +2310,6 @@ bool readAssetBytes(AppState *s, const char *path, std::vector<unsigned char> &o
     return true;
 }
 
-Color stateColor(int state);
 Color stateTopColor(int state);
 Color stateBottomColor(int state);
 Color stateBorderColor(int state);
@@ -2274,9 +2477,13 @@ void playGamesShowLeaderboard(AppState *s, int leaderboard) {
 void go(AppState *s, Screen screen) {
     s->screen = screen;
     s->scroll = 0.0f;
+    s->contentHeight = 0.0f;
+    stopScrollMomentum(s);
     s->completion = false;
     s->dailyExitConfirm = false;
     s->hintCompletionDueAt = 0;
+    s->hasPressedButton = false;
+    s->pressedButtonUntil = 0;
 }
 
 void startGame(AppState *s, const Puzzle &p, const std::string &mode) {
@@ -2468,10 +2675,9 @@ void drawStars(AppState *s, float x, float y, float size, int filled, int total 
         float cx = x + size * 0.5f + i * step;
         float cy = y + size * 0.5f;
         bool on = i < filled;
-        if (on) r.softAura(cx, cy, size * 0.62f, rgba(255, 180, 90, 0.18f * alpha), 4);
         r.star(cx, cy, size * 0.48f, size * 0.22f,
-               on ? rgba(255, 180, 90, 0.96f * alpha) : rgba(255, 180, 90, 0.080f * alpha),
-               on ? rgba(255, 225, 176, 0.42f * alpha) : rgba(255, 180, 90, 0.34f * alpha),
+               on ? withAlpha(ORANGE, 0.96f * alpha) : withAlpha(ORANGE, 0.080f * alpha),
+               on ? rgba(248, 205, 137, 0.42f * alpha) : withAlpha(ORANGE, 0.34f * alpha),
                std::max(1.0f, size * 0.055f));
     }
 }
@@ -2486,7 +2692,6 @@ void drawCheckMark(AppState *s, float cx, float cy, float size, Color color = GR
 void drawHintEye(AppState *s, float cx, float cy, float size, Color color = DANGER) {
     Renderer &r = s->renderer;
     float stroke = std::max(1.1f, size * 0.12f);
-    r.softAura(cx, cy, size * 0.95f, withAlpha(color, 0.16f), 4);
     r.line(cx - size * 0.58f, cy, cx - size * 0.24f, cy - size * 0.26f, stroke, color);
     r.line(cx - size * 0.24f, cy - size * 0.26f, cx + size * 0.24f, cy - size * 0.26f, stroke, color);
     r.line(cx + size * 0.24f, cy - size * 0.26f, cx + size * 0.58f, cy, stroke, color);
@@ -2500,31 +2705,77 @@ void addButton(AppState *s, Rect r, Action action, int value, bool enabled = tru
     s->buttons.push_back({r, action, value, enabled});
 }
 
-void drawPanel(Renderer &r, Rect rect, Color fill = PANEL) {
-    float radius = std::min(rect.h * 0.18f, 18.0f);
-    r.glow(rect, radius * 0.9f, rgba(69, 194, 244, 0.08f), 6);
-    r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, rgba(229, 236, 245, 0.16f));
-    r.roundedRect(rect.x + 1.0f, rect.y + 1.0f, rect.w - 2.0f, rect.h - 2.0f, std::max(0.0f, radius - 1.0f), fill);
-    r.rect(rect.x + 2.0f, rect.y + 2.0f, rect.w - 4.0f, std::max(1.0f, rect.h * 0.018f), rgba(255, 255, 255, 0.12f));
+bool sameRect(Rect a, Rect b) {
+    return std::fabs(a.x - b.x) < 1.0f &&
+           std::fabs(a.y - b.y) < 1.0f &&
+           std::fabs(a.w - b.w) < 1.0f &&
+           std::fabs(a.h - b.h) < 1.0f;
 }
 
-void drawGlassPanel(AppState *s, Rect rect, Color fill = PANEL, Color accent = rgba(69, 194, 244, 0.0f)) {
+bool pressedButtonActive(AppState *s) {
+    return s && s->hasPressedButton &&
+           (s->pressedButtonUntil <= 0 || nowMs() < s->pressedButtonUntil);
+}
+
+bool isPressedButton(AppState *s, Rect rect, Action action, int value = 0) {
+    return pressedButtonActive(s) &&
+           s->pressedButtonAction == action &&
+           s->pressedButtonValue == value &&
+           sameRect(s->pressedButtonRect, rect);
+}
+
+void rememberPressedButton(AppState *s, const Button &button, int64_t until = 0) {
+    if (!s || !button.enabled) return;
+    s->pressedButtonRect = button.rect;
+    s->pressedButtonAction = button.action;
+    s->pressedButtonValue = button.value;
+    s->hasPressedButton = true;
+    s->pressedButtonUntil = until;
+}
+
+void clearPressedButton(AppState *s) {
+    if (!s) return;
+    s->hasPressedButton = false;
+    s->pressedButtonUntil = 0;
+}
+
+void drawPressedButtonFeedback(AppState *s, Rect rect, float radius, bool primary = false) {
     Renderer &r = s->renderer;
-    float radius = std::min(dp(s, 8), rect.h * 0.22f);
-    r.roundedRect(rect.x + 0.8f, rect.y + dp(s, 1.0f), rect.w, rect.h, radius, rgba(0, 0, 0, 0.12f));
-    r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, rgba(229, 236, 245, 0.17f));
+    float inset = dp(s, 2.0f);
+    Color overlay = primary ? rgba(7, 19, 15, 0.075f) : rgba(244, 247, 251, 0.060f);
+    Color stroke = primary ? rgba(7, 19, 15, 0.18f) : withAlpha(BLUE, 0.24f);
+    r.roundedRect(rect.x + inset, rect.y + inset, rect.w - inset * 2.0f, rect.h - inset * 2.0f,
+                  std::max(1.0f, radius - inset), overlay);
+    r.roundedStroke({rect.x + 1.0f, rect.y + 1.0f, rect.w - 2.0f, rect.h - 2.0f},
+                    std::max(1.0f, radius - 1.0f), std::max(1.0f, dp(s, 1.1f)), stroke);
+}
+
+bool findButtonAt(AppState *s, float x, float y, Button *out = nullptr) {
+    if (!s) return false;
+    for (int i = static_cast<int>(s->buttons.size()) - 1; i >= 0; --i) {
+        const Button &button = s->buttons[static_cast<size_t>(i)];
+        if (button.enabled && button.rect.contains(x, y)) {
+            if (out) *out = button;
+            return true;
+        }
+    }
+    return false;
+}
+
+void drawPanel(Renderer &r, Rect rect, Color fill = PANEL) {
+    float radius = std::min(rect.h * 0.16f, 8.0f);
+    r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, LINE);
+    r.roundedRect(rect.x + 1.0f, rect.y + 1.0f, rect.w - 2.0f, rect.h - 2.0f,
+                  std::max(0.0f, radius - 1.0f), fill);
+}
+
+void drawGlassPanel(AppState *s, Rect rect, Color fill = PANEL, Color accent = rgba(88, 184, 232, 0.0f)) {
+    Renderer &r = s->renderer;
+    float radius = std::min(dp(s, 8), rect.h * 0.18f);
+    r.roundedRect(rect.x, rect.y + dp(s, 0.8f), rect.w, rect.h, radius, rgba(0, 0, 0, 0.10f));
+    r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, LINE);
     r.roundedRect(rect.x + 1.0f, rect.y + 1.0f, rect.w - 2.0f, rect.h - 2.0f,
                   std::max(1.0f, radius - 1.0f), fill);
-    r.roundedRectGradient(rect.x + 1.0f, rect.y + 1.0f, rect.w - 2.0f, rect.h - 2.0f,
-                          std::max(1.0f, radius - 1.0f),
-                          rgba(255, 255, 255, 0.045f),
-                          rgba(255, 255, 255, 0.006f));
-    r.rect(rect.x + radius * 0.72f, rect.y + 1.5f,
-           std::max(1.0f, rect.w - radius * 1.44f), 1.0f, rgba(255, 255, 255, 0.085f));
-    if (accent.a > 0.0f) {
-        r.rectGradient(rect.x + 1.0f, rect.y + 1.0f, rect.w - 2.0f, rect.h * 0.50f,
-                       accent, rgba(accent.r, accent.g, accent.b, 0.0f));
-    }
 }
 
 void drawFittedText(AppState *s, const std::string &text, float x, float y, float maxWidth,
@@ -2566,47 +2817,66 @@ std::vector<std::string> wrapTextLines(AppState *s, const std::vector<std::strin
     return lines;
 }
 
+struct WrappedGuideLine {
+    std::string text;
+    bool bullet;
+    bool indent;
+};
+
+std::vector<WrappedGuideLine> wrapGuideLines(AppState *s, const std::vector<std::string> &text,
+                                             float scale, float maxWidth, float bulletIndent) {
+    std::vector<WrappedGuideLine> lines;
+    for (const std::string &line : text) {
+        bool bullet = line.rfind("- ", 0) == 0;
+        std::string copy = bullet ? line.substr(2) : line;
+        float textW = bullet ? std::max(1.0f, maxWidth - bulletIndent) : maxWidth;
+        std::vector<std::string> wrapped = wrapTextLines(s, copy, scale, textW);
+        for (size_t i = 0; i < wrapped.size(); ++i) {
+            lines.push_back({wrapped[i], bullet && i == 0, bullet});
+        }
+    }
+    return lines;
+}
+
 void drawButton(AppState *s, Rect rect, const std::string &label, Action action, int value = 0, bool primary = false, bool selected = false, bool enabled = true, float textScaleBoost = 1.0f) {
     Renderer &r = s->renderer;
-    float radius = std::min(dp(s, 8), rect.h * 0.5f);
-    Color border = selected ? GREEN : rgba(229, 236, 245, enabled ? 0.24f : 0.08f);
-    Color fill = primary ? rgba(28, 92, 74, enabled ? 0.98f : 0.45f) : rgba(24, 31, 43, enabled ? 0.96f : 0.42f);
-    if (selected) fill = rgba(35, 74, 96, 0.98f);
-    if (primary || selected) r.glow(rect, radius * 1.1f, primary ? rgba(95, 225, 170, 0.18f) : rgba(69, 194, 244, 0.16f), 8);
+    float radius = std::min(dp(s, 8), rect.h * 0.22f);
+    Color border = selected ? withAlpha(BLUE, enabled ? 0.68f : 0.18f) : (enabled ? LINE : rgba(190, 203, 220, 0.08f));
+    Color fill = primary ? (enabled ? GREEN : rgba(50, 84, 67, 0.48f)) : (enabled ? PANEL_2 : rgba(21, 27, 36, 0.42f));
+    if (selected) fill = rgba(34, 66, 86, enabled ? 0.82f : 0.36f);
     r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, border);
     r.roundedRect(rect.x + 1.5f, rect.y + 1.5f, rect.w - 3.0f, rect.h - 3.0f, std::max(0.0f, radius - 1.5f), fill);
-    r.rect(rect.x + radius * 0.65f, rect.y + 2.0f, std::max(1.0f, rect.w - radius * 1.3f), 1.5f, rgba(255, 255, 255, enabled ? 0.13f : 0.04f));
+    if (enabled && isPressedButton(s, rect, action, value)) drawPressedButtonFeedback(s, rect, radius, primary);
     float scale = std::max(2.0f, rect.h / 18.0f) * textScaleBoost;
     while (r.textWidth(label, scale) > rect.w - dp(s, 14) && scale > 1.35f) {
         scale *= 0.92f;
     }
-    r.textHeavy(label, rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f - 4.0f * scale, scale, enabled ? TEXT : withAlpha(MUTED, 0.45f), 1, 0.9f);
+    Color text = primary ? rgba(7, 19, 15, enabled ? 1.0f : 0.50f) : (enabled ? TEXT : withAlpha(MUTED, 0.45f));
+    r.textHeavy(label, rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f - 4.0f * scale, scale, text, 1, 0.9f);
     addButton(s, rect, action, value, enabled);
 }
 
 void drawIconShell(AppState *s, Rect rect, Action action, int value = 0, bool enabled = true) {
     Renderer &r = s->renderer;
-    float radius = std::min(rect.h * 0.22f, 14.0f);
-    r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, rgba(229, 236, 245, enabled ? 0.18f : 0.07f));
-    r.roundedRect(rect.x + 1.2f, rect.y + 1.2f, rect.w - 2.4f, rect.h - 2.4f, std::max(0.0f, radius - 1.2f), rgba(21, 27, 38, enabled ? 0.86f : 0.42f));
-    r.rect(rect.x + radius * 0.55f, rect.y + 2.0f, std::max(1.0f, rect.w - radius * 1.1f), 1.25f, rgba(255, 255, 255, enabled ? 0.11f : 0.04f));
+    float radius = std::min(rect.h * 0.20f, dp(s, 8));
+    r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, enabled ? LINE : rgba(190, 203, 220, 0.07f));
+    r.roundedRect(rect.x + 1.2f, rect.y + 1.2f, rect.w - 2.4f, rect.h - 2.4f,
+                  std::max(0.0f, radius - 1.2f), rgba(21, 27, 36, enabled ? 0.96f : 0.42f));
+    if (enabled && isPressedButton(s, rect, action, value)) drawPressedButtonFeedback(s, rect, radius);
     addButton(s, rect, action, value, enabled);
 }
 
 void drawToolIconShell(AppState *s, Rect rect, Action action, bool enabled = true,
-                       Color accent = rgba(69, 194, 244, 0.0f)) {
+                       Color accent = rgba(88, 184, 232, 0.0f)) {
     Renderer &r = s->renderer;
-    float radius = std::min(dp(s, 8), rect.h * 0.24f);
+    float radius = std::min(dp(s, 8), rect.h * 0.22f);
     bool hasAccent = accent.a > 0.0f;
-    Color border = hasAccent ? withAlpha(accent, enabled ? 0.42f : 0.14f) : rgba(229, 236, 245, enabled ? 0.22f : 0.07f);
-    Color fill = hasAccent ? rgba(42, 21, 30, enabled ? 0.90f : 0.36f) : rgba(24, 31, 43, enabled ? 0.94f : 0.38f);
-    if (hasAccent && enabled) r.glow(rect, radius * 1.0f, withAlpha(accent, 0.10f), 6);
+    Color border = hasAccent ? withAlpha(accent, enabled ? 0.38f : 0.14f) : (enabled ? LINE : rgba(190, 203, 220, 0.07f));
+    Color fill = hasAccent ? rgba(45, 26, 34, enabled ? 0.82f : 0.34f) : rgba(21, 27, 36, enabled ? 0.96f : 0.38f);
     r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, border);
     r.roundedRect(rect.x + 1.2f, rect.y + 1.2f, rect.w - 2.4f, rect.h - 2.4f,
                   std::max(0.0f, radius - 1.2f), fill);
-    r.rect(rect.x + radius * 0.65f, rect.y + 2.0f,
-           std::max(1.0f, rect.w - radius * 1.3f), 1.2f,
-           rgba(255, 255, 255, enabled ? 0.12f : 0.04f));
+    if (enabled && isPressedButton(s, rect, action, 0)) drawPressedButtonFeedback(s, rect, radius);
     addButton(s, rect, action, 0, enabled);
 }
 
@@ -2764,54 +3034,21 @@ void drawGearIcon(AppState *s, Rect rect, Action action) {
         float y2 = cy + std::sin(a) * outer * 1.15f;
         r.line(x1, y1, x2, y2, dp(s, 2.0f), TEXT);
     }
-    r.circle(cx, cy, outer * 0.78f, rgba(255, 248, 239, 0.95f), 28);
-    r.circle(cx, cy, outer * 0.36f, rgba(21, 27, 38, 0.94f), 24);
+    r.circle(cx, cy, outer * 0.78f, withAlpha(TEXT, 0.95f), 28);
+    r.circle(cx, cy, outer * 0.36f, PANEL, 24);
 }
 
 void drawBackground(AppState *s) {
     Renderer &r = s->renderer;
     float w = static_cast<float>(r.width), h = static_cast<float>(r.height);
-    r.rectGradient(0, 0, w, h, rgba(8, 10, 16), rgba(18, 15, 24));
-    r.rectGradient(0, 0, w, h * 0.48f, rgba(69, 194, 244, 0.09f), rgba(69, 194, 244, 0.0f));
-    r.rectGradient(0, h * 0.44f, w, h * 0.56f, rgba(255, 180, 90, 0.0f), rgba(255, 180, 90, 0.075f));
+    r.rectGradient(0, 0, w, h, BG, rgba(10, 14, 21));
     float gap = dp(s, 42);
-    float time = s->animations ? static_cast<float>(nowMs()) : 0.0f;
-    float bandGap = dp(s, 240);
-    float bandPhase = s->animations ? std::fmod(time * 0.008f, bandGap) : 0.0f;
-    for (float x = -h - bandGap + bandPhase; x < w + bandGap; x += bandGap) {
-        r.line(x, h, x + h, 0, dp(s, 7.0f), rgba(69, 194, 244, 0.042f));
-        r.line(x + dp(s, 18), h, x + h + dp(s, 18), 0, dp(s, 2.4f), rgba(95, 225, 170, 0.050f));
-        r.line(x - dp(s, 8), h, x + h - dp(s, 8), 0, dp(s, 1.2f), rgba(255, 248, 239, 0.034f));
-    }
-    for (float x = -h - bandGap - bandPhase * 0.7f; x < w + bandGap; x += bandGap * 0.92f) {
-        r.line(x, 0, x + h, h, dp(s, 3.4f), rgba(255, 248, 239, 0.030f));
-        r.line(x + dp(s, 30), 0, x + h + dp(s, 30), h, dp(s, 2.0f), rgba(95, 225, 170, 0.036f));
-    }
-    for (float x = std::fmod(time * 0.006f, gap) - gap; x < w; x += gap) {
-        r.rect(x, 0, 1, h, rgba(229, 236, 245, 0.052f));
+    for (float x = 0; x < w; x += gap) {
+        r.rect(x, 0, 1, h, rgba(190, 203, 220, 0.032f));
     }
     for (float y = 0; y < h; y += gap) {
-        r.rect(0, y, w, 1, rgba(229, 236, 245, 0.052f));
+        r.rect(0, y, w, 1, rgba(190, 203, 220, 0.032f));
     }
-    int row = 0;
-    for (float y = gap * 0.5f; y < h; y += gap, ++row) {
-        int col = 0;
-        for (float x = gap * 0.5f; x < w; x += gap, ++col) {
-            float hash = std::fmod(std::sin((col + 1) * 12.9898f + (row + 1) * 78.233f) * 43758.5453f, 1.0f);
-            if (hash < 0.0f) hash += 1.0f;
-            float twinkle = s->animations ? 0.65f + 0.35f * std::sin(time * 0.0016f + hash * 6.2831853f) : 0.82f;
-            float alpha = (0.08f + hash * 0.08f) * twinkle;
-            float radius = dp(s, 0.75f + hash * 0.65f);
-            Color starColor = hash > 0.82f ? rgba(255, 248, 239, alpha * 0.78f) : rgba(95, 225, 170, alpha);
-            if (hash > 0.86f) {
-                r.softAura(x, y, radius * 4.0f, withAlpha(starColor, starColor.a * 0.52f), 4);
-            }
-            r.circle(x, y, radius, starColor, 12);
-        }
-    }
-    float sweep = std::fmod(time * 0.025f, h + dp(s, 260)) - dp(s, 260);
-    r.rect(0, sweep, w, dp(s, 2), rgba(95, 225, 170, 0.12f));
-    r.rect(0, sweep + dp(s, 16), w, dp(s, 1), rgba(69, 194, 244, 0.11f));
 }
 
 void drawHeader(AppState *s, const std::string &kicker, const std::string &title, Action backAction = Action::Main) {
@@ -2829,27 +3066,27 @@ float guideTextScale(AppState *s) {
 }
 
 float guideContentTop(AppState *s) {
-    return safeTop(s) + dp(s, 120);
+    return safeTop(s) + dp(s, 64);
 }
 
 void drawGuideSizeControl(AppState *s) {
     Renderer &r = s->renderer;
-    float button = dp(s, 38);
-    float gap = dp(s, 5);
+    float button = dp(s, 32);
+    float gap = dp(s, 4);
     float pad = dp(s, 4);
     float w = button * 3.0f + gap * 2.0f + pad * 2.0f;
-    Rect rail{r.width - dp(s, 18) - w, safeTop(s) + dp(s, 60), w, button + pad * 2.0f};
-    drawGlassPanel(s, rail, rgba(10, 13, 19, 0.55f), rgba(95, 225, 170, 0.024f));
+    Rect rail{r.width - dp(s, 18) - w, safeTop(s) + dp(s, 8), w, button + pad * 2.0f};
+    drawGlassPanel(s, rail, rgba(10, 13, 19, 0.55f));
 
-    std::array<float, 3> textScale{{dp(s, 1.62f), dp(s, 2.52f), dp(s, 3.42f)}};
+    std::array<float, 3> textScale{{dp(s, 1.42f), dp(s, 2.18f), dp(s, 2.94f)}};
     for (int i = 0; i < 3; ++i) {
         Rect b{rail.x + pad + static_cast<float>(i) * (button + gap), rail.y + pad, button, button};
         bool selected = s->guideTextSize == i;
         float radius = dp(s, 7);
-        if (selected) r.glow(b, dp(s, 7), rgba(69, 194, 244, 0.12f), 5);
-        r.roundedRect(b.x, b.y, b.w, b.h, radius, selected ? rgba(95, 225, 170, 0.42f) : rgba(229, 236, 245, 0.08f));
+        r.roundedRect(b.x, b.y, b.w, b.h, radius, selected ? withAlpha(BLUE, 0.68f) : LINE);
         r.roundedRect(b.x + 1.0f, b.y + 1.0f, b.w - 2.0f, b.h - 2.0f, radius - 1.0f,
-                      selected ? rgba(35, 74, 96, 0.92f) : rgba(21, 27, 38, 0.70f));
+                      selected ? rgba(34, 66, 86, 0.82f) : rgba(21, 27, 36, 0.70f));
+        if (isPressedButton(s, b, Action::GuideSize, i)) drawPressedButtonFeedback(s, b, radius);
         r.textHeavy("A", b.x + b.w * 0.5f, b.y + b.h * 0.5f - textScale[static_cast<size_t>(i)] * 3.8f,
                     textScale[static_cast<size_t>(i)], selected ? TEXT : MUTED, 1, 0.92f);
         addButton(s, b, Action::GuideSize, i, true);
@@ -2861,26 +3098,26 @@ void drawGuideHeaderChrome(AppState *s) {
     float solidBottom = guideContentTop(s) - dp(s, 8);
     float fadeH = dp(s, 20);
     r.rectGradient(0, 0, r.width, solidBottom,
-                   rgba(11, 13, 19, 1.0f),
-                   rgba(14, 19, 27, 1.0f));
+                   BG,
+                   BG);
     r.rectGradient(0, solidBottom, r.width, fadeH,
-                   rgba(14, 19, 27, 1.0f),
-                   rgba(14, 19, 27, 0.0f));
-    r.rect(0, solidBottom, r.width, std::max(1.0f, dp(s, 0.8f)), rgba(229, 236, 245, 0.14f));
+                   BG,
+                   withAlpha(BG, 0.0f));
+    r.rect(0, solidBottom, r.width, std::max(1.0f, dp(s, 0.8f)), LINE);
     addButton(s, {0.0f, 0.0f, static_cast<float>(r.width), solidBottom + fadeH}, Action::Main, 0, false);
 }
 
-void drawScreenHeaderChrome(AppState *s, float contentTop) {
+void drawScreenHeaderChrome(AppState *s, float contentTop, float fadeDp = 20.0f) {
     Renderer &r = s->renderer;
     float solidBottom = contentTop - dp(s, 8);
-    float fadeH = dp(s, 20);
+    float fadeH = dp(s, fadeDp);
     r.rectGradient(0, 0, r.width, solidBottom,
-                   rgba(11, 13, 19, 1.0f),
-                   rgba(14, 19, 27, 1.0f));
+                   BG,
+                   BG);
     r.rectGradient(0, solidBottom, r.width, fadeH,
-                   rgba(14, 19, 27, 1.0f),
-                   rgba(14, 19, 27, 0.0f));
-    r.rect(0, solidBottom, r.width, std::max(1.0f, dp(s, 0.8f)), rgba(229, 236, 245, 0.14f));
+                   BG,
+                   withAlpha(BG, 0.0f));
+    r.rect(0, solidBottom, r.width, std::max(1.0f, dp(s, 0.8f)), LINE);
     addButton(s, {0.0f, 0.0f, static_cast<float>(r.width), solidBottom + fadeH}, Action::Main, 0, false);
 }
 
@@ -2890,9 +3127,9 @@ void drawStickyScreenHeader(AppState *s, const std::string &kicker, const std::s
     drawHeader(s, kicker, title, backAction);
 }
 
-void drawGuideHeader(AppState *s, const std::string &title) {
+void drawGuideHeader(AppState *s) {
     drawGuideHeaderChrome(s);
-    drawHeader(s, "Guide", title);
+    drawBackIcon(s, {dp(s, 18), safeTop(s) + dp(s, 8), dp(s, 42), dp(s, 38)}, Action::Main);
     drawGuideSizeControl(s);
 }
 
@@ -2957,22 +3194,17 @@ void drawMatrixTileSurface(AppState *s, Rect tile, int state, float radius, bool
     Renderer &r = s->renderer;
     if (glow) {
         if (state) {
-            r.glow(tile, std::min(dp(s, 13), tile.w * 0.13f), withAlpha(stateColor(state), 0.22f), 6);
+            r.roundedRect(tile.x, tile.y + dp(s, 0.9f), tile.w, tile.h, radius, rgba(0, 0, 0, 0.12f));
         } else {
-            r.glow(tile, std::min(dp(s, 10), tile.w * 0.10f), rgba(255, 248, 239, 0.11f), 5);
+            r.roundedRect(tile.x, tile.y + dp(s, 0.9f), tile.w, tile.h, radius, rgba(0, 0, 0, 0.08f));
         }
     }
-    r.roundedRect(tile.x + dp(s, 0.8f), tile.y + dp(s, 1.5f), tile.w, tile.h, radius, rgba(0, 0, 0, state ? 0.17f : 0.12f));
     r.roundedRect(tile.x, tile.y, tile.w, tile.h, radius, stateBorderColor(state));
     r.roundedRectGradient(tile.x + 1.0f, tile.y + 1.0f, tile.w - 2.0f, tile.h - 2.0f,
                           std::max(1.0f, radius - 1.0f), stateTopColor(state), stateBottomColor(state));
     r.roundedStroke({tile.x + 1.2f, tile.y + 1.2f, tile.w - 2.4f, tile.h - 2.4f},
                     std::max(1.0f, radius - 1.2f), 1.0f,
-                    rgba(255, 255, 255, state ? 0.045f : 0.22f));
-    if (state) {
-        r.softAura(tile.x + tile.w * 0.5f, tile.y + tile.h * 0.5f,
-                   tile.w * 0.40f, rgba(255, 255, 255, 0.095f), 7);
-    }
+                    rgba(255, 255, 255, state ? 0.035f : 0.18f));
 }
 
 void drawLogo(AppState *s, float cx, float y, float size) {
@@ -2980,7 +3212,6 @@ void drawLogo(AppState *s, float cx, float y, float size) {
     updateSplashBoard(s);
     float left = cx - size * 0.5f;
     Rect logo{left, y, size, size};
-    r.glow(logo, size * 0.16f, rgba(69, 194, 244, 0.12f), 6);
     drawPanel(r, logo, rgba(17, 22, 31, 0.92f));
     float gap = size * 0.04f;
     float tile = (size - gap * 6) / 5.0f;
@@ -2999,7 +3230,7 @@ void drawLogo(AppState *s, float cx, float y, float size) {
             drawMatrixTileSurface(s, tileRect, v, radius, true);
             if (idx == s->splashTap && changed) {
                 r.roundedStroke({tileRect.x - 2.0f, tileRect.y - 2.0f, tileRect.w + 4.0f, tileRect.h + 4.0f},
-                                radius + 2.0f, std::max(1.0f, tile * 0.07f), rgba(255, 248, 239, 0.84f));
+                                radius + 2.0f, std::max(1.0f, tile * 0.07f), withAlpha(TEXT, 0.84f));
             }
         }
     }
@@ -3011,20 +3242,23 @@ float beginScrollContent(AppState *s, float top) {
 
 void finishScrollContent(AppState *s, float y) {
     s->contentHeight = y + s->scroll;
-    float maxScroll = std::max(0.0f, s->contentHeight - s->renderer.height + safeBottom(s));
-    s->scroll = std::max(0.0f, std::min(maxScroll, s->scroll));
+    float clamped = clampScrollOffset(s, s->scroll);
+    if (clamped != s->scroll) {
+        s->scroll = clamped;
+        stopScrollMomentum(s);
+    }
 }
 
 void drawMain(AppState *s) {
     Renderer &r = s->renderer;
     float w = r.width;
-    float logoSize = std::min(dp(s, 162), w - dp(s, 72));
+    float logoSize = std::min(dp(s, 142), w - dp(s, 96));
     float brandPad = std::min(r.height * 0.042f, dp(s, 36));
-    float buttonH = dp(s, 50);
-    float buttonGap = dp(s, 10);
-    float titleScale = dp(s, 8.35f);
+    float buttonH = dp(s, 48);
+    float buttonGap = dp(s, 9);
+    float titleScale = dp(s, 5.85f);
     bool twoLineTitle = w < dp(s, 560) || r.textWidth("Invert the Matrix", titleScale) > w - dp(s, 70);
-    float titleBlockH = twoLineTitle ? dp(s, 116) : dp(s, 58);
+    float titleBlockH = twoLineTitle ? dp(s, 82) : dp(s, 46);
     float menuStackH = buttonH * 6.0f + buttonGap * 5.0f;
     float contentH = brandPad + logoSize + dp(s, 14) + dp(s, 18) + dp(s, 20) + titleBlockH + dp(s, 28) + menuStackH;
     float containerTop = (r.height - contentH - safeBottom(s) * 0.5f) * 0.5f + safeTop(s) * 0.35f;
@@ -3032,12 +3266,12 @@ void drawMain(AppState *s) {
     float top = containerTop + brandPad;
 
     drawLogo(s, w * 0.5f, top, logoSize);
-    drawFittedText(s, "Modular Linear Algebra is Fun", w * 0.5f, top + logoSize + dp(s, 14),
+    drawFittedText(s, "A modular tile puzzle", w * 0.5f, top + logoSize + dp(s, 14),
                    w - dp(s, 56), dp(s, 2.20f), GREEN, 1, true, 1.45f);
     float titleY = top + logoSize + dp(s, 48);
     if (twoLineTitle) {
         r.textHeavy("Invert the", w * 0.5f, titleY, titleScale, TEXT, 1, 1.0f);
-        r.textHeavy("Matrix", w * 0.5f, titleY + dp(s, 58), titleScale, TEXT, 1, 1.0f);
+        r.textHeavy("Matrix", w * 0.5f, titleY + dp(s, 40), titleScale, TEXT, 1, 1.0f);
     } else {
         r.textHeavy("Invert the Matrix", w * 0.5f, titleY, titleScale, TEXT, 1, 1.0f);
     }
@@ -3046,7 +3280,21 @@ void drawMain(AppState *s) {
     float x = (w - bw) * 0.5f;
     float y = titleY + titleBlockH + dp(s, 28);
     auto drawMenuButton = [&](const std::string &label, Action action) {
-        drawButton(s, {x, y, bw, buttonH}, label, action, 0, false, false, true, 1.32f);
+        Rect rect{x, y, bw, buttonH};
+        float radius = dp(s, 8);
+        r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, LINE);
+        r.roundedRect(rect.x + 1.2f, rect.y + 1.2f, rect.w - 2.4f, rect.h - 2.4f,
+                      std::max(1.0f, radius - 1.2f), PANEL_2);
+        if (isPressedButton(s, rect, action, 0)) drawPressedButtonFeedback(s, rect, radius);
+        float scale = dp(s, 2.90f);
+        drawFittedText(s, label, rect.x + dp(s, 16), rect.y + rect.h * 0.5f - scale * 4.0f,
+                       rect.w - dp(s, 58), scale, TEXT, 0, true, 1.5f);
+        float cx = rect.x + rect.w - dp(s, 22);
+        float cy = rect.y + rect.h * 0.5f;
+        float chevron = dp(s, 6.2f);
+        r.line(cx - chevron * 0.35f, cy - chevron, cx + chevron * 0.45f, cy, dp(s, 1.7f), MUTED_STRONG);
+        r.line(cx + chevron * 0.45f, cy, cx - chevron * 0.35f, cy + chevron, dp(s, 1.7f), MUTED_STRONG);
+        addButton(s, rect, action, 0, true);
         y += buttonH + buttonGap;
     };
     drawMenuButton("Campaign", Action::Campaign);
@@ -3054,18 +3302,17 @@ void drawMain(AppState *s) {
     drawMenuButton("Daily Challenge", Action::Daily);
     drawMenuButton("How to Play", Action::HowTo);
     drawMenuButton("The Math", Action::Math);
-    drawButton(s, {x, y, bw, buttonH}, "Settings", Action::Settings, 0, false, false, true, 1.32f);
+    drawMenuButton("Settings", Action::Settings);
 }
 
 void drawLevelNode(AppState *s, Rect rect, int index, int stars, bool completed, bool hintUsed, bool enabled) {
     Renderer &r = s->renderer;
     float radius = dp(s, 8);
-    Color border = completed ? rgba(95, 225, 170, enabled ? 0.44f : 0.18f) : rgba(229, 236, 245, enabled ? 0.17f : 0.08f);
-    Color fill = completed ? rgba(25, 39, 42, enabled ? 0.92f : 0.42f) : rgba(25, 31, 43, enabled ? 0.90f : 0.36f);
-    if (enabled && completed) r.glow(rect, dp(s, 7), rgba(95, 225, 170, 0.10f), 5);
+    Color border = completed ? rgba(99, 212, 157, enabled ? 0.34f : 0.16f) : (enabled ? LINE : rgba(190, 203, 220, 0.08f));
+    Color fill = completed ? rgba(21, 35, 31, enabled ? 0.96f : 0.42f) : rgba(27, 35, 48, enabled ? 0.96f : 0.36f);
     r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, border);
     r.roundedRect(rect.x + 1.0f, rect.y + 1.0f, rect.w - 2.0f, rect.h - 2.0f, radius - 1.0f, fill);
-    r.rect(rect.x + radius * 0.7f, rect.y + 2.0f, std::max(1.0f, rect.w - radius * 1.4f), 1.0f, rgba(255, 255, 255, enabled ? 0.11f : 0.035f));
+    if (enabled && isPressedButton(s, rect, Action::StartCampaign, index)) drawPressedButtonFeedback(s, rect, radius);
 
     Color numberColor = enabled ? TEXT : rgba(210, 218, 230, 0.88f);
     r.textHeavy(std::to_string(index + 1), rect.x + rect.w * 0.5f, rect.y + rect.h * 0.24f, dp(s, 3.35f), numberColor, 1, 0.82f);
@@ -3075,20 +3322,19 @@ void drawLevelNode(AppState *s, Rect rect, int index, int stars, bool completed,
         float badge = dp(s, 15);
         float cx = rect.x + rect.w - badge * 0.70f;
         float cy = rect.y + badge * 0.72f;
-        r.softAura(cx, cy, badge * 0.86f, rgba(95, 225, 170, 0.12f), 4);
-        drawCheckMark(s, cx, cy, badge * 0.62f, rgba(95, 225, 170, enabled ? 0.96f : 0.42f));
+        drawCheckMark(s, cx, cy, badge * 0.62f, withAlpha(GREEN, enabled ? 0.96f : 0.42f));
         if (hintUsed) {
-            drawHintEye(s, rect.x + dp(s, 13), rect.y + dp(s, 13), dp(s, 12), rgba(255, 111, 130, enabled ? 0.98f : 0.42f));
+            drawHintEye(s, rect.x + dp(s, 13), rect.y + dp(s, 13), dp(s, 12), withAlpha(DANGER, enabled ? 0.98f : 0.42f));
         }
     } else if (!enabled) {
         float cx = rect.x + rect.w - dp(s, 12);
         float cy = rect.y + dp(s, 12);
         float lock = dp(s, 10);
-        r.line(cx - lock * 0.34f, cy, cx - lock * 0.34f, cy - lock * 0.28f, dp(s, 1.4f), rgba(255, 248, 239, 0.28f));
-        r.line(cx + lock * 0.34f, cy, cx + lock * 0.34f, cy - lock * 0.28f, dp(s, 1.4f), rgba(255, 248, 239, 0.28f));
-        r.line(cx - lock * 0.34f, cy - lock * 0.28f, cx, cy - lock * 0.52f, dp(s, 1.4f), rgba(255, 248, 239, 0.28f));
-        r.line(cx, cy - lock * 0.52f, cx + lock * 0.34f, cy - lock * 0.28f, dp(s, 1.4f), rgba(255, 248, 239, 0.28f));
-        r.roundedRect(cx - lock * 0.48f, cy - lock * 0.04f, lock * 0.96f, lock * 0.64f, lock * 0.14f, rgba(255, 248, 239, 0.26f));
+        r.line(cx - lock * 0.34f, cy, cx - lock * 0.34f, cy - lock * 0.28f, dp(s, 1.4f), withAlpha(TEXT, 0.28f));
+        r.line(cx + lock * 0.34f, cy, cx + lock * 0.34f, cy - lock * 0.28f, dp(s, 1.4f), withAlpha(TEXT, 0.28f));
+        r.line(cx - lock * 0.34f, cy - lock * 0.28f, cx, cy - lock * 0.52f, dp(s, 1.4f), withAlpha(TEXT, 0.28f));
+        r.line(cx, cy - lock * 0.52f, cx + lock * 0.34f, cy - lock * 0.28f, dp(s, 1.4f), withAlpha(TEXT, 0.28f));
+        r.roundedRect(cx - lock * 0.48f, cy - lock * 0.04f, lock * 0.96f, lock * 0.64f, lock * 0.14f, withAlpha(TEXT, 0.26f));
     }
 
     if (enabled) addButton(s, rect, Action::StartCampaign, index, true);
@@ -3111,10 +3357,8 @@ void drawCampaign(AppState *s) {
         Rect panel{margin, y, panelW, panelH};
         bool visible = panel.y < r.height + dp(s, 48) && panel.y + panel.h > -dp(s, 48);
         if (visible) {
-            r.glow(panel, dp(s, 10), rgba(0, 0, 0, 0.10f), 5);
-            r.roundedRect(panel.x, panel.y, panel.w, panel.h, dp(s, 8), rgba(229, 236, 245, 0.16f));
-            r.roundedRect(panel.x + 1.0f, panel.y + 1.0f, panel.w - 2.0f, panel.h - 2.0f, dp(s, 7), rgba(22, 26, 35, 0.90f));
-            r.rectGradient(panel.x + 2.0f, panel.y + 2.0f, panel.w - 4.0f, panel.h * 0.24f, rgba(255, 255, 255, 0.04f), rgba(255, 255, 255, 0.0f));
+            r.roundedRect(panel.x, panel.y, panel.w, panel.h, dp(s, 8), LINE);
+            r.roundedRect(panel.x + 1.0f, panel.y + 1.0f, panel.w - 2.0f, panel.h - 2.0f, dp(s, 7), PANEL);
             r.text("Chapter " + std::to_string(chapter) + ": " + chapterTitles[chapter - 1],
                    panel.x + panelPad, panel.y + panelPad * 0.85f, dp(s, 2.55f), TEXT);
             float gridY = panel.y + panelPad + titleH + dp(s, 14);
@@ -3134,7 +3378,7 @@ void drawCampaign(AppState *s) {
         y += panelH + chapterGap;
     }
     finishScrollContent(s, y);
-    drawStickyScreenHeader(s, "Campaign", "Campaign Select", Action::Main, contentTop);
+    drawStickyScreenHeader(s, "Campaign", "Campaign", Action::Main, contentTop);
 }
 
 void drawDaily(AppState *s) {
@@ -3153,28 +3397,27 @@ void drawDaily(AppState *s) {
         bool firstTryRecorded = dailyLeaderboardRecorded(s, key);
         int firstTryMark = dailyLeaderboardMark(s, key);
         Config cfg = dailyConfig(tier, date);
-        Rect card{margin, y, cardW, dp(s, 116)};
+        Rect card{margin, y, cardW, dp(s, 106)};
         Color accent = tier == 0 ? GREEN : tier == 1 ? BLUE : ORANGE;
-        drawGlassPanel(s, card, mark >= 0 ? rgba(21, 33, 36, 0.88f) : rgba(22, 27, 38, 0.82f),
-                       tier == 0 ? rgba(95, 225, 170, 0.026f) : tier == 1 ? rgba(69, 194, 244, 0.026f) : rgba(255, 180, 90, 0.028f));
+        drawGlassPanel(s, card, PANEL);
+        float radius = std::min(dp(s, 8), card.h * 0.18f);
+        r.roundedRectGradient(card.x + 1.0f, card.y + 1.0f, card.w - 2.0f, card.h - 2.0f,
+                              std::max(1.0f, radius - 1.0f),
+                              withAlpha(accent, mark >= 0 ? 0.32f : 0.24f),
+                              withAlpha(accent, mark >= 0 ? 0.10f : 0.055f));
+        if (isPressedButton(s, card, Action::DailyChallenge, tier)) drawPressedButtonFeedback(s, card, radius);
         r.roundedRect(card.x + dp(s, 1.4f), card.y + dp(s, 6), dp(s, 4), card.h - dp(s, 12), dp(s, 2), withAlpha(accent, 0.86f));
-        r.text(dailyTierLabel(tier), card.x + dp(s, 14), card.y + dp(s, 13), dp(s, 3.02f), TEXT);
-        Rect status{card.x + card.w - dp(s, 92), card.y + dp(s, 12), dp(s, 76), dp(s, 32)};
-        r.roundedRect(status.x, status.y, status.w, status.h, dp(s, 7), mark >= 0 ? rgba(95, 225, 170, 0.24f) : rgba(229, 236, 245, 0.11f));
-        r.roundedRect(status.x + 1.0f, status.y + 1.0f, status.w - 2.0f, status.h - 2.0f, dp(s, 6),
-                      mark >= 0 ? rgba(22, 54, 45, 0.88f) : rgba(10, 13, 19, 0.44f));
-        std::string statusText = mark >= 0 ? "Done" : (firstTryRecorded ? "Open" : "New");
-        r.text(statusText, status.x + status.w * 0.5f, status.y + dp(s, 8), dp(s, 1.72f), mark >= 0 ? GREEN : MUTED, 1);
+        r.textHeavy(dailyTierLabel(tier), card.x + dp(s, 14), card.y + dp(s, 13), dp(s, 3.02f), accent, 0, 0.85f);
         std::string configText = std::to_string(cfg.width) + "x" + std::to_string(cfg.height) +
                                  " / " + std::to_string(cfg.states) + " states / " + patternLabel(cfg.pattern);
-        drawFittedText(s, configText, card.x + dp(s, 14), card.y + dp(s, 50), card.w - dp(s, 72), dp(s, 1.96f), TEXT);
-        std::string detail = std::string("Locks: ") + (cfg.locked ? "on" : "off") +
-                             " / Gaps: " + (cfg.irregular ? "on" : "off");
-        drawFittedText(s, detail, card.x + dp(s, 14), card.y + dp(s, 75), card.w - dp(s, 72), dp(s, 1.82f), MUTED);
+        drawFittedText(s, configText, card.x + dp(s, 14), card.y + dp(s, 44), card.w - dp(s, 54), dp(s, 1.96f), TEXT);
+        std::string detail = std::string("Locks ") + (cfg.locked ? "on" : "off") +
+                             " / Holes " + (cfg.irregular ? "on" : "off");
+        drawFittedText(s, detail, card.x + dp(s, 14), card.y + dp(s, 68), card.w - dp(s, 54), dp(s, 1.82f), MUTED);
         std::string stats = mark >= 0
                             ? ("Best: " + std::to_string(moves) + " moves / Mark " + formatMark(mark))
                             : (firstTryRecorded ? ("First try: " + formatMark(firstTryMark) + " / Replays open") : "First try counts");
-        drawFittedText(s, stats, card.x + dp(s, 14), card.y + dp(s, 99), card.w - dp(s, 72), dp(s, 1.82f), mark >= 0 ? GREEN : MUTED);
+        drawFittedText(s, stats, card.x + dp(s, 14), card.y + dp(s, 91), card.w - dp(s, 54), dp(s, 1.82f), mark >= 0 ? GREEN : MUTED);
         float cx = card.x + card.w - dp(s, 24);
         float cy = card.y + card.h * 0.62f;
         r.line(cx - dp(s, 4), cy - dp(s, 7), cx + dp(s, 3), cy, dp(s, 1.9f), withAlpha(TEXT, 0.72f));
@@ -3185,7 +3428,7 @@ void drawDaily(AppState *s) {
 
     y += dp(s, 6);
     Rect board{margin, y, cardW, dp(s, 156)};
-    drawGlassPanel(s, board, rgba(22, 27, 38, 0.82f), rgba(69, 194, 244, 0.022f));
+    drawGlassPanel(s, board, PANEL);
     r.text("Leaderboards", board.x + dp(s, 12), board.y + dp(s, 14), dp(s, 2.65f), TEXT);
     drawFittedText(s, "Compare today's marks by tier or as one combined daily score.",
                    board.x + dp(s, 12), board.y + dp(s, 47), board.w - dp(s, 24), dp(s, 1.55f), MUTED);
@@ -3238,9 +3481,9 @@ void drawFreeplay(AppState *s) {
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 46)}, std::string("Locked tiles ") + (s->freeLocked ? "ON" : "OFF"), Action::ToggleLocked, 0, false, s->freeLocked); y += dp(s, 56);
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 46)}, std::string("Irregular board ") + (s->freeIrregular ? "ON" : "OFF"), Action::ToggleIrregular, 0, false, s->freeIrregular); y += dp(s, 56);
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 46)}, std::string("Unique preferred ") + (s->freeUnique ? "ON" : "OFF"), Action::ToggleUnique, 0, false, s->freeUnique); y += dp(s, 66);
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 56)}, "Generate Puzzle", Action::Generate, 0, true); y += dp(s, 80);
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 56)}, "Create Puzzle", Action::Generate, 0, true); y += dp(s, 80);
     finishScrollContent(s, y);
-    drawStickyScreenHeader(s, "Custom Level", "Build a Puzzle", Action::Main, contentTop);
+    drawStickyScreenHeader(s, "Custom Level", "Custom Puzzle", Action::Main, contentTop);
 }
 
 enum class FormulaKind {
@@ -3287,13 +3530,9 @@ const MathAssetSpec *findMathAsset(const char *id) {
 void drawMathPanel(AppState *s, Rect panel, Color accent) {
     Renderer &r = s->renderer;
     float radius = dp(s, 8);
-    r.roundedRect(panel.x + dp(s, 0.8f), panel.y + dp(s, 1.6f), panel.w, panel.h, radius, rgba(0, 0, 0, 0.16f));
-    r.roundedRect(panel.x, panel.y, panel.w, panel.h, radius, rgba(229, 236, 245, 0.16f));
-    r.roundedRect(panel.x + 1.0f, panel.y + 1.0f, panel.w - 2.0f, panel.h - 2.0f, radius - 1.0f, rgba(12, 17, 25, 0.94f));
-    r.rectGradient(panel.x + 1.0f, panel.y + 1.0f, panel.w - 2.0f, panel.h * 0.42f,
-                   withAlpha(accent, 0.060f), rgba(accent.r, accent.g, accent.b, 0.0f));
-    r.rect(panel.x + radius * 0.80f, panel.y + 1.5f,
-           panel.w - radius * 1.60f, 1.0f, rgba(255, 255, 255, 0.070f));
+    r.roundedRect(panel.x, panel.y + dp(s, 0.8f), panel.w, panel.h, radius, rgba(0, 0, 0, 0.10f));
+    r.roundedRect(panel.x, panel.y, panel.w, panel.h, radius, LINE);
+    r.roundedRect(panel.x + 1.0f, panel.y + 1.0f, panel.w - 2.0f, panel.h - 2.0f, radius - 1.0f, PANEL);
 }
 
 float drawFormulaToken(AppState *s, const std::string &text, float x, float y, float scale,
@@ -3436,12 +3675,9 @@ void drawCaseBrace(AppState *s, float x, float top, float bottom, Color color) {
 void drawFormulaShell(AppState *s, Rect card, Color accent) {
     Renderer &r = s->renderer;
     float radius = dp(s, 8);
-    r.roundedRect(card.x, card.y, card.w, card.h, radius, withAlpha(accent, 0.22f));
+    r.roundedRect(card.x, card.y, card.w, card.h, radius, LINE);
     r.roundedRect(card.x + 1.0f, card.y + 1.0f, card.w - 2.0f, card.h - 2.0f,
                   radius - 1.0f, rgba(7, 10, 14, 0.88f));
-    r.rectGradient(card.x + 1.0f, card.y + 1.0f, card.w - 2.0f, card.h * 0.62f,
-                   withAlpha(accent, 0.075f), rgba(accent.r, accent.g, accent.b, 0.0f));
-    r.rect(card.x + radius * 0.80f, card.y + 1.5f, card.w - radius * 1.60f, 1.0f, rgba(255, 255, 255, 0.075f));
 }
 
 void drawGoalFormula(AppState *s, float x, float y, float scale) {
@@ -3593,13 +3829,13 @@ void drawFormulaCard(AppState *s, Rect card, FormulaKind kind, Color accent = GR
     } else if (kind == FormulaKind::Symbols) {
         float rowY = card.y + dp(s, 13);
         std::array<std::pair<std::string, std::string>, 7> rows = {{
-                {"n", "number of tile states"},
-                {"s", "current board vector"},
-                {"A", "pulse matrix"},
-                {"x", "tap-count vector"},
-                {"Im(A)", "all boards reachable by moves"},
-                {"ker(A)", "move plans that change nothing"},
-                {"mod n", "wraps after n - 1"}
+                {"n", "modulus / tile states"},
+                {"s", "board vector in (Z/nZ)^m"},
+                {"A", "columns are pulse vectors"},
+                {"x", "tap-count vector in (Z/nZ)^r"},
+                {"Im(A)", "reachable board changes"},
+                {"ker(A)", "tap counts with A x = 0"},
+                {"mod n", "residues wrap after n - 1"}
         }};
         for (auto &row : rows) {
             r.textHeavy(row.first, card.x + dp(s, 12), rowY, dp(s, 1.82f), TEXT, 0, 0.45f);
@@ -3719,26 +3955,26 @@ void drawGuideDiagram(AppState *s, Rect area, GuideDiagramKind kind, Color accen
             Rect cell{left + col * (tile + gap), top + row * (tile + gap), tile, tile};
             if (spec.gap) {
                 r.roundedRect(cell.x, cell.y, cell.w, cell.h, radius, rgba(0, 0, 0, 0.46f));
-                r.roundedStroke(cell, radius, std::max(1.0f, dp(s, 1.2f)), rgba(229, 236, 245, 0.20f));
+                r.roundedStroke(cell, radius, std::max(1.0f, dp(s, 1.2f)), LINE);
                 continue;
             }
             if (spec.locked) {
                 r.roundedRect(cell.x + dp(s, 0.8f), cell.y + dp(s, 1.5f), cell.w, cell.h, radius, rgba(0, 0, 0, 0.18f));
-                r.roundedRect(cell.x, cell.y, cell.w, cell.h, radius, rgba(229, 236, 245, 0.28f));
+                r.roundedRect(cell.x, cell.y, cell.w, cell.h, radius, LINE_STRONG);
                 r.roundedRectGradient(cell.x + 1.0f, cell.y + 1.0f, cell.w - 2.0f, cell.h - 2.0f,
                                       std::max(1.0f, radius - 1.0f), rgba(79, 87, 99, 0.80f), rgba(35, 42, 53, 0.88f));
                 r.line(cell.x + cell.w * 0.26f, cell.y + cell.h * 0.50f,
-                       cell.x + cell.w * 0.74f, cell.y + cell.h * 0.50f, std::max(1.2f, tile * 0.08f), rgba(255, 248, 239, 0.58f));
+                       cell.x + cell.w * 0.74f, cell.y + cell.h * 0.50f, std::max(1.2f, tile * 0.08f), withAlpha(TEXT, 0.58f));
             } else {
                 drawMatrixTileSurface(s, cell, spec.state, radius, true);
             }
             if (spec.preview) {
-                r.roundedStroke(cell, radius, std::max(2.0f, tile * 0.10f), rgba(95, 225, 170, 0.82f));
+                r.roundedStroke(cell, radius, std::max(2.0f, tile * 0.10f), withAlpha(GREEN, 0.82f));
             }
             if (spec.hinted) {
                 r.roundedStroke({cell.x + dp(s, 1.2f), cell.y + dp(s, 1.2f),
                                  cell.w - dp(s, 2.4f), cell.h - dp(s, 2.4f)},
-                                std::max(1.0f, radius - dp(s, 1.0f)), std::max(2.0f, tile * 0.10f), rgba(255, 111, 130, 0.82f));
+                                std::max(1.0f, radius - dp(s, 1.0f)), std::max(2.0f, tile * 0.10f), withAlpha(DANGER, 0.82f));
             }
             if (!spec.label.empty()) {
                 float labelScale = std::min(dp(s, 2.15f), tile * 0.075f);
@@ -3759,12 +3995,17 @@ void drawGuideBlock(AppState *s, float &y, const std::string &title, const std::
     float panelW = r.width - dp(s, 36);
     float maxTextW = panelW - pad * 2.0f;
     float bodyScale = dp(s, 1.72f) * scale;
-    std::vector<std::string> wrappedLines = wrapTextLines(s, lines, bodyScale, maxTextW);
+    float bulletIndent = dp(s, 12) * std::min(1.30f, scale);
+    std::vector<WrappedGuideLine> wrappedLines = wrapGuideLines(s, lines, bodyScale, maxTextW, bulletIndent);
     float diagramH = diagram == GuideDiagramKind::None ? 0.0f : dp(s, 92) * std::min(1.22f, scale);
     float diagramGap = diagram == GuideDiagramKind::None ? 0.0f : dp(s, 12) * std::min(1.12f, scale);
     float panelH = pad * 2.0f + titleH + diagramH + diagramGap +
                    lineH * static_cast<float>(wrappedLines.size()) + dp(s, 4);
     Rect panel{dp(s, 18), y, panelW, panelH};
+    if (!nearViewport(s, panel)) {
+        y += panel.h + dp(s, 14);
+        return;
+    }
     drawMathPanel(s, panel, accent);
     drawFittedText(s, title, panel.x + pad, panel.y + pad, panel.w - pad * 2.0f, dp(s, 2.48f) * scale, TEXT);
     float ly = panel.y + pad + titleH;
@@ -3773,8 +4014,13 @@ void drawGuideBlock(AppState *s, float &y, const std::string &title, const std::
         drawGuideDiagram(s, {panel.x + pad, ly, diagramW, diagramH}, diagram, accent);
         ly += diagramH + diagramGap;
     }
-    for (const std::string &line : wrappedLines) {
-        drawFittedText(s, line, panel.x + pad, ly, maxTextW, bodyScale, MUTED);
+    for (const WrappedGuideLine &line : wrappedLines) {
+        if (line.bullet) {
+            drawFittedText(s, "-", panel.x + pad, ly, bulletIndent, bodyScale, TEXT);
+        }
+        float tx = panel.x + pad + (line.indent ? bulletIndent : 0.0f);
+        float tw = maxTextW - (line.indent ? bulletIndent : 0.0f);
+        drawFittedText(s, line.text, tx, ly, tw, bodyScale, MUTED);
         ly += lineH;
     }
     y += panel.h + dp(s, 14);
@@ -3794,13 +4040,17 @@ void drawHowToIntro(AppState *s, float &y) {
     float diagramGap = dp(s, 12) * std::min(1.12f, scale);
     std::vector<std::string> titleLines = wrapTextLines(s, "Clear the board", titleScale, maxTextW);
     std::vector<std::string> bodyLines = wrapTextLines(s, std::vector<std::string>{
-        "Clear the board by making every tile return to calm zero.",
-        "Each tap sends a pulse through a pattern, and every touched tile advances by one state."
+        "Solve the puzzle by turning every active tile white.",
+        "Tap tiles to send pulses across the board; every tile reached by a pulse advances to its next state."
     }, bodyScale, maxTextW);
     Rect panel{dp(s, 18), y, panelW,
                pad * 2.0f + titleLineH * static_cast<float>(titleLines.size()) + dp(s, 12) +
                    diagramH + diagramGap +
                    bodyLineH * static_cast<float>(bodyLines.size())};
+    if (!nearViewport(s, panel)) {
+        y += panel.h + dp(s, 14);
+        return;
+    }
     drawMathPanel(s, panel, GREEN);
     float ly = panel.y + pad;
     for (const std::string &line : titleLines) {
@@ -3821,40 +4071,47 @@ void drawHowToIntro(AppState *s, float &y) {
 void drawHowTo(AppState *s) {
     float y = beginScrollContent(s, guideContentTop(s));
     drawHowToIntro(s, y);
-    drawGuideBlock(s, y, "1. Read the tiles",
-                   {"A pale tile is solved.",
-                    "Colored tiles show values 1, 2, 3, ..., depending on the number of states in the level."},
+    drawGuideBlock(s, y, "1. Make every tile white",
+                   {"- A white tile is solved.",
+                    "- Colored tiles still need more pulses before the board is complete.",
+                    "- The puzzle is solved only when every active tile is white."},
                    GREEN, GuideDiagramKind::Read);
-    drawGuideBlock(s, y, "2. Tap and wrap",
-                   {"Tap a tile to add 1 to every tile in its pulse pattern.",
-                    "After the last color, the next tap wraps that tile back to zero."},
+    drawGuideBlock(s, y, "2. Tap and cycle",
+                   {"- Tap an available tile to send its pulse pattern.",
+                    "- Every tile in that pattern advances one state.",
+                    "- After the last colored state, the next advance turns that tile white."},
                    BLUE, GuideDiagramKind::Tap);
-    drawGuideBlock(s, y, "3. Watch the pattern",
-                   {"Different levels use cross, diagonal, square, horizontal, vertical, knight, or mixed pulse patterns.",
-                    "Hold or hover a tile to preview its affected tiles."},
+    drawGuideBlock(s, y, "3. Use the pattern preview",
+                   {"- Levels can use cross, diagonal, square, horizontal, vertical, knight, or mixed patterns.",
+                    "- Hold or hover a tile to preview the tiles that will change."},
                    ORANGE, GuideDiagramKind::Pattern);
-    drawGuideBlock(s, y, "4. Respect special tiles",
-                   {"Locked tiles can be changed by nearby pulses, but you cannot tap them directly.",
-                    "Empty holes are outside the board and do not store a value."},
+    drawGuideBlock(s, y, "4. Handle special tiles",
+                   {"- Locked tiles can change when nearby pulses reach them.",
+                    "- You cannot tap locked tiles directly.",
+                    "- Empty holes are not part of the board."},
                    PURPLE, GuideDiagramKind::Special);
     drawGuideBlock(s, y, "Modes: Choose your puzzle",
-                   {"Campaign is a long curated path. Levels unlock in order, and each level has fixed star targets.",
-                    "Custom Level lets you choose board size, number of states, pulse pattern, difficulty, locks, gaps, and whether the generator should prefer a unique solution.",
-                    "Daily Challenge gives everyone the same three generated puzzles for the date. You can replay them, but leaderboards keep only the first try."},
+                   {"- Campaign: Complete fixed levels in order; the next level opens after each solve.",
+                    "- Custom Level: Choose board size, states, pattern, difficulty, locks, gaps, and whether the generator should prefer a unique solution.",
+                    "- Daily Challenge: Play the same three generated puzzles as everyone else for the date; each puzzle keeps its own saved best score."},
                    GREEN, GuideDiagramKind::Modes);
     drawGuideBlock(s, y, "Moves, stars, and hints",
-                   {"The move counter counts every tap.",
-                    "Three stars means matching the generator's minimum found move count; two, one, and zero star bands allow progressively more extra moves.",
-                    "Undo rewinds one move, Reset restores the starting board, and Hint applies the next move from a solver plan.",
-                    "A hint makes that try worth zero stars, but the puzzle still counts as complete.",
-                    "Tiles changed by a hint are marked in red."},
+                   {"- The move counter counts every tap.",
+                    "- Three stars means you matched the generator's minimum found move count.",
+                    "- Two-star and one-star targets allow extra moves.",
+                    "- Undo rewinds one move. Reset restores the starting board.",
+                    "- Hint applies the next move from a solver plan. Using a hint removes stars for that try, but the puzzle still counts as complete.",
+                    "- Tiles changed by a hint are marked in red."},
                    BLUE, GuideDiagramKind::Moves);
     drawGuideBlock(s, y, "Settings",
-                   {"Sound controls audio effects. Vibration controls haptic feedback. Animations can be turned off.",
-                    "Colorblind-friendly symbols add shape labels, and Show numbers on tiles can be enabled when you want numeric values."},
+                   {"- Sound toggles audio effects.",
+                    "- Vibration toggles haptic feedback.",
+                    "- Animations can be turned off.",
+                    "- Colorblind-friendly symbols add shape labels.",
+                    "- Show numbers on tiles displays state values when you want them."},
                    ORANGE, GuideDiagramKind::Options);
     finishScrollContent(s, y);
-    drawGuideHeader(s, "How to Play");
+    drawGuideHeader(s);
 }
 
 void drawMathIntro(AppState *s, float &y) {
@@ -3870,14 +4127,18 @@ void drawMathIntro(AppState *s, float &y) {
     float formulaH = dp(s, 52) * std::min(1.16f, scale);
     std::vector<std::string> titleLines = wrapTextLines(s, "A spin on classical Lights Out", titleScale, maxTextW);
     std::vector<std::string> bodyLines = wrapTextLines(s, std::vector<std::string>{
-        "Think of the board as a list of numbers, not only as a picture.",
-        "A tap adds one fixed move vector to that list.",
-        "The puzzle asks whether some sum of move vectors cancels the starting board.",
-        "All arithmetic is modulo n, so values wrap after the final state."
+        "Fix an order for the active tiles.",
+        "Then each board grid is represented by a vector s in (Z/nZ)^m.",
+        "Each legal tap pulse has its own vector v_j in the same module.",
+        "The columns of A are those pulse vectors, and solving asks for A x = -s modulo n."
     }, bodyScale, maxTextW);
     Rect panel{dp(s, 18), y, panelW,
                pad * 2.0f + titleLineH * static_cast<float>(titleLines.size()) + dp(s, 10) +
                    lineH * static_cast<float>(bodyLines.size()) + formulaH + dp(s, 14)};
+    if (!nearViewport(s, panel)) {
+        y += panel.h + dp(s, 14);
+        return;
+    }
     drawMathPanel(s, panel, BLUE);
     float ly = panel.y + pad;
     for (const std::string &line : titleLines) {
@@ -3908,6 +4169,10 @@ void drawMathBlock(AppState *s, float &y, const std::string &title, const std::v
     std::vector<std::string> wrappedLines = wrapTextLines(s, lines, bodyScale, maxTextW);
     float panelH = pad * 2.0f + titleH + lineH * static_cast<float>(wrappedLines.size()) + formulaH + dp(s, 10);
     Rect panel{dp(s, 18), y, panelW, panelH};
+    if (!nearViewport(s, panel)) {
+        y += panel.h + dp(s, 14);
+        return;
+    }
     drawMathPanel(s, panel, accent);
     drawFittedText(s, title, panel.x + pad, panel.y + pad, panel.w - pad * 2.0f, dp(s, 2.48f) * scale, TEXT);
     float ly = panel.y + pad + titleH;
@@ -3925,40 +4190,41 @@ void drawMath(AppState *s) {
     drawMathIntro(s, y);
     drawGuideBlock(s, y, "From Lights Out",
                    {"Classical Lights Out is the n = 2 case: tiles are off or on.",
-                    "Pressing a tile toggles a fixed neighborhood, which means adding 1 modulo 2.",
+                    "Pressing a tile toggles a fixed neighborhood, which is addition by 1 modulo 2.",
                     "Pressing the same tile twice gives no net change.",
-                    "Invert the Matrix keeps this column-span problem, but allows more states and richer boards."},
+                    "Invert the Matrix keeps the same linear question over Z/nZ, with more states and richer boards."},
                    BLUE);
     drawMathBlock(s, y, "1. The Board Is A Vector",
-                  {"Ignore gaps and list the active tiles in a fixed order.",
-                   "Their current values form a vector s in (Z/nZ)^m.",
-                   "The number m is the number of active board positions.",
-                   "Solving means reaching the zero vector, where every active tile is pale."},
+                  {"Let p_1, ..., p_m be the active positions, listed in a fixed order.",
+                   "The board vector s has coordinate s_i equal to the value at p_i.",
+                   "Thus the displayed grid is represented by s in (Z/nZ)^m.",
+                   "The solved board is the zero vector."},
                   FormulaKind::Remainder, GREEN, 70.0f);
-    drawMathBlock(s, y, "2. Each Tap Is A Column",
-                  {"For each legal tap j, record which tiles it changes.",
-                   "That record is column j of the move matrix A.",
-                   "Entry Aij is one when tap j changes tile i, and zero otherwise.",
+    drawMathBlock(s, y, "2. Each Tap Has A Pulse Vector",
+                  {"Let q_1, ..., q_r be the legal tap positions.",
+                   "The pulse at q_j defines a vector v_j in (Z/nZ)^m.",
+                   "Coordinate (v_j)_i is 1 when that pulse changes p_i, and 0 otherwise.",
+                   "The move matrix is A = [v_1 ... v_r].",
                    "Locked tiles can be rows, because they must be solved, but they are not tap columns."},
                   FormulaKind::Column, ORANGE, 78.0f);
     drawMathBlock(s, y, "3. A Plan Is A Vector",
-                  {"The vector x records tap counts, not tap order.",
-                   "Because the moves add together, only how many times each tap is used matters.",
-                   "All coordinates are counted modulo n.",
-                   "Tapping a tile n times is algebraically the same as not tapping it."},
+                  {"The tap-count vector x = (x_1, ..., x_r) lies in (Z/nZ)^r.",
+                   "Coordinate x_j records how many times tap q_j is used, modulo n.",
+                   "Executing x adds sum_j x_j v_j, which is A x.",
+                   "Tap order does not enter the algebra."},
                   FormulaKind::Plan, PURPLE, 60.0f);
-    drawMathBlock(s, y, "Goal: Find A Tap Vector",
-                  {"After using plan x, the board is s plus A x.",
-                   "The target is the zero board.",
-                   "So the solver is looking for A x equal to -s modulo n.",
+    drawMathBlock(s, y, "Goal: Find A Tap-Count Vector",
+                  {"After applying x, the board vector is s + A x.",
+                   "The target is the zero vector in (Z/nZ)^m.",
+                   "So a solution satisfies A x = -s modulo n.",
                    "This is a system of linear congruences."},
                   FormulaKind::Goal, BLUE, 60.0f);
     drawMathBlock(s, y, "When Does A Solution Exist?",
                   {"The columns of A describe all board changes reachable by legal moves.",
-                   "There is a solution exactly when the target -s is in that column span.",
-                   "That column span is called the image of A.",
+                   "Equivalently, Im(A) = {A x : x in (Z/nZ)^r}.",
+                   "There is a solution exactly when the target -s lies in Im(A).",
                    "Over prime n, row-reduce the augmented system [A | -s].",
-                   "A row that says 0 = nonzero means impossible; otherwise the system is consistent."},
+                   "A row [0 ... 0 | c] with c nonzero proves inconsistency."},
                   FormulaKind::Image, GREEN, 70.0f);
     drawMathBlock(s, y, "Prime n: Fields",
                   {"For n = 2, 3, or 5, Z/nZ is a field.",
@@ -3967,46 +4233,49 @@ void drawMath(AppState *s) {
                    "Free variables correspond to different solving plans."},
                   FormulaKind::Prime, GREEN, 54.0f);
     drawMathBlock(s, y, "Composite n: Rings",
-                  {"For composite n, Z/nZ is usually a ring rather than a field.",
+                  {"For composite n, Z/nZ is a ring rather than a field.",
                    "For n = 4, the number 2 is nonzero but has no inverse.",
-                   "So naive division by 2 can give false conclusions.",
+                   "So division by 2 is not a valid row operation.",
                    "The criterion is unchanged: -s must lie in Im(A) over Z/nZ.",
                    "Verification must use ring-valid operations, or compatible prime-power checks."},
                   FormulaKind::Four, PURPLE, 54.0f);
     drawMathBlock(s, y, "When Is It Unique?",
-                  {"If x0 solves the puzzle, every other solution is x0 plus a silent plan.",
-                   "A silent plan lives in ker(A), because it changes no tile.",
-                   "Tap counts already live modulo n, so tapping one tile n extra times is the zero coordinate.",
-                   "Unique means unique after ignoring those built-in do-nothing repetitions.",
+                  {"If x0 solves the puzzle, every other solution is x0 plus a silent plan z.",
+                   "Here z lies in ker(A), because A z is the zero vector.",
+                   "Tapping one tile n extra times adds n e_j, the zero vector in tap-count space.",
+                   "That built-in repetition is not a new algebraic solution.",
                    "Thus the full solution set is x0 + ker(A).",
                    "The solution is unique exactly when ker(A) has only the zero vector.",
-                   "If a nonzero silent plan remains, there are genuinely different ways to solve the same board."},
+                   "A nonzero silent plan gives genuinely different tap-count vectors for the same board."},
                   FormulaKind::Kernel, BLUE, 58.0f);
     // Android 1.0.5: clarify cross-pattern invertibility and modulo silent-pulse uniqueness.
     drawGuideBlock(s, y, "Cross Pattern: When Is A Invertible?",
                    {"On a plain board with no locks or gaps, the cross pattern has one tap column per tile.",
-                    "Then A is square, and an inverse means every starting board has one unique tap vector.",
+                    "Then A is a square endomorphism of (Z/nZ)^(w h).",
+                    "An inverse means every starting board has one unique tap-count vector.",
                     "Over Z/nZ, this happens exactly when det(A) is a unit modulo n.",
                     "Equivalently, gcd(det(A), n) = 1.",
                     "For prime n, this is the same as full rank, or det(A) not equal to 0 modulo n.",
                     "For n = 4, det(A) must be odd.",
+                    "If this fails in the square case, unreachable boards and nonzero silent plans both exist.",
                     "With locks or gaps, A may be rectangular, so image and kernel are the useful tests instead."},
                    GREEN);
     drawMathBlock(s, y, "Why The Minimum Matters",
-                  {"Linear algebra may give many valid plans.",
-                   "For play, the app cares about the shortest physical plan.",
-                   "Using representatives 0 through n - 1, the length is the total number of taps.",
-                   "The three-star target is the smallest length the solver found for that board."},
+                  {"Linear algebra may give many valid tap-count vectors.",
+                   "For each residue x_j, use its representative from 0 through n - 1.",
+                   "The physical length is the sum of those representatives.",
+                   "The three-star target is based on a shortest solution found for that board."},
                   FormulaKind::Minimum, ORANGE, 64.0f);
     drawGuideBlock(s, y, "Locked Tiles And Gaps",
                    {"Locked tiles remain rows because their values must become zero.",
                     "They are not columns, because they cannot be tapped directly.",
-                    "Gaps are outside the board, so they are neither rows nor columns."},
+                    "Gaps are omitted from the ordered active positions, so they are neither rows nor columns.",
+                    "The same map A: (Z/nZ)^r -> (Z/nZ)^m handles these irregular boards."},
                    PURPLE);
     drawGuideBlock(s, y, "How The Generator Uses This",
-                   {"The generator builds A from the board shape, locks, gaps, and pulse pattern.",
-                    "It chooses or checks a starting board s and verifies the equation is solvable.",
-                    "For curated levels it stores star thresholds based on the shortest plan found.",
+                   {"The generator determines the pulse vectors from the board shape, locks, gaps, and pattern.",
+                    "It chooses or certifies a starting vector s with some x satisfying s + A x = 0.",
+                    "When the exact solver is available, it searches the solution set for a short representative.",
                     "Hints follow a stored solving plan one move at a time.",
                     "The red outline marks exactly the tiles changed by that hint move."},
                    GREEN);
@@ -4014,7 +4283,7 @@ void drawMath(AppState *s) {
                   {"These are the compact labels used by the equations and solver."},
                   FormulaKind::Symbols, BLUE, 166.0f);
     finishScrollContent(s, y);
-    drawGuideHeader(s, "The Math");
+    drawGuideHeader(s);
 }
 
 void drawSettings(AppState *s) {
@@ -4033,7 +4302,8 @@ void drawSettings(AppState *s) {
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Colorblind-friendly symbols ") + (s->colorblind ? "ON" : "OFF"), Action::ToggleSetting, 3, false, s->colorblind); y += buttonH + gap;
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, std::string("Show numbers on tiles ") + (!s->hideNumbers ? "ON" : "OFF"), Action::ToggleSetting, 4, false, !s->hideNumbers); y += buttonH;
     finishScrollContent(s, y);
-    drawStickyScreenHeader(s, "Options", "Settings", Action::BackReturn, contentTop);
+    drawScreenHeaderChrome(s, safeTop(s) + dp(s, 64), 12.0f);
+    drawHeader(s, "Options", "Settings", Action::BackReturn);
 }
 
 std::string formatTime(int total) {
@@ -4042,36 +4312,28 @@ std::string formatTime(int total) {
     return buf;
 }
 
-Color stateColor(int state) {
-    if (state == 1) return BLUE;
-    if (state == 2) return ORANGE;
-    if (state == 3) return PURPLE;
-    if (state == 4) return GREEN;
-    return rgba(245, 245, 239);
-}
-
 Color stateTopColor(int state) {
-    if (state == 1) return rgba(69, 194, 244, 0.98f);
-    if (state == 2) return rgba(255, 180, 90, 0.98f);
-    if (state == 3) return rgba(181, 140, 255, 0.98f);
-    if (state == 4) return rgba(95, 225, 170, 0.98f);
-    return rgba(255, 253, 245, 1.0f);
+    if (state == 1) return rgba(101, 197, 239, 0.98f);
+    if (state == 2) return rgba(231, 183, 111, 0.98f);
+    if (state == 3) return rgba(183, 162, 236, 0.98f);
+    if (state == 4) return rgba(119, 221, 176, 0.98f);
+    return rgba(248, 250, 252, 1.0f);
 }
 
 Color stateBottomColor(int state) {
-    if (state == 1) return rgba(28, 91, 132, 0.92f);
-    if (state == 2) return rgba(144, 76, 37, 0.92f);
-    if (state == 3) return rgba(78, 54, 137, 0.92f);
-    if (state == 4) return rgba(36, 112, 88, 0.92f);
-    return rgba(223, 232, 240, 1.0f);
+    if (state == 1) return rgba(52, 142, 196, 0.94f);
+    if (state == 2) return rgba(182, 117, 49, 0.94f);
+    if (state == 3) return rgba(116, 89, 189, 0.94f);
+    if (state == 4) return rgba(60, 159, 116, 0.94f);
+    return rgba(221, 229, 238, 1.0f);
 }
 
 Color stateBorderColor(int state) {
-    if (state == 1) return rgba(238, 240, 235, 0.18f);
-    if (state == 2) return rgba(238, 240, 235, 0.18f);
-    if (state == 3) return rgba(238, 240, 235, 0.18f);
-    if (state == 4) return rgba(238, 240, 235, 0.18f);
-    return rgba(255, 255, 255, 0.78f);
+    if (state == 1) return rgba(139, 212, 255, 0.46f);
+    if (state == 2) return rgba(248, 205, 137, 0.48f);
+    if (state == 3) return rgba(210, 195, 255, 0.48f);
+    if (state == 4) return rgba(142, 234, 188, 0.48f);
+    return rgba(255, 255, 255, 0.66f);
 }
 
 bool containsIndex(const std::vector<int> &items, int value) {
@@ -4114,8 +4376,7 @@ void drawPatternMini(AppState *s, Rect rect, const Puzzle &p) {
             bool on = active.count({x, y}) > 0;
             Rect d{left + x * (dot + dotGap), top + y * (dot + dotGap), dot, dot};
             r.roundedRect(d.x, d.y, d.w, d.h, std::max(1.0f, dot * 0.25f), on ? GREEN : rgba(255, 255, 255, 0.09f));
-            if (on) r.softAura(d.x + d.w * 0.5f, d.y + d.h * 0.5f, dot * 1.4f, rgba(95, 225, 170, 0.22f), 4);
-            if (x == center && y == center) r.stroke(d, 1.0f, rgba(255, 248, 239, 0.5f));
+            if (x == center && y == center) r.stroke(d, 1.0f, withAlpha(TEXT, 0.5f));
         }
     }
 }
@@ -4160,7 +4421,7 @@ std::string moveRangeText(int minimum, int maximum) {
 
 void drawStarRankingCard(AppState *s, Rect card, const Puzzle &p, int highlightedStars = -1) {
     Renderer &r = s->renderer;
-    drawGlassPanel(s, card, rgba(22, 27, 38, 0.82f), rgba(255, 180, 90, 0.030f));
+    drawGlassPanel(s, card, PANEL);
     int oneMax = oneStarMax(p);
     std::array<std::pair<int, std::string>, 4> rows = {{
             {3, moveRangeText(p.minimumMoves, p.minimumMoves)},
@@ -4175,10 +4436,10 @@ void drawStarRankingCard(AppState *s, Rect card, const Puzzle &p, int highlighte
         bool highlighted = stars == highlightedStars;
         if (highlighted) {
             Rect row{card.x + dp(s, 4), card.y + rowH * i + dp(s, 1.0f), card.w - dp(s, 8), rowH - dp(s, 2.0f)};
-            r.roundedRect(row.x, row.y, row.w, row.h, dp(s, 4), rgba(255, 180, 90, 0.12f));
-            r.roundedStroke(row, dp(s, 4), 1.0f, rgba(255, 180, 90, 0.20f));
+            r.roundedRect(row.x, row.y, row.w, row.h, dp(s, 4), rgba(220, 164, 88, 0.13f));
+            r.roundedStroke(row, dp(s, 4), 1.0f, rgba(220, 164, 88, 0.24f));
         }
-        Color valueColor = highlighted ? TEXT : (i == 0 ? TEXT : (i == 1 ? rgba(255, 248, 239, 0.88f) : rgba(210, 218, 230, 0.74f)));
+        Color valueColor = highlighted ? TEXT : (i == 0 ? TEXT : (i == 1 ? MUTED_STRONG : withAlpha(MUTED_STRONG, 0.74f)));
         drawStars(s, card.x + dp(s, 8), cy - dp(s, 4.4f), dp(s, 8.2f), stars, 3, 0, highlighted ? 1.0f : (i == 0 ? 1.0f : 0.90f));
         Rect valueBadge{card.x + card.w - dp(s, 58), cy - dp(s, 9.4f), dp(s, 50), dp(s, 18.0f)};
         r.roundedRect(valueBadge.x, valueBadge.y, valueBadge.w, valueBadge.h, dp(s, 4), rgba(7, 10, 14, 0.24f));
@@ -4191,10 +4452,8 @@ void drawStarRankingCard(AppState *s, Rect card, const Puzzle &p, int highlighte
 void drawPadlockBadge(AppState *s, Rect badge) {
     Renderer &r = s->renderer;
     float radius = std::max(3.0f, badge.h * 0.28f);
-    r.softAura(badge.x + badge.w * 0.5f, badge.y + badge.h * 0.5f, badge.w * 0.64f, rgba(255, 248, 239, 0.10f), 4);
-    r.roundedRect(badge.x, badge.y, badge.w, badge.h, radius, rgba(238, 240, 235, 0.24f));
+    r.roundedRect(badge.x, badge.y, badge.w, badge.h, radius, rgba(238, 242, 246, 0.24f));
     r.roundedRect(badge.x + 1.0f, badge.y + 1.0f, badge.w - 2.0f, badge.h - 2.0f, std::max(1.0f, radius - 1.0f), rgba(7, 10, 14, 0.70f));
-    r.rect(badge.x + badge.w * 0.22f, badge.y + 1.5f, badge.w * 0.56f, 1.0f, rgba(255, 255, 255, 0.13f));
 
     float cx = badge.x + badge.w * 0.5f;
     float bodyW = badge.w * 0.48f;
@@ -4212,15 +4471,14 @@ void drawPadlockBadge(AppState *s, Rect badge) {
         float a = 3.14159265f - static_cast<float>(i) / 8.0f * 3.14159265f;
         float x = cx + std::cos(a) * rx;
         float y = arcCy - std::sin(a) * ry;
-        r.line(prevX, prevY, x, y, stroke, rgba(255, 248, 239, 0.96f));
+        r.line(prevX, prevY, x, y, stroke, rgba(244, 247, 251, 0.96f));
         prevX = x;
         prevY = y;
     }
-    r.line(cx - rx, arcCy, cx - rx, bodyY + bodyH * 0.22f, stroke, rgba(255, 248, 239, 0.96f));
-    r.line(cx + rx, arcCy, cx + rx, bodyY + bodyH * 0.22f, stroke, rgba(255, 248, 239, 0.96f));
+    r.line(cx - rx, arcCy, cx - rx, bodyY + bodyH * 0.22f, stroke, rgba(244, 247, 251, 0.96f));
+    r.line(cx + rx, arcCy, cx + rx, bodyY + bodyH * 0.22f, stroke, rgba(244, 247, 251, 0.96f));
 
-    r.roundedRect(bodyX, bodyY, bodyW, bodyH, bodyH * 0.24f, rgba(255, 248, 239, 0.98f));
-    r.rect(bodyX + bodyW * 0.16f, bodyY + 1.0f, bodyW * 0.68f, 1.0f, rgba(255, 255, 255, 0.42f));
+    r.roundedRect(bodyX, bodyY, bodyW, bodyH, bodyH * 0.24f, rgba(244, 247, 251, 0.98f));
     r.circle(cx, bodyY + bodyH * 0.45f, std::max(1.0f, bodyW * 0.07f), rgba(7, 10, 14, 0.76f), 14);
     r.line(cx, bodyY + bodyH * 0.48f, cx, bodyY + bodyH * 0.70f, std::max(1.0f, bodyW * 0.055f), rgba(7, 10, 14, 0.76f));
 }
@@ -4232,11 +4490,8 @@ void drawBoard(AppState *s) {
     float cell = board.w / p.width;
     float framePad = std::max(8.0f, std::min(dp(s, 10), cell * 0.12f));
     Rect frame{board.x - framePad, board.y - framePad, board.w + framePad * 2.0f, board.h + framePad * 2.0f};
-    r.glow(frame, dp(s, 5), rgba(69, 194, 244, 0.055f), 5);
-    r.roundedRect(frame.x, frame.y, frame.w, frame.h, dp(s, 8), rgba(229, 236, 245, 0.30f));
+    r.roundedRect(frame.x, frame.y, frame.w, frame.h, dp(s, 8), LINE_STRONG);
     r.roundedRect(frame.x + 1.0f, frame.y + 1.0f, frame.w - 2.0f, frame.h - 2.0f, dp(s, 7), rgba(10, 13, 19, 0.84f));
-    r.rectGradient(frame.x + 2.0f, frame.y + 2.0f, frame.w - 4.0f, frame.h * 0.30f, rgba(69, 194, 244, 0.055f), rgba(69, 194, 244, 0.0f));
-    r.rectGradient(frame.x + 2.0f, frame.y + frame.h * 0.60f, frame.w - 4.0f, frame.h * 0.34f, rgba(255, 180, 90, 0.0f), rgba(255, 180, 90, 0.040f));
 
     int64_t t = nowMs();
     std::vector<int> preview;
@@ -4254,10 +4509,10 @@ void drawBoard(AppState *s) {
             if (p.disabled.count(idx)) {
                 float disabledRadius = std::min(10.0f, tile.w * 0.10f);
                 r.roundedRect(tile.x + dp(s, 0.7f), tile.y + dp(s, 1.2f), tile.w, tile.h, disabledRadius, rgba(0, 0, 0, 0.13f));
-                r.roundedRect(tile.x, tile.y, tile.w, tile.h, disabledRadius, rgba(229, 236, 245, 0.12f));
+                r.roundedRect(tile.x, tile.y, tile.w, tile.h, disabledRadius, rgba(190, 203, 220, 0.12f));
                 r.roundedRect(tile.x + 1, tile.y + 1, tile.w - 2, tile.h - 2, std::max(1.0f, disabledRadius - 1.0f), rgba(0, 0, 0, 0.62f));
-                r.rect(tile.x + tile.w * 0.16f, tile.y + tile.h * 0.16f, tile.w * 0.18f, 1.0f, rgba(229, 236, 245, 0.12f));
-                r.rect(tile.x + tile.w * 0.66f, tile.y + tile.h * 0.82f, tile.w * 0.18f, 1.0f, rgba(229, 236, 245, 0.10f));
+                r.rect(tile.x + tile.w * 0.16f, tile.y + tile.h * 0.16f, tile.w * 0.18f, 1.0f, rgba(190, 203, 220, 0.12f));
+                r.rect(tile.x + tile.w * 0.66f, tile.y + tile.h * 0.82f, tile.w * 0.18f, 1.0f, rgba(190, 203, 220, 0.10f));
                 continue;
             }
             int state = s->session.board[idx];
@@ -4267,23 +4522,23 @@ void drawBoard(AppState *s) {
             bool changedByHint = showHintChanged && containsIndex(s->hintChanged, idx);
             bool pulsed = showPulse && containsIndex(s->pulseTiles, idx);
             if (changedByHint) {
-                r.glow(tile, std::min(dp(s, 14), tile.w * 0.14f), rgba(210, 91, 100, 0.24f), 6);
+                r.glow(tile, std::min(dp(s, 14), tile.w * 0.14f), withAlpha(DANGER, 0.20f), 5);
             }
             if (pulsed) {
-                r.glow(tile, std::min(dp(s, 12), tile.w * (0.10f + pulsePhase * 0.04f)), rgba(255, 248, 239, 0.13f), 4);
+                r.glow(tile, std::min(dp(s, 12), tile.w * (0.10f + pulsePhase * 0.04f)), withAlpha(TEXT, 0.12f), 4);
             }
             drawMatrixTileSurface(s, tile, state, radius, true);
             if (previewAffected) {
                 r.roundedRect(tile.x + 2.0f, tile.y + 2.0f, tile.w - 4.0f, tile.h - 4.0f, radius - 2.0f, rgba(2, 7, 12, previewOrigin ? 0.30f : 0.22f));
-                r.roundedStroke(tile, radius, previewOrigin ? dp(s, 3.0f) : dp(s, 2.0f), rgba(95, 225, 170, previewOrigin ? 0.92f : 0.68f));
+                r.roundedStroke(tile, radius, previewOrigin ? dp(s, 3.0f) : dp(s, 2.0f), withAlpha(GREEN, previewOrigin ? 0.92f : 0.68f));
             }
             if (changedByHint) {
                 r.roundedStroke({tile.x + dp(s, 1.6f), tile.y + dp(s, 1.6f), tile.w - dp(s, 3.2f), tile.h - dp(s, 3.2f)},
-                                std::max(1.0f, radius - dp(s, 1.6f)), dp(s, 3.0f), rgba(255, 111, 130, 1.0f));
+                                std::max(1.0f, radius - dp(s, 1.6f)), dp(s, 3.0f), DANGER);
                 r.roundedStroke({tile.x + dp(s, 5.0f), tile.y + dp(s, 5.0f), tile.w - dp(s, 10.0f), tile.h - dp(s, 10.0f)},
-                                std::max(1.0f, radius - dp(s, 5.0f)), dp(s, 1.2f), rgba(255, 180, 90, 0.18f));
+                                std::max(1.0f, radius - dp(s, 5.0f)), dp(s, 1.2f), withAlpha(ORANGE, 0.18f));
             } else if (pulsed) {
-                r.roundedStroke(tile, radius, dp(s, 2.0f), rgba(255, 248, 239, 0.34f * (1.0f - pulsePhase)));
+                r.roundedStroke(tile, radius, dp(s, 2.0f), withAlpha(TEXT, 0.34f * (1.0f - pulsePhase)));
             }
             if (p.locked.count(idx)) {
                 float badgeSize = std::max(dp(s, 17), std::min(dp(s, 27), tile.w * 0.30f));
@@ -4325,11 +4580,11 @@ void drawGame(AppState *s) {
     float y = top + dp(s, 68);
     float gap = dp(s, 9);
     float cell = (r.width - dp(s, 28) - gap * 2) / 3.0f;
-    drawGlassPanel(s, {dp(s, 14), y, cell, dp(s, 66)}, rgba(22, 27, 38, 0.82f));
+    drawGlassPanel(s, {dp(s, 14), y, cell, dp(s, 66)}, PANEL);
     r.text("Moves", dp(s, 14) + cell * 0.5f, y + dp(s, 10), dp(s, 1.94f), MUTED, 1);
     r.text(std::to_string(g.moves), dp(s, 14) + cell * 0.5f, y + dp(s, 36), dp(s, 3.08f), TEXT, 1);
     drawStarRankingCard(s, {dp(s, 14) + cell + gap, y, cell, dp(s, 66)}, g.puzzle, storedStarsForSession(s));
-    drawGlassPanel(s, {dp(s, 14) + (cell + gap) * 2, y, cell, dp(s, 66)}, rgba(22, 27, 38, 0.82f));
+    drawGlassPanel(s, {dp(s, 14) + (cell + gap) * 2, y, cell, dp(s, 66)}, PANEL);
     r.text("Time", dp(s, 14) + cell * 2.5f + gap * 2, y + dp(s, 10), dp(s, 1.94f), MUTED, 1);
     r.text(formatTime(g.elapsed), dp(s, 14) + cell * 2.5f + gap * 2, y + dp(s, 37), dp(s, 2.62f), TEXT, 1);
     y += dp(s, 74);
@@ -4337,7 +4592,7 @@ void drawGame(AppState *s) {
     float bestW = dp(s, 116);
     float patternW = r.width - dp(s, 28) - bestW - gap;
     Rect patternStrip{dp(s, 14), y, patternW, dp(s, 52)};
-    drawGlassPanel(s, patternStrip, rgba(22, 27, 38, 0.82f), rgba(95, 225, 170, 0.026f));
+    drawGlassPanel(s, patternStrip, PANEL);
     Rect mini{patternStrip.x + patternStrip.w - miniW - dp(s, 6), y + dp(s, 5), miniW, dp(s, 42)};
     std::string pat = g.puzzle.tilePatterns.empty() ? patternFor(g.puzzle.defaultPattern).label : "Mixed patterns";
     r.text("Pattern", patternStrip.x + dp(s, 9), y + dp(s, 8), dp(s, 1.70f), MUTED);
@@ -4346,7 +4601,7 @@ void drawGame(AppState *s) {
                    patternStrip.w - miniW - dp(s, 26), dp(s, 2.02f), TEXT);
     drawPatternMini(s, mini, g.puzzle);
     Rect bestCard{patternStrip.x + patternStrip.w + gap, y, bestW, dp(s, 52)};
-    drawGlassPanel(s, bestCard, rgba(22, 27, 38, 0.82f), rgba(69, 194, 244, 0.025f));
+    drawGlassPanel(s, bestCard, PANEL);
     r.text("Personal Best", bestCard.x + dp(s, 8), y + dp(s, 8), dp(s, 1.55f), MUTED);
     drawFittedText(s, bestMovesText(s), bestCard.x + dp(s, 8), y + dp(s, 29),
                    bestCard.w - dp(s, 16), dp(s, 2.16f), GREEN);
@@ -4358,7 +4613,7 @@ void drawGame(AppState *s) {
     drawUndoToolButton(s, {dp(s, 14), y, iconW, dp(s, 52)}, !waitingForHintCompletion && !g.history.empty());
     if (leaderboardAttempt) {
         Rect notice{dp(s, 14) + iconW + gap, y, r.width - dp(s, 28) - iconW - gap, dp(s, 52)};
-        drawGlassPanel(s, notice, rgba(22, 27, 38, 0.82f), rgba(255, 180, 90, 0.030f));
+        drawGlassPanel(s, notice, PANEL);
         r.text("Leaderboard try", notice.x + dp(s, 10), notice.y + dp(s, 8), dp(s, 1.55f), ORANGE);
         drawFittedText(s, "No reset or hints", notice.x + dp(s, 10), notice.y + dp(s, 31),
                        notice.w - dp(s, 20), dp(s, 2.05f), TEXT);
@@ -4377,10 +4632,8 @@ void drawGame(AppState *s) {
         float modalH = std::min(dp(s, 502), r.height - safeTop(s) - safeBottom(s) - dp(s, 42));
         Rect modal{dp(s, 18), r.height - safeBottom(s) - modalH - dp(s, 18), r.width - dp(s, 36), modalH};
         modal.y = std::max(safeTop(s) + dp(s, 16), modal.y);
-        r.glow(modal, dp(s, 20), rgba(69, 194, 244, 0.09f), 9);
-        r.roundedRect(modal.x, modal.y, modal.w, modal.h, dp(s, 8), rgba(229, 236, 245, 0.30f));
-        r.roundedRect(modal.x + 1.2f, modal.y + 1.2f, modal.w - 2.4f, modal.h - 2.4f, dp(s, 7), rgba(22, 26, 35, 0.98f));
-        r.rectGradient(modal.x + 2.0f, modal.y + 2.0f, modal.w - 4.0f, modal.h * 0.26f, rgba(69, 194, 244, 0.055f), rgba(69, 194, 244, 0.0f));
+        r.roundedRect(modal.x, modal.y, modal.w, modal.h, dp(s, 8), LINE_STRONG);
+        r.roundedRect(modal.x + 1.2f, modal.y + 1.2f, modal.w - 2.4f, modal.h - 2.4f, dp(s, 7), PANEL_2);
         r.text("Complete", modal.x + dp(s, 18), modal.y + dp(s, 18), dp(s, 1.9f), GREEN);
         std::string completeTitle = g.mode == "daily"
                                     ? "Daily " + dailyTierLabel(dailyTierIndex(g.dailyTier)) + " Complete"
@@ -4389,7 +4642,7 @@ void drawGame(AppState *s) {
         drawStars(s, modal.x + dp(s, 18), modal.y + dp(s, 88), dp(s, 26), s->completionStars, 3, 0, 1.0f);
 
         auto resultCard = [&](Rect card, const std::string &label, const std::string &value) {
-            r.roundedRect(card.x, card.y, card.w, card.h, dp(s, 8), rgba(229, 236, 245, 0.16f));
+            r.roundedRect(card.x, card.y, card.w, card.h, dp(s, 8), LINE);
             r.roundedRect(card.x + 1.0f, card.y + 1.0f, card.w - 2.0f, card.h - 2.0f, dp(s, 7), rgba(10, 13, 19, 0.76f));
             r.text(label, card.x + dp(s, 8), card.y + dp(s, 9), dp(s, 1.55f), MUTED);
             r.text(value, card.x + dp(s, 8), card.y + dp(s, 31), dp(s, 2.45f), TEXT);
@@ -4418,7 +4671,7 @@ void drawGame(AppState *s) {
         for (int i = 0; i < 4; ++i) {
             Rect card{modal.x + dp(s, 18) + i * (starW + cardGap), by, starW, dp(s, 50)};
             bool highlighted = breakdown[i].first == s->completionStars;
-            r.roundedRect(card.x, card.y, card.w, card.h, dp(s, 8), highlighted ? rgba(255, 180, 90, 0.34f) : rgba(229, 236, 245, 0.16f));
+            r.roundedRect(card.x, card.y, card.w, card.h, dp(s, 8), highlighted ? rgba(220, 164, 88, 0.34f) : LINE);
             r.roundedRect(card.x + 1.0f, card.y + 1.0f, card.w - 2.0f, card.h - 2.0f, dp(s, 7),
                           highlighted ? rgba(62, 45, 28, 0.70f) : rgba(10, 13, 19, 0.58f));
             drawStars(s, card.x + dp(s, 7), card.y + dp(s, 8), dp(s, 7.2f), breakdown[i].first, 3, 0, 0.95f);
@@ -4445,10 +4698,8 @@ void drawGame(AppState *s) {
         float modalH = dp(s, 276);
         Rect modal{dp(s, 18), (r.height - modalH) * 0.5f, modalW, modalH};
         modal.y = std::max(safeTop(s) + dp(s, 18), std::min(modal.y, r.height - safeBottom(s) - modalH - dp(s, 18)));
-        r.glow(modal, dp(s, 18), rgba(255, 180, 90, 0.12f), 8);
-        r.roundedRect(modal.x, modal.y, modal.w, modal.h, dp(s, 8), rgba(255, 180, 90, 0.32f));
-        r.roundedRect(modal.x + 1.2f, modal.y + 1.2f, modal.w - 2.4f, modal.h - 2.4f, dp(s, 7), rgba(22, 26, 35, 0.98f));
-        r.rectGradient(modal.x + 2.0f, modal.y + 2.0f, modal.w - 4.0f, modal.h * 0.32f, rgba(255, 180, 90, 0.075f), rgba(255, 180, 90, 0.0f));
+        r.roundedRect(modal.x, modal.y, modal.w, modal.h, dp(s, 8), rgba(220, 164, 88, 0.34f));
+        r.roundedRect(modal.x + 1.2f, modal.y + 1.2f, modal.w - 2.4f, modal.h - 2.4f, dp(s, 7), PANEL_2);
         r.text("Exit daily challenge?", modal.x + dp(s, 18), modal.y + dp(s, 24), dp(s, 3.05f), TEXT);
         std::vector<std::string> lines = wrapTextLines(
                 s,
@@ -4466,8 +4717,41 @@ void drawGame(AppState *s) {
     }
 }
 
+void updateScrollMomentum(AppState *s, int64_t t) {
+    if (!scrollable(s->screen) || s->dragging) {
+        s->lastScrollFrameTime = t;
+        if (!scrollable(s->screen)) stopScrollMomentum(s);
+        return;
+    }
+    if (std::fabs(s->scrollVelocity) < dp(s, 3.5f)) {
+        stopScrollMomentum(s);
+        return;
+    }
+    if (s->lastScrollFrameTime == 0) {
+        s->lastScrollFrameTime = t;
+        return;
+    }
+    float dt = static_cast<float>(std::max<int64_t>(0, t - s->lastScrollFrameTime)) / 1000.0f;
+    s->lastScrollFrameTime = t;
+    if (dt <= 0.0f) return;
+    dt = std::min(dt, 0.064f);
+
+    float next = clampScrollOffset(s, s->scroll + s->scrollVelocity * dt);
+    if (next == s->scroll && (next <= 0.0f || next >= maxScrollOffset(s))) {
+        s->scroll = next;
+        stopScrollMomentum(s);
+        return;
+    }
+    s->scroll = next;
+    s->scrollVelocity *= std::exp(-2.85f * dt);
+}
+
 void updateInteractionState(AppState *s) {
     int64_t t = nowMs();
+    updateScrollMomentum(s, t);
+    if (s->hasPressedButton && s->pressedButtonUntil > 0 && t >= s->pressedButtonUntil) {
+        clearPressedButton(s);
+    }
     if (s->hintCompletionDueAt > 0 && t >= s->hintCompletionDueAt) {
         s->hintCompletionDueAt = 0;
         if (s->hasSession && s->screen == Screen::Game && !s->session.completed &&
@@ -4796,11 +5080,6 @@ void tapTile(AppState *s, int idx) {
     if (solved(s->session.puzzle, s->session.board)) completeGame(s);
 }
 
-bool scrollable(Screen screen) {
-    return screen == Screen::Campaign || screen == Screen::Freeplay || screen == Screen::HowTo ||
-           screen == Screen::Daily || screen == Screen::Math || screen == Screen::Settings;
-}
-
 void back(AppState *s) {
     if (s->dailyExitConfirm) {
         s->dailyExitConfirm = false;
@@ -4813,6 +5092,78 @@ void back(AppState *s) {
     } else if (s->screen != Screen::Main) {
         go(s, Screen::Main);
     }
+}
+
+int64_t motionEventTimeMs(const AInputEvent *event) {
+    return AMotionEvent_getEventTime(event) / 1000000LL;
+}
+
+int64_t historicalMotionEventTimeMs(const AInputEvent *event, size_t historyIndex) {
+    return AMotionEvent_getHistoricalEventTime(event, historyIndex) / 1000000LL;
+}
+
+void clearPressStateForScroll(AppState *s) {
+    s->pressTile = -1;
+    s->longPreviewShown = false;
+    clearPressedButton(s);
+    if (s->previewClearAt == 0) {
+        s->previewTile = -1;
+        if (s->hintLine == "Previewing this pulse.") s->hintLine.clear();
+    }
+}
+
+void beginScrollDrag(AppState *s, float y, int64_t eventTimeMs) {
+    float dy = y - s->downY;
+    float slop = dp(s, 5.0f);
+    s->dragging = true;
+    clearPressStateForScroll(s);
+    s->scrollVelocity = 0.0f;
+    s->lastTouchY = s->downY + (dy > 0.0f ? slop : -slop);
+    s->lastTouchTime = eventTimeMs;
+    s->lastScrollFrameTime = 0;
+}
+
+void updateScrollDragSample(AppState *s, float y, int64_t eventTimeMs) {
+    if (!scrollable(s->screen) || maxScrollOffset(s) <= 0.0f) return;
+    if (!s->dragging) {
+        if (std::fabs(y - s->downY) <= dp(s, 5.0f)) return;
+        beginScrollDrag(s, y, eventTimeMs);
+    }
+
+    float oldScroll = s->scroll;
+    float nextScroll = clampScrollOffset(s, oldScroll - (y - s->lastTouchY));
+    s->scroll = nextScroll;
+
+    int64_t dtMs = eventTimeMs - s->lastTouchTime;
+    if (dtMs > 0) {
+        float sampleVelocity = (nextScroll - oldScroll) / (static_cast<float>(dtMs) / 1000.0f);
+        if (std::fabs(sampleVelocity) < dp(s, 1.5f)) {
+            if (nextScroll == oldScroll) s->scrollVelocity *= 0.82f;
+        } else if (std::fabs(s->scrollVelocity) < dp(s, 1.0f)) {
+            s->scrollVelocity = sampleVelocity;
+        } else {
+            float blend = s->scrollVelocity * sampleVelocity < 0.0f ? 0.66f : 0.52f;
+            s->scrollVelocity = s->scrollVelocity * (1.0f - blend) + sampleVelocity * blend;
+        }
+        float velocityCap = dp(s, 9600.0f);
+        s->scrollVelocity = std::max(-velocityCap, std::min(velocityCap, s->scrollVelocity));
+    }
+
+    s->lastTouchY = y;
+    s->lastTouchTime = eventTimeMs;
+}
+
+void finishScrollDrag(AppState *s) {
+    s->dragging = false;
+    clearPressStateForScroll(s);
+    if (std::fabs(s->scrollVelocity) < dp(s, 32.0f) ||
+        s->scroll <= 0.0f || s->scroll >= maxScrollOffset(s)) {
+        stopScrollMomentum(s);
+        return;
+    }
+    float velocityCap = dp(s, 9600.0f);
+    s->scrollVelocity = std::max(-velocityCap, std::min(velocityCap, s->scrollVelocity * 1.06f));
+    s->lastScrollFrameTime = nowMs();
 }
 
 int32_t handleInput(android_app *app, AInputEvent *event) {
@@ -4830,48 +5181,65 @@ int32_t handleInput(android_app *app, AInputEvent *event) {
     int action = AMotionEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK;
     float x = AMotionEvent_getX(event, 0);
     float y = AMotionEvent_getY(event, 0);
+    int64_t eventTimeMs = motionEventTimeMs(event);
     if (action == AMOTION_EVENT_ACTION_DOWN) {
         s->downX = x;
         s->downY = y;
         s->startScroll = s->scroll;
+        s->lastTouchY = y;
+        s->lastTouchTime = eventTimeMs;
         s->downTime = nowMs();
         s->dragging = false;
-        s->pressTile = tileAt(s, x, y);
+        stopScrollMomentum(s);
+        clearPressedButton(s);
+        Button pressed{};
+        if (findButtonAt(s, x, y, &pressed)) {
+            rememberPressedButton(s, pressed);
+            vibrate(s, 8);
+            s->pressTile = -1;
+        } else {
+            s->pressTile = tileAt(s, x, y);
+        }
         s->longPreviewShown = false;
         if (s->pressTile >= 0 && s->hintLine == "Previewing this pulse.") s->hintLine.clear();
         return 1;
     }
     if (action == AMOTION_EVENT_ACTION_MOVE) {
-        float dy = y - s->downY;
-        if (std::fabs(dy) > dp(s, 6) && scrollable(s->screen)) {
-            s->dragging = true;
-            float maxScroll = std::max(0.0f, s->contentHeight - s->renderer.height + safeBottom(s));
-            s->scroll = std::max(0.0f, std::min(maxScroll, s->startScroll - dy));
+        size_t historySize = AMotionEvent_getHistorySize(event);
+        for (size_t i = 0; i < historySize; ++i) {
+            updateScrollDragSample(s, AMotionEvent_getHistoricalY(event, 0, i),
+                                   historicalMotionEventTimeMs(event, i));
+        }
+        updateScrollDragSample(s, y, eventTimeMs);
+        if (s->hasPressedButton &&
+            (!s->pressedButtonRect.contains(x, y) || std::hypot(x - s->downX, y - s->downY) > dp(s, 18))) {
+            clearPressedButton(s);
         }
         if (s->pressTile >= 0 && std::hypot(x - s->downX, y - s->downY) > dp(s, 18)) {
-            s->pressTile = -1;
-            s->longPreviewShown = false;
-            if (s->previewClearAt == 0) {
-                s->previewTile = -1;
-                if (s->hintLine == "Previewing this pulse.") s->hintLine.clear();
-            }
+            clearPressStateForScroll(s);
         }
         return 1;
     }
     if (action == AMOTION_EVENT_ACTION_UP) {
+        if (s->dragging) {
+            updateScrollDragSample(s, y, eventTimeMs);
+            finishScrollDrag(s);
+            return 1;
+        }
         if (!s->dragging && std::hypot(x - s->downX, y - s->downY) < dp(s, 12)) {
-            for (int i = static_cast<int>(s->buttons.size()) - 1; i >= 0; --i) {
-                if (s->buttons[i].rect.contains(x, y)) {
-                    s->pressTile = -1;
-                    s->longPreviewShown = false;
-                    handleAction(s, s->buttons[i]);
-                    return 1;
-                }
+            Button tapped{};
+            if (findButtonAt(s, x, y, &tapped)) {
+                rememberPressedButton(s, tapped, nowMs() + 140);
+                s->pressTile = -1;
+                s->longPreviewShown = false;
+                handleAction(s, tapped);
+                return 1;
             }
             if (s->longPreviewShown) {
                 s->previewClearAt = nowMs() + 220;
                 s->pressTile = -1;
                 s->longPreviewShown = false;
+                clearPressedButton(s);
                 return 1;
             }
             int idx = tileAt(s, x, y);
@@ -4879,6 +5247,13 @@ int32_t handleInput(android_app *app, AInputEvent *event) {
         }
         s->pressTile = -1;
         s->longPreviewShown = false;
+        clearPressedButton(s);
+        return 1;
+    }
+    if (action == AMOTION_EVENT_ACTION_CANCEL) {
+        s->dragging = false;
+        clearPressStateForScroll(s);
+        stopScrollMomentum(s);
         return 1;
     }
     return 0;
@@ -4922,7 +5297,7 @@ extern "C" void android_main(android_app *app) {
     while (true) {
         int events = 0;
         android_poll_source *source = nullptr;
-        int timeout = state.renderer.ready() ? 16 : -1;
+        int timeout = state.renderer.ready() ? 0 : -1;
         while (ALooper_pollOnce(timeout, nullptr, &events, reinterpret_cast<void **>(&source)) >= 0) {
             if (source) source->process(app, source);
             if (app->destroyRequested) {

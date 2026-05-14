@@ -42,8 +42,8 @@
   var FREE_PATTERNS = ["cross", "diagonal", "square", "horizontal", "vertical", "knight", "randomMixed"];
   var DAILY_TIERS = [
     { key: "easy", label: "Easy", width: 4, height: 4, states: 2, pattern: "cross", difficulty: "Easy", locked: false, irregular: false, unique: true },
-    { key: "medium", label: "Medium", width: 5, height: 5, states: 3, pattern: "cross", difficulty: "Medium", locked: true, irregular: false, unique: true },
-    { key: "hard", label: "Hard", width: 6, height: 6, states: 4, pattern: "randomMixed", difficulty: "Hard", locked: true, irregular: true, unique: true }
+    { key: "medium", label: "Medium", width: 5, height: 5, states: 2, pattern: "cross", difficulty: "Medium", locked: true, irregular: true, unique: true },
+    { key: "hard", label: "Hard", width: 4, height: 4, states: 3, pattern: "cross", difficulty: "Hard", locked: true, irregular: true, unique: true }
   ];
   var SIZE_OPTIONS = ["3x3", "4x4", "5x5", "6x6", "7x7", "Custom"];
   var STATE_OPTIONS = [2, 3, 4, 5];
@@ -61,14 +61,14 @@
     knight: "K"
   };
   var CHAPTER_TITLES = [
-    "Spark Switches", "Bit Flip Boulevard", "Color Pop Lab", "Triple-Tap Tango", "Corner Carnival",
-    "Five by Fun", "Diagonal Disco", "Tiny Tangles", "Line Dance", "Square Wave Rave",
-    "Lockstep Launch", "Mind the Gaps", "Circuit Jam", "Color Cascade", "Knight Shift",
-    "Zigzag Frames", "Six-Sided Shuffle", "Amber Afterburners", "Purple Pulse Party", "Four-State Frenzy",
-    "Dense Detours", "Glyph Mix-Up", "Locked and Loaded", "Wide Awake", "Prime Time",
-    "Lock Labyrinth", "Gap Galaxy", "Modular Mayhem", "Ninefold Knockout", "Final Flip"
+    "Binary Beginnings", "Fourfold Flips", "Locked Lights", "Lockstep Squares", "First Holes",
+    "Binary Breakaways", "Fivefold Binary", "Three-Color Start", "Triple Grid", "Triple Locks",
+    "Triple Holes", "Triple Combine", "Pattern Primer", "Pattern Locks", "Color Gauntlet",
+    "Four-State Start", "Four-State Locks", "Four-State Gaps", "Four-State Patterns", "Four-State Matrix",
+    "Five-State Start", "Five-State Locks", "Five-State Gaps", "Five-State Patterns", "Dense Dimensions",
+    "Prime Pressure", "Modular Maze", "Wide Matrix", "Endgame Circuit", "Final Inversion"
   ];
-  var CAMPAIGN_VERSION = 3;
+  var CAMPAIGN_VERSION = 4;
   var EXACT_BFS_STATE_LIMIT = 500000;
   var EXACT_NULLSPACE_LIMIT = 500000;
   var HINT_COOLDOWN_MS = 500;
@@ -186,6 +186,12 @@
   }
 
   function bindEvents() {
+    document.addEventListener("pointerdown", function (event) {
+      var button = event.target.closest("button");
+      if (!button || button.disabled || button.classList.contains("tile")) return;
+      vibrate(button.classList.contains("primary-action") ? 10 : 8);
+    });
+
     document.addEventListener("click", function (event) {
       var actionButton = event.target.closest("[data-action]");
       if (!actionButton) return;
@@ -599,46 +605,165 @@
   }
 
   function campaignLevelConfig(chapter, levelInChapter) {
-    var size = 5;
-    if (chapter === 1) size = 3;
-    else if (chapter === 2) size = 4;
-    else if (chapter === 3) size = 3;
-    else if (chapter === 4) size = 4;
-    else if (chapter <= 6) size = 5;
-    else if (chapter <= 8) size = levelInChapter <= 5 ? 4 : 5;
-    else if (chapter <= 10) size = 5;
-    else if (chapter <= 18) size = 6;
-    else if (chapter <= 25) size = 7;
-    else if (chapter <= 28) size = 8;
-    else size = 9;
+    var sizes = [5];
+    var states = 2;
+    var difficulty = "Easy";
+    var locked = false;
+    var irregular = false;
+
+    if (chapter === 1) {
+      sizes = [3];
+    } else if (chapter === 2) {
+      sizes = [4];
+    } else if (chapter === 3) {
+      sizes = [3];
+      locked = true;
+    } else if (chapter === 4) {
+      sizes = [4];
+      locked = true;
+      difficulty = "Medium";
+    } else if (chapter === 5) {
+      sizes = [3, 4];
+      irregular = true;
+      difficulty = "Medium";
+    } else if (chapter === 6) {
+      sizes = [3, 4];
+      locked = true;
+      irregular = true;
+      difficulty = "Medium";
+    } else if (chapter === 7) {
+      sizes = [5];
+      locked = true;
+      irregular = true;
+      difficulty = "Hard";
+    } else if (chapter === 8) {
+      sizes = [3];
+      states = 3;
+    } else if (chapter === 9) {
+      sizes = [4];
+      states = 3;
+      difficulty = "Medium";
+    } else if (chapter === 10) {
+      sizes = [3];
+      states = 3;
+      locked = true;
+      difficulty = "Medium";
+    } else if (chapter === 11) {
+      sizes = [3, 4];
+      states = 3;
+      irregular = true;
+      difficulty = "Medium";
+    } else if (chapter === 12) {
+      sizes = [3, 4];
+      states = 3;
+      locked = true;
+      irregular = true;
+      difficulty = "Hard";
+    } else if (chapter === 13) {
+      sizes = [4];
+      states = 3;
+      difficulty = "Hard";
+    } else if (chapter === 14) {
+      sizes = [4, 5];
+      states = 3;
+      locked = true;
+      difficulty = "Hard";
+    } else if (chapter === 15) {
+      sizes = [5, 6];
+      states = 3;
+      locked = true;
+      irregular = true;
+      difficulty = "Hard";
+    } else if (chapter === 16) {
+      sizes = [3];
+      states = 4;
+      difficulty = "Medium";
+    } else if (chapter === 17) {
+      sizes = [4];
+      states = 4;
+      locked = true;
+      difficulty = "Hard";
+    } else if (chapter === 18) {
+      sizes = [4, 5];
+      states = 4;
+      locked = true;
+      irregular = true;
+      difficulty = "Hard";
+    } else if (chapter === 19) {
+      sizes = [5];
+      states = 4;
+      difficulty = "Hard";
+    } else if (chapter === 20) {
+      sizes = [5, 6];
+      states = 4;
+      locked = true;
+      irregular = true;
+      difficulty = "Expert";
+    } else if (chapter === 21) {
+      sizes = [3];
+      states = 5;
+      difficulty = "Hard";
+    } else if (chapter === 22) {
+      sizes = [4];
+      states = 5;
+      locked = true;
+      difficulty = "Hard";
+    } else if (chapter === 23) {
+      sizes = [4, 5];
+      states = 5;
+      locked = true;
+      irregular = true;
+      difficulty = "Expert";
+    } else if (chapter === 24) {
+      sizes = [5, 6];
+      states = 5;
+      locked = true;
+      irregular = true;
+      difficulty = "Expert";
+    } else if (chapter === 25) {
+      sizes = [6, 7];
+      states = 3;
+      locked = true;
+      irregular = true;
+      difficulty = "Expert";
+    } else if (chapter === 26) {
+      sizes = [6, 7];
+      states = 4;
+      locked = true;
+      irregular = true;
+      difficulty = "Expert";
+    } else if (chapter === 27) {
+      sizes = [5, 6, 7];
+      states = 5;
+      locked = true;
+      irregular = true;
+      difficulty = "Expert";
+    } else if (chapter === 28) {
+      sizes = [7, 8];
+      states = campaignOptionAt([3, 4, 5, 3, 4, 5, 4, 5, 3, 5], levelInChapter);
+      locked = true;
+      irregular = true;
+      difficulty = "Expert";
+    } else if (chapter === 29) {
+      sizes = [8, 9];
+      states = campaignOptionAt([4, 5, 3, 4, 5, 3, 5, 4, 5, 5], levelInChapter);
+      locked = true;
+      irregular = true;
+      difficulty = "Expert";
+    } else {
+      sizes = [9];
+      states = campaignOptionAt([3, 4, 5, 4, 5, 5, 4, 5, 5, 5], levelInChapter);
+      locked = true;
+      irregular = true;
+      difficulty = "Expert";
+    }
+
+    var size = campaignOptionAt(sizes, levelInChapter);
     var width = size;
     var height = size;
-    if (chapter >= 9 && levelInChapter % 5 === 0 && width < 9) width += 1;
-    if (chapter >= 13 && levelInChapter % 7 === 0 && height < 9) height += 1;
-
-    var states;
-    if (chapter <= 2) states = 2;
-    else if (chapter <= 4) states = 3;
-    else if (chapter === 5) states = 2;
-    else if (chapter <= 15) states = 3;
-    else if (chapter <= 20) states = levelInChapter % 3 === 0 ? 4 : 3;
-    else if (chapter <= 24) states = levelInChapter % 2 === 0 ? 5 : 3;
-    else if (chapter <= 26) states = levelInChapter % 3 === 0 ? 4 : 5;
-    else states = levelInChapter % 4 === 0 ? 4 : 5;
-
-    var pattern = "cross";
-    if (chapter >= 7 && chapter <= 8) pattern = levelInChapter % 2 ? "diagonal" : "cross";
-    if (chapter >= 9 && chapter <= 10) pattern = levelInChapter % 2 ? "horizontal" : "vertical";
-    if (chapter >= 11 && chapter <= 13) pattern = levelInChapter % 3 === 0 ? "square" : "cross";
-    if (chapter >= 14 && chapter <= 16) pattern = levelInChapter % 4 === 0 ? "knight" : "diagonal";
-    if (chapter >= 17) pattern = levelInChapter % 3 === 0 ? "randomMixed" : ["cross", "diagonal", "square", "horizontal", "vertical", "knight"][levelInChapter % 6];
-    if (chapter >= 22) pattern = levelInChapter % 2 ? "randomMixed" : pattern;
-
-    var difficulty = chapter <= 6 ? "Easy" : chapter <= 14 ? "Medium" : chapter <= 23 ? "Hard" : "Expert";
-    var sizePressure = (width * height - 9) * 0.035;
-    var statePressure = (states - 2) * 0.65;
-    var minimumKnownMoves = Math.max(2, Math.floor(1.4 + chapter * 0.22 + levelInChapter * 0.16 + sizePressure + statePressure));
-    var preferredKnownMoves = minimumKnownMoves + Math.floor(chapter / 6) + (levelInChapter > 6 ? 1 : 0) + (states > 3 ? 1 : 0);
+    var pattern = campaignPatternForChapter(chapter, levelInChapter);
+    var minimumKnownMoves = campaignMinimumKnownMoves(width, height, states, locked, irregular, pattern, difficulty, chapter, levelInChapter);
+    var preferredKnownMoves = campaignPreferredKnownMoves(minimumKnownMoves, width, states, locked, irregular, pattern, levelInChapter);
 
     return {
       width: width,
@@ -646,20 +771,57 @@
       states: states,
       pattern: pattern,
       difficulty: difficulty,
-      locked: chapter >= 11 && levelInChapter % 2 === 0,
-      irregular: chapter >= 12 && levelInChapter % 3 === 0,
+      locked: locked,
+      irregular: irregular,
       unique: false,
       minimumKnownMoves: minimumKnownMoves,
       preferredKnownMoves: preferredKnownMoves
     };
   }
 
+  function campaignOptionAt(options, levelInChapter) {
+    return options[(levelInChapter - 1) % options.length];
+  }
+
+  function campaignPatternForChapter(chapter, levelInChapter) {
+    if (chapter <= 12) return "cross";
+    if (chapter === 13) return campaignOptionAt(["diagonal", "horizontal", "vertical"], levelInChapter);
+    if (chapter === 14) return levelInChapter % 4 === 0 ? "square" : (levelInChapter % 2 ? "diagonal" : "cross");
+    if (chapter === 15) return levelInChapter % 3 === 0 ? "randomMixed" : campaignOptionAt(["cross", "diagonal", "square", "horizontal", "vertical"], levelInChapter);
+    if (chapter <= 18) return "cross";
+    if (chapter === 19) return campaignOptionAt(["horizontal", "vertical", "square", "diagonal"], levelInChapter);
+    if (chapter === 20) return levelInChapter % 2 ? "randomMixed" : campaignOptionAt(["cross", "diagonal", "square"], levelInChapter);
+    if (chapter <= 23) return "cross";
+    if (chapter === 24) return levelInChapter % 2 ? "randomMixed" : campaignOptionAt(["diagonal", "horizontal", "vertical", "square"], levelInChapter);
+    return levelInChapter % 3 === 0 ? "randomMixed" : campaignOptionAt(["cross", "diagonal", "square", "horizontal", "vertical", "knight"], levelInChapter);
+  }
+
+  function campaignMinimumKnownMoves(width, height, states, locked, irregular, pattern, difficulty, chapter, levelInChapter) {
+    var featurePressure = (locked ? 0.45 : 0) + (irregular ? 0.65 : 0) + (pattern !== "cross" ? 0.45 : 0) + (pattern === "randomMixed" ? 0.7 : 0);
+    var statePressure = Math.max(0, states - 2) * 0.75 + (states >= 5 ? 0.4 : 0);
+    var sizePressure = (width * height - 9) * 0.025;
+    var chapterPressure = Math.max(0, chapter - 1) * 0.055;
+    var levelPressure = (levelInChapter - 1) * 0.13;
+    var floorByDifficulty = difficulty === "Expert" ? 5 : difficulty === "Hard" ? 4 : difficulty === "Medium" ? 3 : 2;
+    return Math.max(floorByDifficulty, Math.min(12, Math.floor(1.55 + featurePressure + statePressure + sizePressure + chapterPressure + levelPressure)));
+  }
+
+  function campaignPreferredKnownMoves(minimumKnownMoves, width, states, locked, irregular, pattern, levelInChapter) {
+    var spread = 1 + Math.floor((levelInChapter - 1) / 3);
+    if (width >= 5) spread += 1;
+    if (locked && irregular) spread += 1;
+    if (states >= 4) spread += 1;
+    if (pattern === "randomMixed") spread += 1;
+    return Math.min(18, minimumKnownMoves + spread);
+  }
+
   function campaignScrambleMoveCount(config, chapter, levelInChapter, activeCount, rng) {
-    var ratio = 0.18 + chapter * 0.018;
-    var base = Math.floor(activeCount * Math.min(0.78, ratio));
-    var statePressure = config.states - 1;
-    var jitter = randomInt(0, Math.max(1, Math.floor(activeCount * 0.08)), rng);
-    return Math.max(config.preferredKnownMoves, base + statePressure + Math.floor(levelInChapter * 0.7) + jitter);
+    var ratio = clamp(0.16 + chapter * 0.012 - Math.max(0, config.states - 2) * 0.018, 0.14, 0.64);
+    var base = Math.floor(activeCount * ratio);
+    var featureBonus = (config.locked ? 1 : 0) + (config.irregular ? 1 : 0) + (config.pattern !== "cross" ? 1 : 0) + (config.pattern === "randomMixed" ? 1 : 0);
+    var stateBonus = config.states === 2 ? 1 : 0;
+    var jitter = randomInt(0, Math.max(1, Math.floor(activeCount * 0.06)), rng);
+    return Math.max(config.preferredKnownMoves, base + stateBonus + featureBonus + Math.floor(levelInChapter * 0.38) + jitter);
   }
 
   function makeCampaignLevelFromPuzzle(puzzle, board, solutionCounts, config, chapter, levelInChapter, index) {
@@ -681,21 +843,26 @@
 
   function generateSimpleCampaignFallback(chapter, levelInChapter, index) {
     var config = Object.assign({}, campaignLevelConfig(chapter, levelInChapter));
-    config.pattern = config.pattern === "randomMixed" ? "cross" : config.pattern;
-    config.locked = false;
-    config.irregular = false;
-    config.difficulty = chapter <= 6 ? "Easy" : "Medium";
-    config.minimumKnownMoves = Math.min(config.minimumKnownMoves, 2);
-    config.preferredKnownMoves = Math.max(3, config.minimumKnownMoves + 1);
     var rng = makeRng("campaign-fallback-" + chapter + "-" + levelInChapter);
     var puzzle = createGeneratedShell(config, rng);
     var board = blankBoard(puzzle);
     var tappable = tappableIndexes(puzzle);
     var solutionCounts = {};
-    for (var i = 0; i < Math.min(4, tappable.length); i += 1) {
-      var tap = tappable[(i * 3 + levelInChapter) % tappable.length];
+    var previousTap = -1;
+    for (var move = 0; move < config.preferredKnownMoves && tappable.length; move += 1) {
+      var tap = randomItem(tappable, rng);
+      var guard = 0;
+      while (tap === previousTap && tappable.length > 1 && guard < 8) {
+        tap = randomItem(tappable, rng);
+        guard += 1;
+      }
+      previousTap = tap;
       applyPulse(puzzle, board, tap);
       solutionCounts[tap] = mod((solutionCounts[tap] || 0) - 1, puzzle.states);
+    }
+    if ((isSolved(puzzle, board) || !solutionSolves(puzzle, board, solutionCounts)) && tappable.length) {
+      applyPulse(puzzle, board, tappable[0]);
+      solutionCounts[tappable[0]] = mod((solutionCounts[tappable[0]] || 0) - 1, puzzle.states);
     }
     return makeCampaignLevelFromPuzzle(puzzle, board, solutionCounts, config, chapter, levelInChapter, index);
   }
@@ -763,6 +930,11 @@
   }
 
   function renderCampaign() {
+    if (!app.campaignLevels.length) {
+      els.campaignList.innerHTML = '<section class="empty-state"><h3>No campaign levels found</h3><p>The campaign could not be prepared. Reload the app to rebuild the level list.</p></section>';
+      return;
+    }
+
     var chapters = range(30).map(function (_, index) {
       return campaignChapterMeta(index + 1);
     });
@@ -779,6 +951,10 @@
 
   function renderDaily() {
     if (!els.dailyList) return;
+    if (!DAILY_TIERS.length) {
+      els.dailyList.innerHTML = '<section class="empty-state"><h3>No daily puzzles available</h3><p>Daily puzzles are generated from the current date. Reload the app to try again.</p></section>';
+      return;
+    }
     var dateKey = getDailyDateKey();
     els.dailyList.innerHTML = DAILY_TIERS.map(function (tier) {
       return renderDailyCard(tier, dateKey);
@@ -788,21 +964,19 @@
   function renderDailyCard(tier, dateKey) {
     var record = dailyRecordFor(dateKey, tier.key);
     var completed = Boolean(record && record.completed);
-    var status = completed ? "Complete" : "Ready";
     var stars = completed ? clamp(Number(record.stars) || 0, 0, 3) : 0;
     var configLine = tier.width + "x" + tier.height + " | " + tier.states + " states | " + patternDisplayName(tier.pattern);
     var detailLine = [
-      tier.locked ? "Locked tiles" : "Open board",
-      tier.irregular ? "Irregular grid" : "Full grid"
-    ].join(" | ");
+      tier.locked ? "Locks on" : "Locks off",
+      tier.irregular ? "Holes on" : "Holes off"
+    ].join(" / ");
     var recordLine = completed
       ? "Best " + record.moves + " moves | " + formatSeconds(record.time || 0)
-      : "No result today";
-    var aria = tier.label + " daily challenge, " + configLine + ", " + (completed ? recordLine : "not completed today");
+      : "Not played today";
+    var aria = tier.label + " daily challenge, " + configLine + ", " + detailLine + ", " + (completed ? recordLine : "not completed today");
     return '<button class="daily-card daily-card-' + tier.key + (completed ? " is-complete" : "") + '" data-action="start-daily" data-daily-tier="' + tier.key + '" aria-label="' + escapeAttribute(aria) + '">' +
       '<span class="daily-card-top">' +
-        '<span><span class="kicker">' + escapeAttribute(tier.label) + '</span><strong>' + escapeAttribute(tier.difficulty) + ' Puzzle</strong></span>' +
-        '<span class="daily-status">' + status + '</span>' +
+        '<strong class="daily-tier-label">' + escapeAttribute(tier.label) + '</strong>' +
       '</span>' +
       '<span class="daily-card-meta">' +
         '<span>' + escapeAttribute(configLine) + '</span>' +
@@ -1109,8 +1283,9 @@
       Hard: 0.88,
       Expert: 1.18
     }[difficulty] || 0.58;
+    base = Math.max(0.22, base - Math.max(0, states - 2) * 0.06);
     var jitter = randomInt(0, Math.max(2, Math.floor(activeCount * 0.18)), rng);
-    return Math.max(2, Math.floor(activeCount * base) + states - 1 + jitter);
+    return Math.max(2, Math.floor(activeCount * base) + (states === 2 ? 1 : 0) + jitter);
   }
 
   function difficultyRatio(difficulty) {
@@ -2062,11 +2237,13 @@
   function rateDifficulty(puzzle, minimumMoves) {
     var activeCount = activeIndexes(puzzle).length;
     var lockedCount = puzzle.locked.size;
+    var holeCount = puzzle.disabled.size;
     var specialTypes = new Set(Object.keys(puzzle.tilePatterns).map(function (idx) {
       return puzzle.tilePatterns[idx];
     })).size;
-    var score = activeCount * 0.4 + puzzle.states * 2 + lockedCount * 1.5 + specialTypes * 2 + (minimumMoves || 0) * 1.2;
-    if (score < 18) return "Easy";
+    var stateWeight = puzzle.states <= 2 ? 0 : puzzle.states === 3 ? 12 : puzzle.states === 4 ? 16 : 21;
+    var score = activeCount * 0.34 + stateWeight + lockedCount * 1.4 + holeCount * 1.2 + specialTypes * 2.2 + (minimumMoves || 0) * 1.15;
+    if (score < 17) return "Easy";
     if (score < 30) return "Medium";
     if (score < 45) return "Hard";
     return "Expert";
