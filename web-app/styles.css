@@ -786,7 +786,8 @@ input:focus-visible {
   gap: 10px;
 }
 
-.toggle-row {
+.toggle-row,
+.setting-select-row {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
@@ -798,6 +799,10 @@ input:focus-visible {
   background: rgba(25, 31, 43, 0.74);
   color: var(--text);
   font-weight: 720;
+}
+
+.setting-select-row .select-field {
+  min-width: min(46vw, 190px);
 }
 
 .toggle-row input {
@@ -2239,11 +2244,13 @@ input:focus-visible {
 
 .custom-size input:hover,
 .select-field:hover,
-.toggle-row:hover {
+.toggle-row:hover,
+.setting-select-row:hover {
   border-color: var(--line-strong);
 }
 
-.toggle-row {
+.toggle-row,
+.setting-select-row {
   min-height: 50px;
   font-weight: 700;
 }
