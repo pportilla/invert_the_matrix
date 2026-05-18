@@ -2231,13 +2231,13 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Endgame Circuit", "Circuito final"},
             {"Final Inversion", "Inversión final"},
             {"Clear the board", "Deja el tablero en blanco"},
-            {"Clear every active tile by turning it white.", "Deja en blanco todas las casillas activas."},
+            {"Clear every tile by turning it white.", "Deja en blanco todas las casillas."},
             {"Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.", "Un toque en una casilla aplica su patrón de toque al tablero, y cada casilla alcanzada avanza un estado."},
-            {"Use previews and level clues to plan calmly: colored tiles still need to advance, tiles with lock icons can be changed by nearby taps, and empty holes are outside the board.", "Mira la vista previa y las pistas del nivel para jugar con calma: las casillas de color todavía tienen que avanzar, las casillas con candado pueden cambiar con toques cercanos y los huecos vacíos quedan fuera del tablero."},
+            {"Use previews and level clues to plan calmly before each tap.", "Mira la vista previa y las pistas del nivel para jugar con calma antes de cada toque."},
             {"1. Make every tile white", "1. Deja todas las casillas en blanco"},
             {"A white tile is solved.", "Una casilla blanca ya está resuelta."},
             {"Colored tiles are not wrong. They just need to keep advancing until they return to white.", "Las casillas de color no están mal. Solo tienen que seguir avanzando hasta volver al blanco."},
-            {"The puzzle ends only when every active tile is white at the same time.", "El nivel se completa cuando todas las casillas activas están blancas al mismo tiempo."},
+            {"The puzzle ends only when every tile is white at the same time.", "El nivel se completa cuando todas las casillas están blancas al mismo tiempo."},
             {"2. Tap and cycle", "2. Toca y haz avanzar"},
             {"Tap an available tile to apply the level's tap pattern.", "Toca una casilla disponible para aplicar el patrón de toque del nivel."},
             {"Every tile reached by the pattern advances one state.", "Cada casilla alcanzada por el patrón avanza un estado."},
@@ -2264,9 +2264,9 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Show numbers on tiles displays state values when you want a more exact view.", "Mostrar números en las casillas enseña los valores cuando quieres ver el estado exacto."},
             {"Android also includes haptic feedback controls.", "En Android también hay controles de vibración."},
             {"Invert the Matrix is a modular linear-algebra puzzle.", "Invert the Matrix es un rompecabezas de álgebra lineal modular."},
-            {"To play, think of each active tile as having a state, shown by its color.", "Para jugar, piensa que cada casilla activa tiene un estado, mostrado por su color."},
+            {"To play, think of each tile as having a state, shown by its color.", "Para jugar, piensa que cada casilla tiene un estado, mostrado por su color."},
             {"A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile.", "Un toque a una casilla no cambia solo la casilla que tocas, sino que cambia todas las casillas que se encuentran en un patrón centrado en la casilla elegida."},
-            {"After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all active tiles white at the same time.", "Después del último estado (color), una casilla vuelve al blanco. El objetivo es encontrar una secuencia de toques para que todas las casillas terminen siendo blancas al mismo tiempo."},
+            {"After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all tiles white at the same time.", "Después del último estado (color), una casilla vuelve al blanco. El objetivo es encontrar una secuencia de toques para que todas las casillas terminen siendo blancas al mismo tiempo."},
             {"Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap.", "Algunos tableros tienen solo dos estados posibles: blanco y azul, y solo un patrón: una cruz centrada en la casilla que tocas."},
             {"But later on, everything gets much more complicated.", "¡Pero más adelante todo se complica mucho más!"},
             {"Modeling The Game", "Modelo del juego"},
@@ -2514,13 +2514,13 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Endgame Circuit", "Circuit final"},
             {"Final Inversion", "Inversion finale"},
             {"Clear the board", "Vide le plateau"},
-            {"Clear every active tile by turning it white.", "Vide chaque tuile active en la rendant blanche."},
+            {"Clear every tile by turning it white.", "Rends chaque tuile blanche."},
             {"Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.", "Un toucher sur une tuile applique son motif de toucher au plateau, et chaque tuile atteinte avance d'un état."},
-            {"Use previews and level clues to plan calmly: colored tiles still need to advance, tiles with lock icons can be changed by nearby taps, and empty holes are outside the board.", "Utilise les aperçus et les indices du niveau pour planifier calmement : les tuiles colorées doivent encore avancer, les tuiles avec cadenas peuvent changer avec des touchers voisins et les trous vides sont hors du plateau."},
+            {"Use previews and level clues to plan calmly before each tap.", "Utilise les aperçus et les indices du niveau pour planifier calmement avant chaque toucher."},
             {"1. Make every tile white", "1. Rends toutes les tuiles blanches"},
             {"A white tile is solved.", "Une tuile blanche est résolue."},
             {"Colored tiles are not wrong. They just need to keep advancing until they return to white.", "Les tuiles colorées ne sont pas fausses. Elles doivent simplement continuer à avancer jusqu'à revenir au blanc."},
-            {"The puzzle ends only when every active tile is white at the same time.", "Le casse-tête se termine seulement quand toutes les tuiles actives sont blanches en même temps."},
+            {"The puzzle ends only when every tile is white at the same time.", "Le casse-tête se termine seulement quand toutes les tuiles sont blanches en même temps."},
             {"2. Tap and cycle", "2. Touche et fais cycler"},
             {"Tap an available tile to apply the level's tap pattern.", "Touche une tuile disponible pour appliquer le motif de toucher du niveau."},
             {"Every tile reached by the pattern advances one state.", "Chaque tuile atteinte par le motif avance d'un état."},
@@ -2547,9 +2547,9 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Show numbers on tiles displays state values when you want a more exact view.", "Afficher les nombres sur les tuiles montre les valeurs d'état quand tu veux une vue plus exacte."},
             {"Android also includes haptic feedback controls.", "Android inclut aussi des contrôles de retour haptique."},
             {"Invert the Matrix is a modular linear-algebra puzzle.", "Invert the Matrix est un casse-tête d'algèbre linéaire modulaire."},
-            {"To play, think of each active tile as having a state, shown by its color.", "Pour jouer, imagine que chaque tuile active possède un état, indiqué par sa couleur."},
+            {"To play, think of each tile as having a state, shown by its color.", "Pour jouer, imagine que chaque tuile possède un état, indiqué par sa couleur."},
             {"A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile.", "Un toucher sur une tuile ne change pas seulement cette tuile, mais toutes les tuiles qui se trouvent dans un motif centré sur la tuile choisie."},
-            {"After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all active tiles white at the same time.", "Après le dernier état, ou couleur, une tuile revient au blanc. Le but est de trouver une suite de touchers pour que toutes les tuiles actives soient blanches en même temps."},
+            {"After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all tiles white at the same time.", "Après le dernier état, ou couleur, une tuile revient au blanc. Le but est de trouver une suite de touchers pour que toutes les tuiles soient blanches en même temps."},
             {"Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap.", "Certains plateaux n'ont que deux états possibles : blanc et bleu, et un seul motif : une croix centrée sur la tuile que tu touches."},
             {"But later on, everything gets much more complicated.", "Mais plus tard, tout se complique beaucoup plus."},
             {"Modeling The Game", "Modéliser le jeu"},
@@ -5381,9 +5381,9 @@ void drawHowToIntro(AppState *s, float &y, std::vector<HighlightRule> *highlight
     float diagramGap = dp(s, 12) * std::min(1.12f, scale);
     std::vector<std::string> titleLines = wrapTextLines(s, tr(s, "Clear the board"), titleScale, maxTextW);
     std::vector<WrappedGuideLine> bodyLines = wrapGuideLines(s, std::vector<std::string>{
-        "Clear every active tile by turning it white.",
+        "Clear every tile by turning it white.",
         "Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.",
-        "Use previews and level clues to plan calmly: colored tiles still need to advance, tiles with lock icons can be changed by nearby taps, and empty holes are outside the board."
+        "Use previews and level clues to plan calmly before each tap."
     }, bodyScale, maxTextW, 0.0f, highlights);
     Rect panel{dp(s, 18), y, panelW,
                pad * 2.0f + titleLineH * static_cast<float>(titleLines.size()) + dp(s, 12) +
@@ -5417,7 +5417,7 @@ void drawHowTo(AppState *s) {
     drawGuideBlock(s, y, "1. Make every tile white",
                    {"- A white tile is solved.",
                     "- Colored tiles are not wrong. They just need to keep advancing until they return to white.",
-                    "- The puzzle ends only when every active tile is white at the same time."},
+                    "- The puzzle ends only when every tile is white at the same time."},
                    GREEN, GuideDiagramKind::Read, &highlights);
     drawGuideBlock(s, y, "2. Tap and cycle",
                    {"- Tap an available tile to apply the level's tap pattern.",
@@ -5529,9 +5529,9 @@ void drawMathIntro(AppState *s, float &y, std::vector<HighlightRule> *highlights
     float demoH = dp(s, 108) * std::min(1.16f, scale);
     std::vector<std::string> titleLines = wrapTextLines(s, tr(s, "Invert the Matrix is a modular linear-algebra puzzle."), titleScale, maxTextW);
     std::vector<WrappedGuideLine> bodyLines = wrapGuideLines(s, std::vector<std::string>{
-        "To play, think of each active tile as having a state, shown by its color.",
+        "To play, think of each tile as having a state, shown by its color.",
         "A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile.",
-        "After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all active tiles white at the same time.",
+        "After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all tiles white at the same time.",
         "Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap.",
         "But later on, everything gets much more complicated."
     }, bodyScale, maxTextW, 0.0f, highlights);

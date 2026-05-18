@@ -223,8 +223,8 @@
             <span></span><span class="lit-orange"></span><span></span>
           </div>
           <div>
-            <p>Clear every active tile by turning it white. Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.</p>
-            <p>Use previews and level clues to plan calmly: colored tiles still need to advance, tiles with lock icons can be changed by nearby taps, and empty holes are outside the board.</p>
+            <p>Clear every tile by turning it white. Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.</p>
+            <p>Use previews and level clues to plan calmly before each tap.</p>
           </div>
         </section>
 
@@ -240,7 +240,7 @@
               <ul class="guide-bullets">
                 <li>A white tile is solved.</li>
                 <li>Colored tiles are not wrong. They just need to keep advancing until they return to white.</li>
-                <li>The puzzle ends only when every active tile is white at the same time.</li>
+                <li>The puzzle ends only when every tile is white at the same time.</li>
               </ul>
             </div>
           </article>
@@ -365,7 +365,7 @@
         <section class="math-intro" aria-label="Math overview">
           <div class="math-intro-copy">
             <p class="math-lead">Invert the Matrix is a modular linear-algebra puzzle.</p>
-            <p>To play, think of each active tile as having a state, shown by its color. A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile. After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all active tiles white at the same time. Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap. But later on, everything gets much more complicated.</p>
+            <p>To play, think of each tile as having a state, shown by its color. A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile. After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all tiles white at the same time. Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap. But later on, everything gets much more complicated.</p>
           </div>
           <div class="math-pulse-demo" aria-hidden="true">
             <span></span>
@@ -505,7 +505,7 @@
           </article>
           <article>
             <h3>When is \(A\) invertible?</h3>
-            <p>A true inverse matrix can exist only when \(A\) is square, meaning it has the same number of rows and columns. This happens on a \(w\times h\) board with no tiles with lock icons and no empty holes, when there is exactly one allowed tap for each active tile. In that case \(A\) sends vectors in \(R^{wh}\) to vectors in \(R^{wh}\), and invertibility means every starting board has one unique tap-count solution.</p>
+            <p>A true inverse matrix can exist only when \(A\) is square, meaning it has the same number of rows and columns. This happens on a \(w\times h\) board with no tiles with lock icons and no empty holes, when there is exactly one allowed tap for each tile. In that case \(A\) sends vectors in \(R^{wh}\) to vectors in \(R^{wh}\), and invertibility means every starting board has one unique tap-count solution.</p>
             <div class="formula-card">
               \[
                 \exists\, A^{-1}
