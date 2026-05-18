@@ -10,6 +10,7 @@ if (keystorePropertiesFile.exists()) {
     }
 }
 def campaignAssetsDir = layout.buildDirectory.dir("generated/assets/campaign")
+def campaignAssetFile = layout.buildDirectory.file("generated/assets/campaign/campaign-levels.json")
 
 android {
     namespace "invert_the_matrix.myapp"
@@ -20,8 +21,8 @@ android {
         applicationId "invert_the_matrix.myapp"
         minSdk 23
         targetSdk 35
-        versionCode 9
-        versionName "1.0.7"
+        versionCode 10
+        versionName "1.0.8"
         ndk {
             abiFilters "arm64-v8a", "x86_64"
         }
@@ -92,10 +93,30 @@ def nativeTargets = [
 def nativeTaskNames = []
 
 tasks.register("syncCampaignLevels", Copy) {
-    def campaignSource = rootProject.file("../web-app/campaign-levels.json")
-    inputs.file(campaignSource)
-    from(campaignSource)
+    def webCampaign = rootProject.file("../web-app/campaign-levels.json")
+    inputs.file(webCampaign)
+    outputs.file(campaignAssetFile)
+    from(webCampaign)
     into(campaignAssetsDir)
+}
+
+tasks.register("verifyCampaignLevelsAsset") {
+    dependsOn("syncCampaignLevels")
+    def webCampaign = rootProject.file("../web-app/campaign-levels.json")
+    def androidCampaign = campaignAssetFile.get().asFile
+    inputs.files(webCampaign)
+    outputs.file(androidCampaign)
+    doLast {
+        if (!webCampaign.exists()) {
+            throw new GradleException("Missing web campaign asset at ${webCampaign}.")
+        }
+        if (!androidCampaign.exists()) {
+            throw new GradleException("Missing Android campaign asset at ${androidCampaign}.")
+        }
+        if (webCampaign.getText("UTF-8") != androidCampaign.getText("UTF-8")) {
+            throw new GradleException("Android campaign-levels.json must match web-app/campaign-levels.json.")
+        }
+    }
 }
 
 nativeTargets.each { target ->
@@ -190,11 +211,11 @@ tasks.configureEach {
 
 tasks.configureEach {
     if (name.startsWith("merge") && name.endsWith("Assets")) {
-        dependsOn("syncCampaignLevels")
+        dependsOn("syncCampaignLevels", "verifyCampaignLevelsAsset")
     }
 }
 
-preBuild.dependsOn("syncCampaignLevels", nativeTaskNames)
+preBuild.dependsOn("syncCampaignLevels", "verifyCampaignLevelsAsset", nativeTaskNames)
 
 dependencies {
     implementation "com.google.android.gms:play-services-games-v2:21.0.0"

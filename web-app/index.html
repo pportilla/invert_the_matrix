@@ -58,7 +58,7 @@
           </button>
           <div>
             <p class="kicker">Custom Level</p>
-            <h2>Custom Puzzle</h2>
+            <h2>Custom Level</h2>
           </div>
         </header>
 
@@ -82,8 +82,8 @@
           </div>
 
           <div class="setup-group">
-            <h3>Pulse Pattern</h3>
-            <select id="pattern-select" class="select-field" aria-label="Pulse pattern"></select>
+            <h3>Tap Pattern</h3>
+            <div id="pattern-options" class="chip-row pattern-chip-row" role="radiogroup" aria-label="Tap pattern"></div>
           </div>
 
           <div class="setup-group">
@@ -91,19 +91,18 @@
             <div id="difficulty-options" class="chip-row" role="radiogroup" aria-label="Difficulty"></div>
           </div>
 
-          <div class="toggle-list">
-            <label class="toggle-row">
-              <span>Locked tiles</span>
-              <input id="locked-toggle" type="checkbox">
-            </label>
-            <label class="toggle-row">
-              <span>Irregular board</span>
-              <input id="irregular-toggle" type="checkbox">
-            </label>
-            <label class="toggle-row">
-              <span>Unique solution preferred</span>
-              <input id="unique-toggle" type="checkbox" checked>
-            </label>
+          <div class="setup-group">
+            <h3>Extras</h3>
+            <div class="toggle-list">
+              <label class="toggle-row">
+                <span>Tiles with lock icons</span>
+                <input id="locked-toggle" type="checkbox">
+              </label>
+              <label class="toggle-row">
+                <span>Irregular board</span>
+                <input id="irregular-toggle" type="checkbox">
+              </label>
+            </div>
           </div>
 
           <button class="primary-action full-width" data-action="generate-freeplay">Create Puzzle</button>
@@ -119,7 +118,7 @@
           </button>
           <div>
             <p class="kicker">Daily</p>
-            <h2>Daily Challenge</h2>
+            <h2>Daily Challenges</h2>
           </div>
         </header>
 
@@ -147,7 +146,7 @@
 
         <section class="status-strip" aria-label="Puzzle status">
           <div>
-            <span>Moves</span>
+            <span>Taps</span>
             <strong id="move-counter">0</strong>
           </div>
           <div class="star-ranking-card" aria-label="Star ranking">
@@ -160,13 +159,16 @@
         </section>
 
         <section class="pattern-strip" aria-label="Puzzle details">
-          <div class="pattern-card">
+          <button class="pattern-card" type="button" data-action="show-pattern-info" aria-label="Tap pattern info">
             <div class="pattern-card-copy">
-              <span>Pattern</span>
+              <div class="pattern-heading">
+                <span>Pattern</span>
+                <span class="pattern-info-button" aria-hidden="true">i</span>
+              </div>
               <strong id="pattern-label">Cross</strong>
             </div>
             <div id="pattern-mini" class="pattern-mini" aria-hidden="true"></div>
-          </div>
+          </button>
           <div class="personal-best-card">
             <span>Personal Best</span>
             <strong id="personal-best">-</strong>
@@ -221,7 +223,8 @@
             <span></span><span class="lit-orange"></span><span></span>
           </div>
           <div>
-            <p>Solve the puzzle by turning every active tile white. Tap tiles to send pulses across the board; every tile reached by a pulse advances to its next state.</p>
+            <p>Clear every active tile by turning it white. Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.</p>
+            <p>Use previews and level clues to plan calmly: colored tiles still need to advance, tiles with lock icons can be changed by nearby taps, and empty holes are outside the board.</p>
           </div>
         </section>
 
@@ -236,8 +239,8 @@
               <h3>1. Make every tile white</h3>
               <ul class="guide-bullets">
                 <li>A white tile is solved.</li>
-                <li>Colored tiles still need more pulses before the board is complete.</li>
-                <li>The puzzle is solved only when every active tile is white.</li>
+                <li>Colored tiles are not wrong. They just need to keep advancing until they return to white.</li>
+                <li>The puzzle ends only when every active tile is white at the same time.</li>
               </ul>
             </div>
           </article>
@@ -250,9 +253,9 @@
             <div>
               <h3>2. Tap and cycle</h3>
               <ul class="guide-bullets">
-                <li>Tap an available tile to send its pulse pattern.</li>
-                <li>Every tile in that pattern advances one state.</li>
-                <li>After the last colored state, the next advance turns that tile white.</li>
+                <li>Tap an available tile to apply the level's tap pattern.</li>
+                <li>Every tile reached by the pattern advances one state.</li>
+                <li>States cycle: after the last colored state, the next advance returns that tile to white.</li>
               </ul>
             </div>
           </article>
@@ -265,8 +268,8 @@
             <div>
               <h3>3. Use the pattern preview</h3>
               <ul class="guide-bullets">
-                <li>Levels can use cross, diagonal, square, horizontal, vertical, knight, or mixed patterns.</li>
-                <li>Hold or hover a tile to preview the tiles that will change.</li>
+                <li>A level can use a cross, diagonal, square, horizontal, vertical, knight, or mixed pattern.</li>
+                <li>Hold or hover a tile to see exactly which tiles will change before you tap.</li>
               </ul>
             </div>
           </article>
@@ -279,9 +282,9 @@
             <div>
               <h3>4. Handle special tiles</h3>
               <ul class="guide-bullets">
-                <li>Locked tiles can change when nearby pulses reach them.</li>
-                <li>You cannot tap locked tiles directly.</li>
-                <li>Empty holes are not part of the board.</li>
+                <li>A tile with a lock icon still needs to become white and can change when a nearby tap reaches it.</li>
+                <li>You cannot tap a tile with a lock icon directly.</li>
+                <li>An empty hole is outside the board. Tap patterns skip empty holes.</li>
               </ul>
             </div>
           </article>
@@ -297,9 +300,9 @@
             <p class="kicker">Modes</p>
             <h3>Choose your puzzle</h3>
             <ul class="guide-bullets guide-bullets-spaced">
-              <li><strong>Campaign:</strong> Complete fixed levels in order; the next level opens after each solve.</li>
-              <li><strong>Custom Level:</strong> Choose board size, states, pattern, difficulty, locks, gaps, and whether the generator should prefer a unique solution.</li>
-              <li><strong>Daily Challenge:</strong> Play the same three generated puzzles as everyone else for the date; each puzzle keeps its own saved best score.</li>
+              <li><strong>Campaign:</strong> Solve fixed levels in order. Each solve opens the next level.</li>
+              <li><strong>Custom Level:</strong> Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.</li>
+              <li><strong>Daily Challenge:</strong> Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.</li>
             </ul>
           </div>
         </section>
@@ -312,14 +315,14 @@
               <span></span><span></span><span class="lit-blue"></span>
             </div>
             <div>
-              <h3>Moves, stars, and hints</h3>
+              <h3>Taps, stars, and hints</h3>
               <ul class="guide-bullets">
-                <li>The move counter counts every tap.</li>
-                <li>Three stars means you matched the generator's minimum found move count.</li>
-                <li>Two-star and one-star targets allow extra moves.</li>
-                <li>Undo rewinds one move. Reset restores the starting board.</li>
-                <li>Hint applies the next move from a solver plan. Using a hint removes stars for that try, but the puzzle still counts as complete.</li>
-                <li>Tiles changed by a hint are marked in red.</li>
+                <li>The tap counter counts every tap you commit.</li>
+                <li>Three stars mean you matched the generator's minimum found tap count.</li>
+                <li>Two-star and one-star targets allow extra taps.</li>
+                <li>Undo rewinds one tap, and Reset restores the starting board.</li>
+                <li>Hint applies the next tap from a solver plan. A hinted try can still complete the puzzle, but it no longer earns stars.</li>
+                <li>Tiles changed by a hint are outlined in red.</li>
               </ul>
             </div>
           </article>
@@ -333,7 +336,7 @@
               <h3>Settings</h3>
               <ul class="guide-bullets">
                 <li>Sound toggles audio effects.</li>
-                <li>Show numbers on tiles displays state values when you want them.</li>
+                <li>Show numbers on tiles displays state values when you want a more exact view.</li>
                 <li>Android also includes haptic feedback controls.</li>
               </ul>
             </div>
@@ -360,8 +363,38 @@
         </header>
 
         <section class="math-intro" aria-label="Math overview">
-          <p>Invert the Matrix is a modular linear-algebra puzzle. Fix an order for the active tiles. A displayed board is then a vector in \(R^m\), where \(R=\mathbb Z/n\mathbb Z\) and \(m\) is the number of active board positions. Each legal tap pulse is assigned a pulse vector in the same module, and the puzzle asks for a linear combination of those pulse vectors that cancels the starting board.</p>
-          <p>All arithmetic is performed modulo the number \(n\) of tile states, so the value after \(n-1\) is \(0\). Prime moduli such as \(2,3,\) and \(5\) give finite fields. The four-state mode uses the ring \(\mathbb Z/4\mathbb Z\); addition and multiplication are still well defined, but only units can be divided by.</p>
+          <div class="math-intro-copy">
+            <p class="math-lead">Invert the Matrix is a modular linear-algebra puzzle.</p>
+            <p>To play, think of each active tile as having a state, shown by its color. A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile. After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all active tiles white at the same time. Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap. But later on, everything gets much more complicated.</p>
+          </div>
+          <div class="math-pulse-demo" aria-hidden="true">
+            <span></span>
+            <span class="demo-pulse"></span>
+            <span></span>
+            <span></span>
+            <span class="demo-pulse"></span>
+            <span class="demo-pulse demo-tap"></span>
+            <span class="demo-pulse"></span>
+            <span></span>
+            <span></span>
+            <span class="demo-pulse"></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </section>
+
+        <section class="equation-panel math-model" aria-label="Modeling the game">
+          <div>
+            <p class="kicker">Modeling the game</p>
+            <h3>Turn the board into one equation</h3>
+            <p>To model a level, first list the active board positions in a fixed order. Once that list is fixed, a displayed board becomes a vector \(s\in R^m\). Here \(R=\mathbb Z/n\mathbb Z\) means values are read modulo \(n\), \(n\) is the number of tile states, and \(m\) is the number of active positions.</p>
+            <p>Each allowed tap has an effect vector in \(R^m\). For a tappable position \(q_j\), the vector \(v_j\) has value \(1\) exactly at the active positions advanced by that tap, and \(0\) elsewhere. The matrix \(A\) is built by placing these effect vectors as its columns. A tap-count vector \(x\in R^r\) records how many times each allowed tap is used, modulo \(n\), and solving means choosing \(x\) with \(s+Ax=0\).</p>
+            <p>All arithmetic is performed modulo \(n\), so the value after \(n-1\) is \(0\). Prime state counts such as \(2,3,\) and \(5\) give finite fields, where every value different from \(0\) has a multiplicative inverse. The four-state mode uses the ring \(\mathbb Z/4\mathbb Z\), where some values different from \(0\) cannot be used for division.</p>
+          </div>
           <div class="formula-card hero-formula">
             \[
               A x \equiv -s \pmod n
@@ -372,9 +405,10 @@
         <section class="equation-panel" aria-label="Lights Out generalization">
           <div>
             <p class="kicker">From Lights Out</p>
-            <h3>A modular version of the same question</h3>
-            <p>In ordinary Lights Out, every tile is either \(0\) or \(1\), and pressing a tile toggles a fixed neighborhood. Toggling is addition by \(1\) modulo \(2\), so pressing the same tile twice gives no net change. This is linear algebra over \(\mathbb F_2\).</p>
-            <p>This game keeps the same linear structure while changing the coefficient ring. A level with \(n\) states works over \(R=\mathbb Z/n\mathbb Z\). Gaps change the board module; locks and pulse patterns change the allowed pulse vectors. The mathematical question remains: is the negative starting board in the submodule generated by the legal pulse vectors?</p>
+            <h3>The same question, in modular form</h3>
+            <p>In ordinary Lights Out, every tile is either \(0\) or \(1\). Tapping a tile changes the same shape of tiles around it every time, usually the tapped tile plus the tiles directly above, below, left, and right. Changing a tile is adding \(1\) modulo \(2\), so tapping the same tile twice gives no net change. This is the simplest version of adding tap effects together.</p>
+            <p>This game keeps that add-the-effects rule while allowing \(n\) states, so values are read in \(R=\mathbb Z/n\mathbb Z\). Empty holes are not included in the board vector. Tiles with lock icons stay in the board vector because they must become white, but they do not get tap choices. Tap patterns determine the columns of \(A\).</p>
+            <p>The mathematical question is precise: can the allowed taps add up to the target change \(-s\)?</p>
           </div>
         </section>
 
@@ -387,7 +421,7 @@
             </div>
             <div>
               <h3>1. The board is a vector</h3>
-              <p>Let \(P=\{p_1,\ldots,p_m\}\) be the active board positions, listed in a fixed order. A board configuration is the vector \(s=(s_1,\ldots,s_m)\in R^m\), where \(s_i\) is the residue shown on tile \(p_i\). The solved board is the zero vector \(0\in R^m\).</p>
+              <p>Let \(P=\{p_1,\ldots,p_m\}\) be the list of active board positions, in a fixed order. A configuration is the vector \(s=(s_1,\ldots,s_m)\in R^m\), where \(s_i\) is the state value shown on tile \(p_i\), read modulo \(n\). The solved board is the zero vector \(0\in R^m\).</p>
               <div class="formula-card">
                 \[
                   s=(s_1,\ldots,s_m),\qquad s_i\in \mathbb Z/n\mathbb Z
@@ -402,14 +436,14 @@
               <span class="preview"></span><span></span><span class="preview"></span>
             </div>
             <div>
-              <h3>2. Every legal tap has a pulse vector</h3>
-              <p>Let \(q_1,\ldots,q_r\) be the legal tap positions. The pulse at \(q_j\) defines a vector \(v_j\in R^m\): its \(i\)-th coordinate is \(1\) when that pulse advances tile \(p_i\), and \(0\) when it does not. The move matrix is \(A=[v_1\ \cdots\ v_r]\), so \(A_{ij}=(v_j)_i\).</p>
-              <p>Locked tiles still appear as rows because their values must become zero, and nearby pulses may change them. They do not appear as columns because they cannot be tapped directly.</p>
+              <h3>2. Every allowed tap has an effect vector</h3>
+              <p>Let \(q_1,\ldots,q_r\) be the positions that can be tapped. The effect vector of the tap at \(q_j\) is \(v_j\in R^m\). Its \(i\)-th value is \(1\) when that tap advances tile \(p_i\), and \(0\) otherwise. The tap matrix is \(A=[v_1\ \cdots\ v_r]\), so the \(j\)-th column of \(A\) is \(v_j\).</p>
+              <p>In the matrix, a row tracks a board position and a column tracks an allowed tap. A tile with a lock icon still gets a row because its value must become zero, and nearby taps may change it. It does not get a column because it cannot be tapped directly.</p>
               <div class="formula-card">
                 \[
                   (v_j)_i=
                   \begin{cases}
-                    1 & \text{the pulse at }q_j\text{ advances }p_i,\\
+                    1 & \text{the tap at }q_j\text{ advances }p_i,\\
                     0 & \text{otherwise.}
                   \end{cases}
                 \]
@@ -422,7 +456,7 @@
           <div>
             <p class="kicker">Goal</p>
             <h3>Find a tap-count vector</h3>
-            <p>A tap plan is a vector \(x=(x_1,\ldots,x_r)\in R^r\), where \(x_j\) is the number of times the legal tap \(q_j\) is used, counted modulo \(n\). Executing \(x\) adds \(\sum_j x_jv_j=Ax\) to the board. Thus tap order is irrelevant to the algebra; only the residue class of each tap count matters.</p>
+            <p>A tap-count vector is an element \(x=(x_1,\ldots,x_r)\in R^r\). Its coordinate \(x_j\) counts how many times the tap at \(q_j\) is used, modulo \(n\). Executing \(x\) adds \(\sum_j x_jv_j=Ax\) to the board. Thus tap order is irrelevant to the algebra. Only each tap count modulo \(n\) matters.</p>
             <p>After applying the plan, the board is \(s+Ax\). Solving the puzzle means making this vector equal to the zero vector, equivalently solving \(Ax\equiv -s\pmod n\).</p>
           </div>
           <div class="formula-card equation-stack">
@@ -438,7 +472,7 @@
         <section class="math-grid small">
           <article>
             <h3>When does a solution exist?</h3>
-            <p>The columns of \(A\) generate the set of all board changes obtainable by legal taps. In algebraic terms, a solution exists exactly when the target vector \(-s\) belongs to the image of \(A\), meaning \(\operatorname{Im}(A)=\{Ax:x\in R^r\}\).</p>
+            <p>The columns of \(A\) generate the set of all board changes obtainable by allowed taps. Call this set the image of \(A\), written \(\operatorname{Im}(A)=\{Ax:x\in R^r\}\). A solution exists exactly when the target vector \(-s\) is in that set.</p>
             <div class="formula-card">
               \[
                 \text{solution exists}
@@ -446,44 +480,44 @@
                 -s\in \operatorname{Im}(A)
               \]
             </div>
-            <p>Over a field, such as \(\mathbb F_2,\mathbb F_3,\mathbb F_5\), this can be checked by row-reducing the augmented system \([A\mid -s]\). A row of the form \([0\ \cdots\ 0\mid c]\) with \(c\ne0\) proves inconsistency. If no such row appears, back-substitution gives at least one tap plan.</p>
+            <p>Over a field, such as \(\mathbb F_2,\mathbb F_3,\mathbb F_5\), this can be checked by simplifying the rows of the system \([A\mid -s]\). A row of the form \([0\ \cdots\ 0\mid c]\), where \(c\) is not \(0\), proves that no solution exists. If no such row appears, the simplified system gives at least one tap plan.</p>
           </article>
           <article>
             <h3>What changes for non-prime \(n\)?</h3>
-            <p>For composite \(n\), \(\mathbb Z/n\mathbb Z\) is a ring but not a field. You may add and multiply as usual, but division is valid only by units. For \(n=4\), the residue \(2\) is nonzero and has no inverse: no value \(a\) satisfies \(2a\equiv 1\pmod 4\).</p>
+            <p>For composite \(n\), \(\mathbb Z/n\mathbb Z\) is a ring but not a field. You may add and multiply as usual, but division is valid only by values with a multiplicative inverse. For \(n=4\), the value \(2\) is different from \(0\) and has no inverse: no value \(a\) satisfies \(2a\equiv 1\pmod 4\).</p>
             <div class="formula-card">
               \[
                 2a\not\equiv 1\pmod 4
               \]
             </div>
-            <p>The criterion does not change: there is still a solution exactly when \(-s\in\operatorname{Im}(A)\), but the verification must respect ring arithmetic. Row operations that divide by non-units are not valid. For general composite \(n\), one may also check the compatible prime-power systems given by the Chinese remainder theorem.</p>
+            <p>The rule does not change: there is still a solution exactly when \(-s\) is in \(\operatorname{Im}(A)\), but the check must respect ring arithmetic. Row operations that divide by values with no inverse are not valid. For larger composite \(n\), the check can be split into smaller modulo checks that must all agree.</p>
           </article>
           <article>
             <h3>When is the solution unique?</h3>
-            <p>If \(x_0\) is one solution, then every other solution is \(x_0+z\), where \(z\in R^r\) is a tap-count vector with \(Az=0\). These silent plans form the kernel of the move matrix.</p>
+            <p>If \(x_0\) is one solution, then every other solution is \(x_0+z\), where \(z\in R^r\) is a tap-count vector with \(Az=0\). The equation \(Az=0\) means that using the taps in \(z\) causes no net change on the board. The set of all such \(z\) is the kernel of the tap matrix, written \(\ker(A)\).</p>
             <div class="formula-card">
               \[
                 \{x\in R^r:\ Ax=-s\}=x_0+\ker(A)
               \]
             </div>
-            <p>Tap counts already live modulo \(n\), so pressing one tile \(n\) additional times adds \(n e_j=0\), the zero vector in the tap-count module \(R^r\). That is not a new algebraic solution.</p>
-            <p>The obstruction to uniqueness is a nonzero silent plan \(z\ne 0\) with \(Az=0\). If such a \(z\) exists, then \(x_0\) and \(x_0+z\) are distinct tap-count vectors that solve the same board. Thus the algebraic solution is unique precisely when \(\ker(A)=\{0\}\). Over fields this is equivalent to linear independence of the legal pulse vectors. Over rings, the same kernel condition is the correct statement, interpreted in the module over \(\mathbb Z/n\mathbb Z\).</p>
+            <p>Tap counts already live modulo \(n\), so tapping one tile \(n\) additional times adds \(n e_j=0\), the zero vector in \(R^r\). That represents the same tap-count vector, not a new tap-count solution.</p>
+            <p>Uniqueness fails exactly when there is a tap-count vector \(z\ne 0\), meaning \(z\) is not the zero vector, with \(Az=0\). In that case \(x_0\) and \(x_0+z\) are distinct tap-count vectors that solve the same board. Thus the solution as a tap-count vector is unique precisely when \(\ker(A)=\{0\}\). Over fields this is equivalent to saying that no combination using at least one allowed tap adds the effect vectors to zero. Over rings, the same kernel condition is the correct statement over \(\mathbb Z/n\mathbb Z\).</p>
           </article>
           <article>
-            <h3>When does cross \(A\) have an inverse?</h3>
-            <p>On a plain \(w\times h\) board with no locks and no gaps, the cross pattern has exactly one legal tap for each tile. Hence \(A\) is a square \(wh\times wh\) matrix, defining an endomorphism of \(R^{wh}\). It is invertible exactly when every starting board has a unique tap-count solution.</p>
+            <h3>When is \(A\) invertible?</h3>
+            <p>A true inverse matrix can exist only when \(A\) is square, meaning it has the same number of rows and columns. This happens on a \(w\times h\) board with no tiles with lock icons and no empty holes, when there is exactly one allowed tap for each active tile. In that case \(A\) sends vectors in \(R^{wh}\) to vectors in \(R^{wh}\), and invertibility means every starting board has one unique tap-count solution.</p>
             <div class="formula-card">
               \[
-                A^{-1}\text{ exists over }\mathbb Z/n\mathbb Z
+                \exists\, A^{-1}
                 \Longleftrightarrow
-                \gcd(\det A,n)=1
+                \det A\in R^\times
               \]
             </div>
-            <p>Equivalently, \(\det A\) must be a unit modulo \(n\). For prime state counts \(n=2,3,5\), this means \(\det A\not\equiv0\pmod n\), or rank \(wh\). For \(n=4\), it means \(\det A\) is odd. If this fails in the plain square case, some board vectors are unreachable and nonzero silent tap-count vectors exist. With locks or gaps \(A\) may be rectangular, so image and kernel are the appropriate objects instead of a two-sided inverse.</p>
+            <p>Equivalently, \(\det A\) must have a multiplicative inverse modulo \(n\). For prime state counts \(n=2,3,5\), this means \(\det A\not\equiv0\pmod n\). Equivalently, simplifying rows can choose a value different from \(0\) in every column. For \(n=4\), it means \(\det A\) is odd. If this fails in the square case, some board vectors are unreachable and some tap-count vectors different from zero lie in \(\ker(A)\). With tiles with lock icons or empty holes, \(A\) may have different numbers of rows and columns. Then the useful tests are whether the target change is reachable and whether \(\ker(A)\) contains tap-count vectors different from zero.</p>
           </article>
           <article>
             <h3>Why the minimum matters</h3>
-            <p>If there are several algebraic solutions, the game can still ask for the most efficient one. For each residue \(x_j\in R\), choose its representative \(\tilde{x}_j\in\{0,\ldots,n-1\}\). The physical length of a plan is \(\ell(x)=\sum_j\tilde{x}_j\), and the star target is based on a solution with minimal length among the solutions found.</p>
+            <p>If there are several tap-count solutions, the game can still ask for the most efficient one. For each tap count \(x_j\in R\), choose the number \(\tilde{x}_j\in\{0,\ldots,n-1\}\) that represents it. The physical length of a plan is \(\ell(x)=\sum_j\tilde{x}_j\), and the star target is based on a solution with minimal length among the solutions found.</p>
             <div class="formula-card">
               \[
                 \ell(x)=\sum_j \tilde{x}_j,
@@ -494,28 +528,33 @@
           </article>
           <article>
             <h3>How the shortest solver works</h3>
-            <p>For small boards the app runs a breadth-first search through board states. Each edge is one legal tap, so the first time the zero board is reached, the path length is the true minimum number of physical taps.</p>
-            <p>For larger boards with prime state counts \(n=2,3,5\), it row-reduces \(Ax=-s\). If free variables remain, the solutions are \(x_0+\ker(A)\); when the nullspace search is small enough, the app enumerates those vectors and chooses the one minimizing \(\ell(x)\). If that exact search is too large, or \(n\) is composite and the board is too large for BFS, the game falls back to a known solving plan instead of claiming a proof of minimality.</p>
-            <p>The shortest tap-count vector is not necessarily unique. Distinct solutions can tie for the same \(\ell(x)\), and a single vector can be played in many tap orders. The app keeps one deterministic shortest plan when it can certify the minimum; it does not currently mark whether all shortest plans are unique.</p>
+            <p>For small boards the app searches by tap count: first boards one tap away, then two taps away, and so on. The first time it reaches the zero board, that number is the true minimum number of physical taps.</p>
+            <p>For larger boards with prime state counts \(n=2,3,5\), it simplifies the rows of \(Ax=-s\). If the simplified system leaves choices that are not forced, the solutions are \(x_0+\ker(A)\). When the search over those extra tap-count vectors is small enough, the app enumerates them and chooses the one minimizing \(\ell(x)\). If that exact search is too large, or \(n\) is composite and the board is too large for that search, the game falls back to a known solving plan instead of claiming a proof of minimality.</p>
+            <p>The shortest tap-count vector is not necessarily unique. Distinct solutions can tie for the same \(\ell(x)\), and a single vector can be played in many tap orders. The app keeps the same shortest plan every time when it can prove the minimum. It does not currently mark whether all shortest plans are unique.</p>
           </article>
           <article>
-            <h3>Locked tiles and gaps</h3>
-            <p>Locked tiles still appear as rows because their values must become zero, and nearby pulses may change them. They do not appear as tap columns. Gaps are removed from the ordered set \(P\), so they are neither rows nor columns. This is how the same equation adapts to irregular boards without changing the underlying map \(A:R^r\to R^m\).</p>
+            <div class="mini-board" aria-hidden="true">
+              <span></span><span class="locked"></span><span class="is-gap"></span>
+              <span class="lit-orange"></span><span></span><span class="lit-blue"></span>
+              <span></span><span></span><span></span>
+            </div>
+            <h3>Tiles with lock icons and empty holes</h3>
+            <p>A tile with a lock icon stays in the board vector because its value must become zero, and nearby taps may still change it. It does not get its own tap choice in \(x\) because it cannot be tapped directly. An empty hole is left out of the ordered list \(P\), so the equation only tracks active board positions. This is how the same equation adapts to irregular boards.</p>
           </article>
           <article>
             <h3>How the generator uses this</h3>
-            <p>The generator uses the same objects: it determines the legal pulse vectors from the board shape, locks, gaps, and pulse pattern. It chooses or certifies a starting vector \(s\) together with a tap-count vector \(x\) satisfying \(s+Ax=0\). When the exact solver is available, it searches the solution set for a short representative so the star thresholds have a mathematical basis. Hints use a stored plan one step at a time.</p>
+            <p>The generator uses the same ingredients: board shape, tiles with lock icons, empty holes, tap pattern, and effect vectors. It chooses or verifies a starting vector \(s\) together with a tap-count vector \(x\) satisfying \(s+Ax=0\). When the exact solver is available, it searches the solution set for a short tap-count vector so the star thresholds have a mathematical basis. Hints use a stored plan one tap at a time.</p>
           </article>
         </section>
 
         <details class="advanced-note">
           <summary>What the symbols mean</summary>
           <dl class="symbol-list">
-            <div><dt>\(n\)</dt><dd>The number of tile states and the modulus used by the level; the app uses \(2,3,4,\) or \(5\) states.</dd></div>
+            <div><dt>\(n\)</dt><dd>The number of tile states and the modulus used by the level. The app uses \(2,3,4,\) or \(5\) states.</dd></div>
             <div><dt>\(s\)</dt><dd>The current board configuration as a vector in \(R^m\).</dd></div>
-            <div><dt>\(A\)</dt><dd>The move matrix whose column \(v_j\) is the pulse vector for legal tap \(q_j\).</dd></div>
-            <div><dt>\(x\)</dt><dd>The tap-count vector in \(R^r\) whose coordinate \(x_j\) counts tap \(q_j\).</dd></div>
-            <div><dt>\(\operatorname{Im}(A)\)</dt><dd>All board-change vectors obtainable by legal taps.</dd></div>
+            <div><dt>\(A\)</dt><dd>The tap matrix. Its \(j\)-th column is the effect vector \(v_j\) of the allowed tap at \(q_j\).</dd></div>
+            <div><dt>\(x\)</dt><dd>The tap-count vector in \(R^r\). Its coordinate \(x_j\) counts how many times the tap at \(q_j\) is used modulo \(n\).</dd></div>
+            <div><dt>\(\operatorname{Im}(A)\)</dt><dd>All board-change vectors obtainable by allowed taps.</dd></div>
             <div><dt>\(\ker(A)\)</dt><dd>Tap-count vectors that produce zero board change.</dd></div>
           </dl>
         </details>
@@ -571,7 +610,7 @@
 
         <section class="about-panel" aria-label="About Invert the Matrix">
           <div class="about-version-card">
-            <strong id="about-version">Version 1.0.7</strong>
+            <strong id="about-version">Version 1.0.8</strong>
           </div>
 
           <div class="about-changelog-card">
@@ -596,7 +635,7 @@
         <div id="modal-stars" class="modal-stars" aria-label="Stars earned"></div>
         <dl class="result-list">
           <div>
-            <dt>Moves Used</dt>
+            <dt>Taps Used</dt>
             <dd id="result-moves">0</dd>
           </div>
           <div>
@@ -604,7 +643,7 @@
             <dd id="result-minimum">0</dd>
           </div>
           <div>
-            <dt>Best Moves</dt>
+            <dt>Best Taps</dt>
             <dd id="result-best">0</dd>
           </div>
           <div>
@@ -618,6 +657,38 @@
           <button class="menu-action" data-action="replay">Replay</button>
           <button class="menu-action" data-action="level-select">Campaign</button>
         </div>
+      </div>
+    </div>
+
+    <div id="pattern-info-modal" class="modal pattern-info-modal" hidden>
+      <div class="modal-sheet pattern-info-sheet" role="dialog" aria-modal="true" aria-labelledby="pattern-info-title">
+        <button class="icon-button icon-only modal-back-button" type="button" data-action="close-pattern-info" aria-label="Back">
+          <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15 5l-7 7 7 7"></path>
+          </svg>
+        </button>
+        <p class="kicker">Tap Pattern</p>
+        <h2 id="pattern-info-title">Pattern</h2>
+        <div class="math-pulse-demo pattern-info-demo" aria-hidden="true">
+          <span></span>
+          <span class="demo-pulse"></span>
+          <span></span>
+          <span></span>
+          <span class="demo-pulse"></span>
+          <span class="demo-pulse demo-tap"></span>
+          <span class="demo-pulse"></span>
+          <span></span>
+          <span></span>
+          <span class="demo-pulse"></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <p>When you tap a tile, this pattern is centered on that tile. Every tile inside the pattern changes state.</p>
+        <p>The green outline matches the preview you see when you hold a tile.</p>
       </div>
     </div>
 

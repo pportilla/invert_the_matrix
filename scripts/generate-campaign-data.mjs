@@ -47,5 +47,6 @@ if (!Array.isArray(data.levels) || data.levels.length !== 300) {
   throw new Error(`Expected 300 campaign levels, found ${data.levels ? data.levels.length : 0}.`);
 }
 
-fs.writeFileSync(outputPath, `${JSON.stringify(data)}\n`);
-console.log(`Wrote ${path.relative(root, outputPath)} with ${data.levels.length} levels.`);
+const output = `${JSON.stringify(data)}\n`;
+fs.writeFileSync(outputPath, output);
+console.log(`Wrote ${path.relative(root, outputPath)} with ${data.levels.length} levels. Android packages this static JSON via Gradle.`);

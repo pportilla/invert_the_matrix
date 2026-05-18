@@ -9,6 +9,8 @@
 #include <SLES/OpenSLES_Android.h>
 #include <jni.h>
 
+#include <optional>
+
 #include "include/core/SkCanvas.h"
 #include "include/core/SkBlurTypes.h"
 #include "include/core/SkColor.h"
@@ -33,6 +35,7 @@
 #include "include/gpu/ganesh/gl/GrGLDirectContext.h"
 #include "include/gpu/ganesh/gl/GrGLInterface.h"
 #include "include/gpu/ganesh/gl/egl/GrGLMakeEGLInterface.h"
+#include "include/utils/SkParsePath.h"
 #include "src/gpu/ganesh/gl/GrGLDefines.h"
 
 #include <algorithm>
@@ -130,8 +133,34 @@ constexpr int64_t HINT_COOLDOWN_MS = 500;
 constexpr int64_t HINT_COMPLETION_DELAY_MS = 500;
 constexpr int EXACT_BFS_STATE_LIMIT = 500000;
 constexpr int EXACT_NULLSPACE_LIMIT = 500000;
-constexpr const char *APP_VERSION_NAME = "1.0.7";
+constexpr const char *APP_VERSION_NAME = "1.0.8";
 constexpr const char *GITHUB_PROFILE_URL = "https://github.com/pportilla";
+constexpr const char *GITHUB_MARK_SVG_PATH =
+        "M8 0 C3.58 0 0 3.58 0 8 "
+        "c0 3.54 2.29 6.53 5.47 7.59 "
+        "c0.4 0.07 0.55 -0.17 0.55 -0.38 "
+        "c0 -0.19 -0.01 -0.82 -0.01 -1.49 "
+        "c-2.01 0.37 -2.53 -0.49 -2.69 -0.94 "
+        "c-0.09 -0.23 -0.48 -0.94 -0.82 -1.13 "
+        "c-0.28 -0.15 -0.68 -0.52 -0.01 -0.53 "
+        "c0.63 -0.01 1.08 0.58 1.23 0.82 "
+        "c0.72 1.21 1.87 0.87 2.33 0.66 "
+        "c0.07 -0.52 0.28 -0.87 0.51 -1.07 "
+        "c-1.78 -0.2 -3.64 -0.89 -3.64 -3.95 "
+        "c0 -0.87 0.31 -1.59 0.82 -2.15 "
+        "c-0.08 -0.2 -0.36 -1.02 0.08 -2.12 "
+        "c0 0 0.67 -0.21 2.2 0.82 "
+        "A7.52 7.52 0 0 1 8 3.86 "
+        "c0.68 0 1.36 0.09 2 0.27 "
+        "c1.53 -1.04 2.2 -0.82 2.2 -0.82 "
+        "c0.44 1.1 0.16 1.92 0.08 2.12 "
+        "c0.51 0.56 0.82 1.27 0.82 2.15 "
+        "c0 3.07 -1.87 3.75 -3.65 3.95 "
+        "c0.29 0.25 0.54 0.73 0.54 1.48 "
+        "c0 1.07 -0.01 1.93 -0.01 2.2 "
+        "c0 0.21 0.15 0.46 0.55 0.38 "
+        "A8.01 8.01 0 0 0 16 8 "
+        "c0 -4.42 -3.58 -8 -8 -8 Z";
 
 int64_t nowMs() {
     using namespace std::chrono;
@@ -143,6 +172,10 @@ int mod(int value, int m) {
 }
 
 int clampInt(int value, int minValue, int maxValue) {
+    return std::max(minValue, std::min(maxValue, value));
+}
+
+float clampFloat(float value, float minValue, float maxValue) {
     return std::max(minValue, std::min(maxValue, value));
 }
 
@@ -168,6 +201,9 @@ struct Renderer {
     int width = 0;
     int height = 0;
     bool fontReady = false;
+    std::vector<unsigned char> vectorFontData;
+    stbtt_fontinfo vectorFontInfo{};
+    bool vectorFontReady = false;
     static constexpr int FONT_ATLAS = 2048;
     static constexpr float FONT_BAKE_SIZE = 128.0f;
     static constexpr int FONT_FIRST_CHAR = 32;
@@ -360,8 +396,14 @@ struct Renderer {
         if (fontData.empty()) {
             LOGE("No system font found, falling back to pixel text");
             fontReady = false;
+            vectorFontReady = false;
             return;
         }
+
+        vectorFontData = fontData;
+        int vectorFontOffset = stbtt_GetFontOffsetForIndex(vectorFontData.data(), 0);
+        vectorFontReady = vectorFontOffset >= 0 &&
+                          stbtt_InitFont(&vectorFontInfo, vectorFontData.data(), vectorFontOffset) != 0;
 
         std::vector<unsigned char> bitmap(FONT_ATLAS * FONT_ATLAS);
         int result = stbtt_BakeFontBitmap(fontData.data(), 0, FONT_BAKE_SIZE,
@@ -427,7 +469,7 @@ struct Renderer {
             }
         }
         if (fontData.empty()) {
-            LOGE("No math font found; falling back to drawn formula symbols");
+            LOGE("No math font found. Falling back to drawn formula symbols");
             return;
         }
 
@@ -493,6 +535,8 @@ struct Renderer {
         textProgram = 0;
         fontReady = false;
         mathReady = false;
+        vectorFontReady = false;
+        vectorFontData.clear();
     }
 
     void begin() {
@@ -1103,8 +1147,8 @@ struct Pattern {
 Pattern patternFor(const std::string &key) {
     if (key == "diagonal") return {"diagonal", "Diagonal", "D", {{0, 0}, {-1, -1}, {1, -1}, {-1, 1}, {1, 1}}};
     if (key == "square") return {"square", "Square", "S", {{-1, -1}, {0, -1}, {1, -1}, {-1, 0}, {0, 0}, {1, 0}, {-1, 1}, {0, 1}, {1, 1}}};
-    if (key == "horizontal") return {"horizontal", "Horizontal", "H", {{-1, 0}, {0, 0}, {1, 0}}};
-    if (key == "vertical") return {"vertical", "Vertical", "V", {{0, -1}, {0, 0}, {0, 1}}};
+    if (key == "horizontal") return {"horizontal", "Horizontal line", "H", {{-1, 0}, {0, 0}, {1, 0}}};
+    if (key == "vertical") return {"vertical", "Vertical line", "V", {{0, -1}, {0, 0}, {0, 1}}};
     if (key == "knight") return {"knight", "Knight", "K", {{0, 0}, {1, 2}, {2, 1}, {2, -1}, {1, -2}, {-1, -2}, {-2, -1}, {-2, 1}, {-1, 2}}};
     return {"cross", "Cross", "+", {{0, 0}, {0, -1}, {1, 0}, {0, 1}, {-1, 0}}};
 }
@@ -1599,244 +1643,13 @@ Puzzle makePuzzleFromShell(Puzzle p, const Config &config, const std::string &id
 }
 
 std::array<std::string, 30> chapterTitles = {
-        "Binary Beginnings", "Fourfold Flips", "Locked Lights", "Lockstep Squares", "First Holes",
-        "Binary Breakaways", "Fivefold Binary", "Three-Color Start", "Triple Grid", "Triple Locks",
-        "Triple Holes", "Triple Combine", "Pattern Primer", "Pattern Locks", "Color Gauntlet",
-        "Four-State Start", "Four-State Locks", "Four-State Gaps", "Four-State Patterns", "Four-State Matrix",
-        "Five-State Start", "Five-State Locks", "Five-State Gaps", "Five-State Patterns", "Dense Dimensions",
+        "Binary Beginnings", "Fourfold Flips", "Lights With Lock Icons", "Lockstep Squares", "First Empty Holes",
+        "Binary Breakaways", "Fivefold Binary", "Three-Color Start", "Triple Grid", "Three Lock-Icon Tiles",
+        "Three Empty Holes", "Triple Combine", "Pattern Primer", "Patterns With Lock Icons", "Color Gauntlet",
+        "Four-State Start", "Four-State Lock-Icon Tiles", "Four-State Empty Holes", "Four-State Patterns", "Four-State Matrix",
+        "Five-State Start", "Five-State Lock-Icon Tiles", "Five-State Empty Holes", "Five-State Patterns", "Dense Dimensions",
         "Prime Pressure", "Modular Maze", "Wide Matrix", "Endgame Circuit", "Final Inversion"
 };
-
-int campaignOptionAt(const std::vector<int> &options, int level) {
-    return options[static_cast<size_t>((level - 1) % static_cast<int>(options.size()))];
-}
-
-std::string campaignOptionAt(const std::vector<std::string> &options, int level) {
-    return options[static_cast<size_t>((level - 1) % static_cast<int>(options.size()))];
-}
-
-std::string campaignPatternForChapter(int chapter, int level) {
-    if (chapter <= 12) return "cross";
-    if (chapter == 13) return campaignOptionAt(std::vector<std::string>{"diagonal", "horizontal", "vertical"}, level);
-    if (chapter == 14) return level % 4 == 0 ? "square" : (level % 2 ? "diagonal" : "cross");
-    if (chapter == 15) return level % 3 == 0 ? "randomMixed" : campaignOptionAt(std::vector<std::string>{"cross", "diagonal", "square", "horizontal", "vertical"}, level);
-    if (chapter <= 18) return "cross";
-    if (chapter == 19) return campaignOptionAt(std::vector<std::string>{"horizontal", "vertical", "square", "diagonal"}, level);
-    if (chapter == 20) return level % 2 ? "randomMixed" : campaignOptionAt(std::vector<std::string>{"cross", "diagonal", "square"}, level);
-    if (chapter <= 23) return "cross";
-    if (chapter == 24) return level % 2 ? "randomMixed" : campaignOptionAt(std::vector<std::string>{"diagonal", "horizontal", "vertical", "square"}, level);
-    return level % 3 == 0 ? "randomMixed" : campaignOptionAt(std::vector<std::string>{"cross", "diagonal", "square", "horizontal", "vertical", "knight"}, level);
-}
-
-int campaignMinimumKnownMoves(int width, int height, int states, bool locked, bool irregular,
-                              const std::string &pattern, const std::string &difficulty,
-                              int chapter, int level) {
-    float featurePressure = (locked ? 0.45f : 0.0f) + (irregular ? 0.65f : 0.0f) +
-                            (pattern != "cross" ? 0.45f : 0.0f) + (pattern == "randomMixed" ? 0.7f : 0.0f);
-    float statePressure = static_cast<float>(std::max(0, states - 2)) * 0.75f + (states >= 5 ? 0.4f : 0.0f);
-    float sizePressure = static_cast<float>(width * height - 9) * 0.025f;
-    float chapterPressure = static_cast<float>(std::max(0, chapter - 1)) * 0.055f;
-    float levelPressure = static_cast<float>(level - 1) * 0.13f;
-    int floorByDifficulty = difficulty == "Expert" ? 5 : difficulty == "Hard" ? 4 : difficulty == "Medium" ? 3 : 2;
-    int measured = static_cast<int>(std::floor(1.55f + featurePressure + statePressure + sizePressure + chapterPressure + levelPressure));
-    return std::max(floorByDifficulty, std::min(12, measured));
-}
-
-int campaignPreferredKnownMoves(int minimumKnownMoves, int width, int states, bool locked,
-                                bool irregular, const std::string &pattern, int level) {
-    int spread = 1 + (level - 1) / 3;
-    if (width >= 5) spread += 1;
-    if (locked && irregular) spread += 1;
-    if (states >= 4) spread += 1;
-    if (pattern == "randomMixed") spread += 1;
-    return std::min(18, minimumKnownMoves + spread);
-}
-
-Config campaignConfig(int chapter, int level) {
-    Config c;
-    std::vector<int> sizes = {5};
-    c.states = 2;
-    c.difficulty = "Easy";
-    c.locked = false;
-    c.irregular = false;
-
-    if (chapter == 1) {
-        sizes = {3};
-    } else if (chapter == 2) {
-        sizes = {4};
-    } else if (chapter == 3) {
-        sizes = {3};
-        c.locked = true;
-    } else if (chapter == 4) {
-        sizes = {4};
-        c.locked = true;
-        c.difficulty = "Medium";
-    } else if (chapter == 5) {
-        sizes = {3, 4};
-        c.irregular = true;
-        c.difficulty = "Medium";
-    } else if (chapter == 6) {
-        sizes = {3, 4};
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Medium";
-    } else if (chapter == 7) {
-        sizes = {5};
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Hard";
-    } else if (chapter == 8) {
-        sizes = {3};
-        c.states = 3;
-    } else if (chapter == 9) {
-        sizes = {4};
-        c.states = 3;
-        c.difficulty = "Medium";
-    } else if (chapter == 10) {
-        sizes = {3};
-        c.states = 3;
-        c.locked = true;
-        c.difficulty = "Medium";
-    } else if (chapter == 11) {
-        sizes = {3, 4};
-        c.states = 3;
-        c.irregular = true;
-        c.difficulty = "Medium";
-    } else if (chapter == 12) {
-        sizes = {3, 4};
-        c.states = 3;
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Hard";
-    } else if (chapter == 13) {
-        sizes = {4};
-        c.states = 3;
-        c.difficulty = "Hard";
-    } else if (chapter == 14) {
-        sizes = {4, 5};
-        c.states = 3;
-        c.locked = true;
-        c.difficulty = "Hard";
-    } else if (chapter == 15) {
-        sizes = {5, 6};
-        c.states = 3;
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Hard";
-    } else if (chapter == 16) {
-        sizes = {3};
-        c.states = 4;
-        c.difficulty = "Medium";
-    } else if (chapter == 17) {
-        sizes = {4};
-        c.states = 4;
-        c.locked = true;
-        c.difficulty = "Hard";
-    } else if (chapter == 18) {
-        sizes = {4, 5};
-        c.states = 4;
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Hard";
-    } else if (chapter == 19) {
-        sizes = {5};
-        c.states = 4;
-        c.difficulty = "Hard";
-    } else if (chapter == 20) {
-        sizes = {5, 6};
-        c.states = 4;
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Expert";
-    } else if (chapter == 21) {
-        sizes = {3};
-        c.states = 5;
-        c.difficulty = "Hard";
-    } else if (chapter == 22) {
-        sizes = {4};
-        c.states = 5;
-        c.locked = true;
-        c.difficulty = "Hard";
-    } else if (chapter == 23) {
-        sizes = {4, 5};
-        c.states = 5;
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Expert";
-    } else if (chapter == 24) {
-        sizes = {5, 6};
-        c.states = 5;
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Expert";
-    } else if (chapter == 25) {
-        sizes = {6, 7};
-        c.states = 3;
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Expert";
-    } else if (chapter == 26) {
-        sizes = {6, 7};
-        c.states = 4;
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Expert";
-    } else if (chapter == 27) {
-        sizes = {5, 6, 7};
-        c.states = 5;
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Expert";
-    } else if (chapter == 28) {
-        sizes = {7, 8};
-        c.states = campaignOptionAt(std::vector<int>{3, 4, 5, 3, 4, 5, 4, 5, 3, 5}, level);
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Expert";
-    } else if (chapter == 29) {
-        sizes = {8, 9};
-        c.states = campaignOptionAt(std::vector<int>{4, 5, 3, 4, 5, 3, 5, 4, 5, 5}, level);
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Expert";
-    } else {
-        sizes = {9};
-        c.states = campaignOptionAt(std::vector<int>{3, 4, 5, 4, 5, 5, 4, 5, 5, 5}, level);
-        c.locked = true;
-        c.irregular = true;
-        c.difficulty = "Expert";
-    }
-
-    int size = campaignOptionAt(sizes, level);
-    c.width = size;
-    c.height = size;
-    c.pattern = campaignPatternForChapter(chapter, level);
-    c.unique = false;
-    c.minimumKnownMoves = campaignMinimumKnownMoves(c.width, c.height, c.states, c.locked, c.irregular, c.pattern, c.difficulty, chapter, level);
-    c.preferredKnownMoves = campaignPreferredKnownMoves(c.minimumKnownMoves, c.width, c.states, c.locked, c.irregular, c.pattern, level);
-    return c;
-}
-
-Puzzle createCampaignLevel(int index) {
-    int chapter = index / 10 + 1;
-    int level = index % 10 + 1;
-    Config c = campaignConfig(chapter, level);
-    for (int attempt = 0; attempt < 48; ++attempt) {
-        Rng rng("campaign-" + std::to_string(chapter) + "-" + std::to_string(level) + "-" + std::to_string(attempt));
-        Puzzle shell = generatedShell(c, rng);
-        int active = static_cast<int>(activeIndexes(shell).size());
-        float ratio = std::max(0.14f, std::min(0.64f, 0.16f + chapter * 0.012f - static_cast<float>(std::max(0, c.states - 2)) * 0.018f));
-        int base = static_cast<int>(std::floor(active * ratio));
-        int featureBonus = (c.locked ? 1 : 0) + (c.irregular ? 1 : 0) + (c.pattern != "cross" ? 1 : 0) + (c.pattern == "randomMixed" ? 1 : 0);
-        int stateBonus = c.states == 2 ? 1 : 0;
-        int scramble = std::max(c.preferredKnownMoves, base + stateBonus + featureBonus + static_cast<int>(std::floor(level * 0.38f)) + randomInt(0, std::max(1, static_cast<int>(std::floor(active * 0.06f))), rng));
-        Puzzle p = makePuzzleFromShell(shell, c, "c" + std::to_string(chapter) + "-" + std::to_string(level), chapterTitles[chapter - 1] + " " + std::to_string(level), index, chapter, rng, scramble);
-        if (!solved(p, p.initial) && p.scrambleMoves >= c.minimumKnownMoves && solutionSolves(p, p.initial, p.solution)) return p;
-    }
-    Rng rng("campaign-fallback-" + std::to_string(chapter) + "-" + std::to_string(level));
-    Puzzle shell = generatedShell(c, rng);
-    return makePuzzleFromShell(shell, c, "c" + std::to_string(chapter) + "-" + std::to_string(level), chapterTitles[chapter - 1] + " " + std::to_string(level), index, chapter, rng, c.preferredKnownMoves);
-}
 
 std::string dailyTierKey(int tier);
 std::string dailyTierLabel(int tier);
@@ -2011,9 +1824,9 @@ void migrateCampaignProgress(Progress &progress) {
 
 enum class Screen { Main, Campaign, Freeplay, Daily, HowTo, Math, Settings, About, Game };
 enum class Action {
-    Main, BackReturn, Campaign, Freeplay, Daily, HowTo, Math, Settings, About, OpenGithub, StartCampaign, Generate,
+    Main, BackReturn, CloseAbout, Campaign, Freeplay, Daily, HowTo, Math, Settings, About, OpenGithub, StartCampaign, Generate,
     DailyChallenge, Leaderboard,
-    Size, States, Pattern, Difficulty, ToggleLocked, ToggleIrregular, ToggleUnique,
+    Size, States, Pattern, PatternInfo, ClosePatternInfo, PatternInfoBlocker, Difficulty, ToggleLocked, ToggleIrregular, ToggleUnique,
     WidthMinus, WidthPlus, HeightMinus, HeightPlus, ExitGame, Undo, Reset, Hint,
     ConfirmDailyExit, CancelDailyExit, GuideSize, ToggleSetting, Language, Next, Replay, Dismiss
 };
@@ -2239,6 +2052,7 @@ struct AppState {
     int completionStars = 0;
     int completionMark = 0;
     bool dailyExitConfirm = false;
+    bool patternInfoOpen = false;
     int lastCampaign = 0;
     float density = 1.0f;
     float scroll = 0.0f;
@@ -2295,15 +2109,19 @@ struct AppState {
 
 const std::unordered_map<std::string, std::string> &translationTable(const std::string &language) {
     static const std::unordered_map<std::string, std::string> es = {
-            {"A modular tile puzzle", "Un rompecabezas modular de fichas"},
+            {"A modular tile puzzle", "Un rompecabezas modular"},
             {"Campaign", "Campaña"},
             {"Custom Level", "Nivel personalizado"},
             {"Custom Puzzle", "Rompecabezas personalizado"},
             {"Daily Challenge", "Reto diario"},
+            {"Daily Challenges", "Retos diarios"},
+            {"Today's Puzzles", "Rompecabezas de hoy"},
             {"How to Play", "Cómo jugar"},
             {"The Math", "Las matemáticas"},
             {"Settings", "Ajustes"},
             {"Chapter", "Capítulo"},
+            {"Campaign data unavailable", "Datos de campaña no disponibles"},
+            {"The bundled campaign asset could not be loaded. Reload the app or check that campaign-levels.json is included.", "No se pudo cargar el recurso incluido de la campaña. Recarga la app o comprueba que campaign-levels.json esté incluido."},
             {"Daily", "Diario"},
             {"Easy", "Fácil"},
             {"Medium", "Medio"},
@@ -2312,47 +2130,48 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Global", "Global"},
             {"Leaderboards", "Clasificaciones"},
             {"Compare today's marks by tier or as one combined daily score.", "Compara las marcas de hoy por nivel o como una puntuación diaria combinada."},
+            {"All daily tiers", "Todos los niveles diarios"},
             {"Grid Size", "Tamaño de cuadrícula"},
             {"Custom", "Personalizado"},
             {"Width", "Anchura"},
             {"Height", "Altura"},
             {"States", "Estados"},
             {"states", "estados"},
-            {"Pulse Pattern", "Patrón de pulso"},
+            {"Tap Pattern", "Patrón de toque"},
             {"Difficulty", "Dificultad"},
             {"Cross", "Cruz"},
             {"Diagonal", "Diagonal"},
             {"Square", "Cuadrado"},
-            {"Horizontal", "Horizontal"},
-            {"Vertical", "Vertical"},
+            {"Horizontal line", "Línea horizontal"},
+            {"Vertical line", "Línea vertical"},
             {"Knight", "Caballo"},
             {"Random mixed", "Mixto aleatorio"},
             {"Mixed patterns", "Patrones mixtos"},
-            {"Locked tiles", "Fichas bloqueadas"},
+            {"Tiles with lock icons", "Casillas con candado"},
             {"Irregular board", "Tablero irregular"},
+            {"Extras", "Extras"},
             {"Unique preferred", "Preferir solución única"},
             {"Create Puzzle", "Crear rompecabezas"},
             {"ON", "SÍ"},
             {"OFF", "NO"},
             {"on", "sí"},
             {"off", "no"},
-            {"Locks", "Bloqueos"},
-            {"Holes", "Huecos"},
+            {"Lock icons", "Candados"},
+            {"Empty holes", "Huecos vacíos"},
             {"Sound", "Sonido"},
             {"Vibration", "Vibración"},
-            {"Show numbers on tiles", "Mostrar números en las fichas"},
+            {"Show numbers on tiles", "Mostrar números en las casillas"},
             {"Language", "Idioma"},
             {"About", "Acerca de"},
             {"Options", "Opciones"},
             {"Version", "Versión"},
             {"Changelog", "Historial de cambios"},
-            {"Credits", "Créditos"},
             {"Complete", "Completado"},
             {"Level Complete", "Nivel completado"},
-            {"Moves Used", "Movimientos usados"},
+            {"Taps Used", "Toques usados"},
             {"Minimum", "Mínimo"},
             {"Mark", "Marca"},
-            {"Best Moves", "Mejor marca"},
+            {"Best Taps", "Mejor marca"},
             {"Time", "Tiempo"},
             {"Next Level", "Siguiente nivel"},
             {"New Puzzle", "Nuevo rompecabezas"},
@@ -2360,8 +2179,11 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Replay", "Repetir"},
             {"Reset", "Reiniciar"},
             {"Menu", "Menú"},
-            {"Moves", "Movimientos"},
+            {"Taps", "Toques"},
             {"Pattern", "Patrón"},
+            {"Tap pattern info", "Información del patrón de toque"},
+            {"When you tap a tile, this pattern is centered on that tile. Every tile inside the pattern changes state.", "Al tocar una casilla, este patrón se centra en esa casilla. Cada casilla dentro del patrón cambia de estado."},
+            {"The green outline matches the preview you see when you hold a tile.", "El borde verde coincide con la vista previa que ves al mantener presionada una casilla."},
             {"Personal Best", "Mejor marca"},
             {"Leaderboard try", "Intento de clasificación"},
             {"No reset or hints", "Sin reinicio ni pistas"},
@@ -2370,36 +2192,37 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Keep Playing", "Seguir jugando"},
             {"Exit for 0", "Salir con 0"},
             {"Best:", "Mejor:"},
-            {"moves", "movimientos"},
+            {"Not played today", "No jugado hoy"},
+            {"taps", "toques"},
             {"First try:", "Primer intento:"},
             {"Replays open", "Repeticiones abiertas"},
             {"First try counts", "El primer intento cuenta"},
-            {"Previewing this pulse.", "Vista previa de este pulso."},
-            {"Hint applied. Red tiles changed. This try is worth 0 stars.", "Pista aplicada. Las fichas rojas cambiaron. Este intento vale 0 estrellas."},
-            {"No useful move is available.", "No hay ningún movimiento útil disponible."},
+            {"Previewing this tap.", "Vista previa de este toque."},
+            {"Hint applied. Red tiles changed. This try is worth 0 stars.", "Pista aplicada. Las casillas rojas cambiaron. Este intento vale 0 estrellas."},
+            {"No useful tap is available.", "No hay ningún toque útil disponible."},
             {"Binary Beginnings", "Comienzos binarios"},
             {"Fourfold Flips", "Giros cuádruples"},
-            {"Locked Lights", "Luces bloqueadas"},
+            {"Lights With Lock Icons", "Luces con candado"},
             {"Lockstep Squares", "Cuadrados sincronizados"},
-            {"First Holes", "Primeros huecos"},
+            {"First Empty Holes", "Primeros huecos vacíos"},
             {"Binary Breakaways", "Escapes binarios"},
             {"Fivefold Binary", "Binario quíntuple"},
             {"Three-Color Start", "Inicio tricolor"},
             {"Triple Grid", "Cuadrícula triple"},
-            {"Triple Locks", "Bloqueos triples"},
-            {"Triple Holes", "Huecos triples"},
+            {"Three Lock-Icon Tiles", "Tres casillas con candado"},
+            {"Three Empty Holes", "Tres huecos vacíos"},
             {"Triple Combine", "Combinación triple"},
             {"Pattern Primer", "Primeros patrones"},
-            {"Pattern Locks", "Bloqueos de patrón"},
+            {"Patterns With Lock Icons", "Patrones con casillas con candado"},
             {"Color Gauntlet", "Desafío de colores"},
             {"Four-State Start", "Inicio de cuatro estados"},
-            {"Four-State Locks", "Bloqueos de cuatro estados"},
-            {"Four-State Gaps", "Huecos de cuatro estados"},
+            {"Four-State Lock-Icon Tiles", "Casillas con candado de cuatro estados"},
+            {"Four-State Empty Holes", "Huecos vacíos de cuatro estados"},
             {"Four-State Patterns", "Patrones de cuatro estados"},
             {"Four-State Matrix", "Matriz de cuatro estados"},
             {"Five-State Start", "Inicio de cinco estados"},
-            {"Five-State Locks", "Bloqueos de cinco estados"},
-            {"Five-State Gaps", "Huecos de cinco estados"},
+            {"Five-State Lock-Icon Tiles", "Casillas con candado de cinco estados"},
+            {"Five-State Empty Holes", "Huecos vacíos de cinco estados"},
             {"Five-State Patterns", "Patrones de cinco estados"},
             {"Dense Dimensions", "Dimensiones densas"},
             {"Prime Pressure", "Presión prima"},
@@ -2407,147 +2230,166 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Wide Matrix", "Matriz amplia"},
             {"Endgame Circuit", "Circuito final"},
             {"Final Inversion", "Inversión final"},
-            {"Clear the board", "Despeja el tablero"},
-            {"Solve the puzzle by turning every active tile white.", "Resuelve el rompecabezas dejando blancas todas las fichas activas."},
-            {"Tap tiles to send pulses across the board; every tile reached by a pulse advances to its next state.", "Toca fichas para enviar pulsos por el tablero; cada ficha alcanzada por un pulso avanza a su siguiente estado."},
-            {"1. Make every tile white", "1. Deja todas las fichas blancas"},
-            {"A white tile is solved.", "Una ficha blanca está resuelta."},
-            {"Colored tiles still need more pulses before the board is complete.", "Las fichas de color aún necesitan más pulsos antes de completar el tablero."},
-            {"The puzzle is solved only when every active tile is white.", "El rompecabezas solo se resuelve cuando todas las fichas activas son blancas."},
-            {"2. Tap and cycle", "2. Toca y avanza ciclos"},
-            {"Tap an available tile to send its pulse pattern.", "Toca una ficha disponible para enviar su patrón de pulso."},
-            {"Every tile in that pattern advances one state.", "Cada ficha de ese patrón avanza un estado."},
-            {"After the last colored state, the next advance turns that tile white.", "Después del último estado de color, el siguiente avance vuelve blanca esa ficha."},
+            {"Clear the board", "Deja el tablero en blanco"},
+            {"Clear every active tile by turning it white.", "Deja en blanco todas las casillas activas."},
+            {"Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.", "Un toque en una casilla aplica su patrón de toque al tablero, y cada casilla alcanzada avanza un estado."},
+            {"Use previews and level clues to plan calmly: colored tiles still need to advance, tiles with lock icons can be changed by nearby taps, and empty holes are outside the board.", "Mira la vista previa y las pistas del nivel para jugar con calma: las casillas de color todavía tienen que avanzar, las casillas con candado pueden cambiar con toques cercanos y los huecos vacíos quedan fuera del tablero."},
+            {"1. Make every tile white", "1. Deja todas las casillas en blanco"},
+            {"A white tile is solved.", "Una casilla blanca ya está resuelta."},
+            {"Colored tiles are not wrong. They just need to keep advancing until they return to white.", "Las casillas de color no están mal. Solo tienen que seguir avanzando hasta volver al blanco."},
+            {"The puzzle ends only when every active tile is white at the same time.", "El nivel se completa cuando todas las casillas activas están blancas al mismo tiempo."},
+            {"2. Tap and cycle", "2. Toca y haz avanzar"},
+            {"Tap an available tile to apply the level's tap pattern.", "Toca una casilla disponible para aplicar el patrón de toque del nivel."},
+            {"Every tile reached by the pattern advances one state.", "Cada casilla alcanzada por el patrón avanza un estado."},
+            {"States cycle: after the last colored state, the next advance returns that tile to white.", "Los estados van en ciclo: después del último color, el siguiente avance devuelve la casilla al blanco."},
             {"3. Use the pattern preview", "3. Usa la vista previa del patrón"},
-            {"Levels can use cross, diagonal, square, horizontal, vertical, knight, or mixed patterns.", "Los niveles pueden usar patrones de cruz, diagonal, cuadrado, horizontal, vertical, caballo o mixtos."},
-            {"Hold or hover a tile to preview the tiles that will change.", "Mantén pulsada o pasa el cursor sobre una ficha para ver qué fichas cambiarán."},
-            {"4. Handle special tiles", "4. Maneja fichas especiales"},
-            {"Locked tiles can change when nearby pulses reach them.", "Las fichas bloqueadas pueden cambiar cuando les llegan pulsos cercanos."},
-            {"You cannot tap locked tiles directly.", "No puedes tocar fichas bloqueadas directamente."},
-            {"Empty holes are not part of the board.", "Los huecos vacíos no forman parte del tablero."},
-            {"Modes: Choose your puzzle", "Modos: elige tu rompecabezas"},
-            {"Campaign: Complete fixed levels in order; the next level opens after each solve.", "Campaña: completa niveles fijos en orden; el siguiente se abre después de cada solución."},
-            {"Custom Level: Choose board size, states, pattern, difficulty, locks, gaps, and whether the generator should prefer a unique solution.", "Nivel personalizado: elige tamaño del tablero, estados, patrón, dificultad, bloqueos, huecos y si el generador debe preferir una solución única."},
-            {"Daily Challenge: Play the same three generated puzzles as everyone else for the date; each puzzle keeps its own saved best score.", "Reto diario: juega los mismos tres rompecabezas generados que todos los demás en esa fecha; cada uno guarda su mejor puntuación."},
-            {"Moves, stars, and hints", "Movimientos, estrellas y pistas"},
-            {"The move counter counts every tap.", "El contador de movimientos cuenta cada toque."},
-            {"Three stars means you matched the generator's minimum found move count.", "Tres estrellas significa que igualaste el mínimo de movimientos encontrado por el generador."},
-            {"Two-star and one-star targets allow extra moves.", "Los objetivos de dos y una estrella permiten movimientos extra."},
-            {"Undo rewinds one move. Reset restores the starting board.", "Deshacer retrocede un movimiento. Reiniciar restaura el tablero inicial."},
-            {"Hint applies the next move from a solver plan. Using a hint removes stars for that try, but the puzzle still counts as complete.", "Pista aplica el siguiente movimiento de un plan de resolución. Usar una pista elimina las estrellas de ese intento, pero el rompecabezas cuenta como completado."},
-            {"Tiles changed by a hint are marked in red.", "Las fichas cambiadas por una pista se marcan en rojo."},
-            {"Sound toggles audio effects.", "Sonido activa o desactiva los efectos de audio."},
-            {"Show numbers on tiles displays state values when you want them.", "Mostrar números en las fichas enseña los valores de estado cuando los quieras."},
-            {"Android also includes haptic feedback controls.", "Android también incluye controles de respuesta háptica."},
-            {"A spin on classical Lights Out", "Un giro al Lights Out clásico"},
-            {"Fix an order for the active tiles.", "Fija un orden para las fichas activas."},
-            {"Then each board grid is represented by a vector s in (Z/nZ)^m.", "Entonces cada tablero se representa por un vector s en (Z/nZ)^m."},
-            {"Each legal tap pulse has its own vector v_j in the same module.", "Cada toque legal tiene su propio vector v_j en el mismo módulo."},
-            {"The columns of A are those pulse vectors, and solving asks for A x = -s modulo n.", "Las columnas de A son esos vectores de pulso, y resolver pide A x = -s módulo n."},
+            {"A level can use a cross, diagonal, square, horizontal, vertical, knight, or mixed pattern.", "Un nivel puede usar patrón de cruz, diagonal, cuadrado, horizontal, vertical, caballo o mixto."},
+            {"Hold or hover a tile to see exactly which tiles will change before you tap.", "Mantén presionada una casilla, o pasa el cursor por encima, para ver exactamente cuáles cambiarán antes de tocar."},
+            {"4. Handle special tiles", "4. Ten en cuenta las casillas especiales"},
+            {"A tile with a lock icon still needs to become white and can change when a nearby tap reaches it.", "Una casilla con candado también debe quedar blanca y puede cambiar cuando la alcanza un toque cercano."},
+            {"You cannot tap a tile with a lock icon directly.", "No puedes tocar directamente una casilla con candado."},
+            {"An empty hole is outside the board. Tap patterns skip empty holes.", "Un hueco vacío está fuera del tablero. Los patrones de toque saltan los huecos vacíos."},
+            {"Modes: Choose your puzzle", "Modos: elige partida"},
+            {"Campaign: Solve fixed levels in order. Each solve opens the next level.", "Campaña: resuelve niveles fijos en orden. Cada victoria abre el siguiente nivel."},
+            {"Custom Level: Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.", "Nivel personalizado: elige tamaño, estados, patrón, dificultad, casillas con candado y huecos vacíos. El generador siempre intenta crear una solución única."},
+            {"Daily Challenge: Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.", "Reto diario: juega los mismos tres niveles generados que el resto para la fecha de hoy. Cada uno guarda su mejor resultado."},
+            {"Taps, stars, and hints", "Toques, estrellas y pistas"},
+            {"The tap counter counts every tap you commit.", "El contador suma cada toque que haces."},
+            {"Three stars mean you matched the generator's minimum found tap count.", "Consigues tres estrellas si igualas el mínimo de toques encontrado por el generador."},
+            {"Two-star and one-star targets allow extra taps.", "Los objetivos de dos y una estrella admiten algunos toques extra."},
+            {"Undo rewinds one tap, and Reset restores the starting board.", "Deshacer vuelve un toque atrás, y Reiniciar recupera el tablero inicial."},
+            {"Hint applies the next tap from a solver plan. A hinted try can still complete the puzzle, but it no longer earns stars.", "La pista aplica el siguiente toque de un plan de resolución. Puedes completar el nivel con pistas, pero ese intento ya no gana estrellas."},
+            {"Tiles changed by a hint are outlined in red.", "Las casillas cambiadas por una pista aparecen con borde rojo."},
+            {"Sound toggles audio effects.", "Sonido activa o desactiva los efectos."},
+            {"Show numbers on tiles displays state values when you want a more exact view.", "Mostrar números en las casillas enseña los valores cuando quieres ver el estado exacto."},
+            {"Android also includes haptic feedback controls.", "En Android también hay controles de vibración."},
+            {"Invert the Matrix is a modular linear-algebra puzzle.", "Invert the Matrix es un rompecabezas de álgebra lineal modular."},
+            {"To play, think of each active tile as having a state, shown by its color.", "Para jugar, piensa que cada casilla activa tiene un estado, mostrado por su color."},
+            {"A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile.", "Un toque a una casilla no cambia solo la casilla que tocas, sino que cambia todas las casillas que se encuentran en un patrón centrado en la casilla elegida."},
+            {"After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all active tiles white at the same time.", "Después del último estado (color), una casilla vuelve al blanco. El objetivo es encontrar una secuencia de toques para que todas las casillas terminen siendo blancas al mismo tiempo."},
+            {"Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap.", "Algunos tableros tienen solo dos estados posibles: blanco y azul, y solo un patrón: una cruz centrada en la casilla que tocas."},
+            {"But later on, everything gets much more complicated.", "¡Pero más adelante todo se complica mucho más!"},
+            {"Modeling The Game", "Modelo del juego"},
+            {"Turn the board into one equation.", "Convertir el tablero en una ecuación."},
+            {"First list the active board positions in a fixed order.", "Primero enumeramos las casillas en un orden fijo."},
+            {"Then the displayed board is a vector s in (Z/nZ)^m.", "Entonces el tablero mostrado pasa a ser un vector s en (Z/nZ)^m."},
+            {"Each allowed tap has an effect vector recording which tiles it advances.", "Cada toque permitido tiene un vector de efecto que indica qué casillas hace avanzar."},
+            {"The columns of A are those effect vectors, and a tap-count vector x solves the puzzle when s + A x = 0 modulo n.", "Las columnas de A son esos vectores de efecto, y un vector de toques x resuelve el nivel cuando s + A x = 0 módulo n."},
+            {"Values are read modulo n, so after n - 1 the next value is 0.", "Los valores se leen módulo n, así que después de n - 1 el siguiente valor es 0."},
             {"From Lights Out", "Desde Lights Out"},
-            {"Classical Lights Out is the n = 2 case: tiles are off or on.", "Lights Out clásico es el caso n = 2: las fichas están apagadas o encendidas."},
-            {"Pressing a tile toggles a fixed neighborhood, which is addition by 1 modulo 2.", "Pulsar una ficha alterna una vecindad fija, que es sumar 1 módulo 2."},
-            {"Pressing the same tile twice gives no net change.", "Pulsar la misma ficha dos veces no produce cambio neto."},
-            {"Invert the Matrix keeps the same linear question over Z/nZ, with more states and richer boards.", "Invert the Matrix conserva la misma pregunta lineal sobre Z/nZ, con más estados y tableros más ricos."},
+            {"Classical Lights Out is the n = 2 case: tiles are 0 or 1.", "Lights Out clásico es el caso n = 2: las casillas valen 0 o 1."},
+            {"Tapping a tile changes the same shape of nearby tiles every time.", "Tocar una casilla cambia siempre el mismo grupo de casillas cercanas."},
+            {"Usually that shape is the tapped tile plus the tiles above, below, left, and right.", "Normalmente ese grupo es la casilla tocada más las casillas de arriba, abajo, izquierda y derecha."},
+            {"Changing a tile is adding 1 modulo 2, so tapping the same tile twice gives no net change.", "Cambiar una casilla equivale a sumar 1 módulo 2, por eso tocar la misma casilla dos veces no cambia nada en total."},
+            {"Invert the Matrix keeps that add-the-effects rule while allowing n states over Z/nZ.", "Invert the Matrix conserva esa regla de sumar efectos, pero permite n estados sobre Z/nZ."},
+            {"Empty holes are not included in the board vector. Tiles with lock icons stay in it because they must become white.", "Un hueco no es una casilla. Las casillas con candado permanecen en el vector del tablero porque deben quedar blancas."},
+            {"Tiles with lock icons do not get tap choices because they cannot be tapped directly.", "Las casillas con candado no tienen opciones de toque porque no se pueden tocar directamente."},
+            {"The mathematical question is precise: can the allowed taps add up to the target change -s?", "La pregunta matemática es precisa: ¿pueden los toques permitidos sumar el cambio objetivo -s?"},
             {"1. The Board Is A Vector", "1. El tablero es un vector"},
-            {"Let p_1, ..., p_m be the active positions, listed in a fixed order.", "Sean p_1, ..., p_m las posiciones activas, listadas en un orden fijo."},
-            {"The board vector s has coordinate s_i equal to the value at p_i.", "El vector del tablero s tiene coordenada s_i igual al valor en p_i."},
-            {"Thus the displayed grid is represented by s in (Z/nZ)^m.", "Así, la cuadrícula mostrada se representa por s en (Z/nZ)^m."},
+            {"Let P = {p_1, ..., p_m} be the set of active board positions, in a fixed order.", "Sea P = {p_1, ..., p_m} el conjunto de casillas, en un orden fijo."},
+            {"A configuration is the vector s = (s_1, ..., s_m) in (Z/nZ)^m.", "Una configuración es el vector s = (s_1, ..., s_m) en (Z/nZ)^m."},
+            {"Value s_i is the state value shown at p_i, read modulo n.", "El valor s_i es el estado que muestra la casilla p_i, leído módulo n."},
             {"The solved board is the zero vector.", "El tablero resuelto es el vector cero."},
-            {"2. Each Tap Has A Pulse Vector", "2. Cada toque tiene un vector de pulso"},
-            {"Let q_1, ..., q_r be the legal tap positions.", "Sean q_1, ..., q_r las posiciones de toque legales."},
-            {"The pulse at q_j defines a vector v_j in (Z/nZ)^m.", "El pulso en q_j define un vector v_j en (Z/nZ)^m."},
-            {"Coordinate (v_j)_i is 1 when that pulse changes p_i, and 0 otherwise.", "La coordenada (v_j)_i es 1 cuando ese pulso cambia p_i, y 0 en caso contrario."},
-            {"The move matrix is A = [v_1 ... v_r].", "La matriz de movimientos es A = [v_1 ... v_r]."},
-            {"Locked tiles can be rows, because they must be solved, but they are not tap columns.", "Las fichas bloqueadas pueden ser filas, porque deben resolverse, pero no son columnas de toque."},
-            {"3. A Plan Is A Vector", "3. Un plan es un vector"},
-            {"The tap-count vector x = (x_1, ..., x_r) lies in (Z/nZ)^r.", "El vector de conteo de toques x = (x_1, ..., x_r) está en (Z/nZ)^r."},
-            {"Coordinate x_j records how many times tap q_j is used, modulo n.", "La coordenada x_j registra cuántas veces se usa el toque q_j, módulo n."},
-            {"Executing x adds sum_j x_j v_j, which is A x.", "Ejecutar x suma sum_j x_j v_j, que es A x."},
-            {"Tap order does not enter the algebra.", "El orden de los toques no entra en el álgebra."},
-            {"Goal: Find A Tap-Count Vector", "Objetivo: encontrar un vector de conteo de toques"},
+            {"2. Each Tap Has An Effect Vector", "2. Cada toque tiene un vector de efecto"},
+            {"Let q_1, ..., q_r be the positions that can be tapped.", "Sean q_1, ..., q_r las casillas que se pueden tocar."},
+            {"The effect vector of the tap at q_j is v_j in (Z/nZ)^m.", "El vector de efecto del toque en q_j es v_j en (Z/nZ)^m."},
+            {"Value (v_j)_i is 1 when that tap advances p_i, and 0 otherwise.", "El valor (v_j)_i es 1 si ese toque hace avanzar p_i, y 0 en caso contrario."},
+            {"The tap matrix is A = [v_1 ... v_r].", "La matriz de toques es A = [v_1 ... v_r]."},
+            {"A row tracks a board position. A column tracks an allowed tap.", "Una fila sigue una casilla. Una columna sigue un toque permitido."},
+            {"A tile with a lock icon gets a row, but no column, because it must become white and cannot be tapped directly.", "Una casilla con candado tiene fila, pero no columna, porque debe quedar blanca y no se puede tocar directamente."},
+            {"3. The Tap Vector", "3. El vector de toques"},
+            {"The tap-count vector x = (x_1, ..., x_r) lies in (Z/nZ)^r.", "El vector de toques x = (x_1, ..., x_r) está en (Z/nZ)^r."},
+            {"Value x_j records how many times the tap at q_j is used, modulo n.", "El valor x_j cuenta cuántas veces se usa el toque en q_j, módulo n."},
+            {"Executing x adds sum_j x_j v_j, which is A x.", "Al ejecutar x se suma sum_j x_j v_j, que es A x."},
+            {"Tap order does not enter the algebra.", "El orden de los toques no importa para el álgebra."},
+            {"Goal: Find A Tap-Count Vector", "Objetivo: encontrar el vector de toques"},
             {"After applying x, the board vector is s + A x.", "Después de aplicar x, el vector del tablero es s + A x."},
             {"The target is the zero vector in (Z/nZ)^m.", "El objetivo es el vector cero en (Z/nZ)^m."},
             {"So a solution satisfies A x = -s modulo n.", "Así, una solución satisface A x = -s módulo n."},
-            {"This is a system of linear congruences.", "Este es un sistema de congruencias lineales."},
+            {"This is a set of linear equations with arithmetic modulo n.", "Este es un conjunto de ecuaciones lineales con aritmética módulo n."},
             {"When Does A Solution Exist?", "¿Cuándo existe una solución?"},
-            {"The columns of A describe all board changes reachable by legal moves.", "Las columnas de A describen todos los cambios de tablero alcanzables con movimientos legales."},
-            {"Equivalently, Im(A) = {A x : x in (Z/nZ)^r}.", "Equivalentemente, Im(A) = {A x : x en (Z/nZ)^r}."},
+            {"The columns of A describe all board changes reachable by allowed taps.", "Las columnas de A describen todos los cambios de tablero que se pueden conseguir con toques permitidos."},
+            {"Equivalently, Im(A) = {A x : x in (Z/nZ)^r}.", "De forma equivalente, Im(A) = {A x : x en (Z/nZ)^r}."},
             {"There is a solution exactly when the target -s lies in Im(A).", "Existe una solución exactamente cuando el objetivo -s está en Im(A)."},
-            {"Over prime n, row-reduce the augmented system [A | -s].", "Para n primo, reduce por filas el sistema aumentado [A | -s]."},
-            {"A row [0 ... 0 | c] with c nonzero proves inconsistency.", "Una fila [0 ... 0 | c] con c no nulo prueba inconsistencia."},
-            {"Prime n: Fields", "n primo: campos"},
-            {"For n = 2, 3, or 5, Z/nZ is a field.", "Para n = 2, 3 o 5, Z/nZ es un campo."},
-            {"Every nonzero value has an inverse, so division by a pivot is legal.", "Todo valor no nulo tiene inverso, así que dividir por un pivote es legal."},
-            {"Gaussian elimination works like ordinary linear algebra, only with modular arithmetic.", "La eliminación gaussiana funciona como en álgebra lineal ordinaria, solo que con aritmética modular."},
-            {"Free variables correspond to different solving plans.", "Las variables libres corresponden a distintos planes de resolución."},
+            {"Over prime n, simplify the rows of the system [A | -s].", "Para n primo, simplifica las filas del sistema [A | -s]."},
+            {"A row [0 ... 0 | c] with c not 0 proves that no solution exists.", "Una fila [0 ... 0 | c] con c distinto de 0 demuestra que no existe solución."},
+            {"If no impossible row appears, the simplified system gives at least one tap plan.", "Si no aparece ninguna fila imposible, el sistema simplificado da al menos un plan de toques."},
+            {"Prime n: Fields", "n primo: cuerpos"},
+            {"For n = 2, 3, or 5, Z/nZ is a field.", "Para n = 2, 3 o 5, Z/nZ es un cuerpo."},
+            {"Every value different from 0 has an inverse, so simplifying rows can divide by it.", "Todo valor distinto de 0 tiene inverso, así que simplificar filas puede dividir por él."},
+            {"Simplifying rows works like ordinary linear algebra, only with modular arithmetic.", "Simplificar filas funciona como en álgebra lineal ordinaria, solo que con aritmética modular."},
+            {"When simplification leaves a choice open, that choice gives another solving plan.", "Cuando la simplificación deja una elección abierta, esa elección da otro plan de solución."},
             {"Composite n: Rings", "n compuesto: anillos"},
-            {"For composite n, Z/nZ is a ring rather than a field.", "Para n compuesto, Z/nZ es un anillo en vez de un campo."},
-            {"For n = 4, the number 2 is nonzero but has no inverse.", "Para n = 4, el número 2 no es cero pero no tiene inverso."},
+            {"For composite n, Z/nZ is a ring rather than a field.", "Para n compuesto, Z/nZ es un anillo en vez de un cuerpo."},
+            {"For n = 4, the number 2 is different from 0 but has no inverse.", "Para n = 4, el número 2 es distinto de 0 pero no tiene inverso."},
             {"So division by 2 is not a valid row operation.", "Por eso dividir por 2 no es una operación de fila válida."},
-            {"The criterion is unchanged: -s must lie in Im(A) over Z/nZ.", "El criterio no cambia: -s debe estar en Im(A) sobre Z/nZ."},
-            {"Verification must use ring-valid operations, or compatible prime-power checks.", "La verificación debe usar operaciones válidas en el anillo, o comprobaciones compatibles por potencias primas."},
+            {"The rule is unchanged: -s must lie in Im(A) over Z/nZ.", "La regla no cambia: -s debe pertenecer a Im(A) sobre Z/nZ."},
+            {"Verification must use operations that are valid in the ring, or smaller modulo checks that agree with each other.", "La comprobación debe usar operaciones válidas en el anillo, o comprobaciones módulo más pequeñas que sean compatibles entre sí."},
             {"When Is It Unique?", "¿Cuándo es única?"},
-            {"If x0 solves the puzzle, every other solution is x0 plus a silent plan z.", "Si x0 resuelve el rompecabezas, cualquier otra solución es x0 más un plan silencioso z."},
-            {"Here z lies in ker(A), because A z is the zero vector.", "Aquí z está en ker(A), porque A z es el vector cero."},
-            {"Tapping one tile n extra times adds n e_j, the zero vector in tap-count space.", "Tocar una ficha n veces extra suma n e_j, el vector cero en el espacio de conteos."},
-            {"That built-in repetition is not a new algebraic solution.", "Esa repetición incorporada no es una nueva solución algebraica."},
+            {"If x0 solves the puzzle, every other solution is x0 plus a tap-count vector z with A z = 0.", "Si x0 resuelve el nivel, cualquier otra solución es x0 más un vector de toques z con A z = 0."},
+            {"The equation A z = 0 means that z causes no net board change.", "La ecuación A z = 0 significa que z no produce ningún cambio neto en el tablero."},
+            {"The set of all such z is ker(A), the kernel of the tap matrix.", "El conjunto de todos esos z es ker(A), el núcleo de la matriz de toques."},
+            {"Tapping one tile n extra times adds n e_j, the zero vector in (Z/nZ)^r.", "Tocar una casilla n veces más suma n e_j, el vector cero en (Z/nZ)^r."},
+            {"That represents the same tap-count vector, not a new tap-count solution.", "Eso representa el mismo vector de toques, no una solución nueva como vector de toques."},
             {"Thus the full solution set is x0 + ker(A).", "Así, el conjunto completo de soluciones es x0 + ker(A)."},
-            {"The solution is unique exactly when ker(A) has only the zero vector.", "La solución es única exactamente cuando ker(A) solo contiene el vector cero."},
-            {"A nonzero silent plan gives genuinely different tap-count vectors for the same board.", "Un plan silencioso no nulo da vectores de conteo realmente distintos para el mismo tablero."},
-            {"Cross Pattern: When Is A Invertible?", "Patrón de cruz: ¿cuándo es invertible A?"},
-            {"On a plain board with no locks or gaps, the cross pattern has one tap column per tile.", "En un tablero simple sin bloqueos ni huecos, el patrón de cruz tiene una columna de toque por ficha."},
-            {"Then A is a square endomorphism of (Z/nZ)^(w h).", "Entonces A es un endomorfismo cuadrado de (Z/nZ)^(w h)."},
-            {"An inverse means every starting board has one unique tap-count vector.", "Una inversa significa que todo tablero inicial tiene un único vector de conteo."},
-            {"Over Z/nZ, this happens exactly when det(A) is a unit modulo n.", "Sobre Z/nZ, esto ocurre exactamente cuando det(A) es una unidad módulo n."},
-            {"Equivalently, gcd(det(A), n) = 1.", "Equivalentemente, gcd(det(A), n) = 1."},
-            {"For prime n, this is the same as full rank, or det(A) not equal to 0 modulo n.", "Para n primo, esto equivale a rango completo, o det(A) distinto de 0 módulo n."},
+            {"The solution is unique exactly when ker(A) contains only the zero vector.", "La solución es única exactamente cuando ker(A) solo contiene el vector cero."},
+            {"If a tap-count vector z is not zero and has A z = 0, then x0 and x0 + z solve the same board.", "Si un vector de toques z es distinto de cero y cumple A z = 0, entonces x0 y x0 + z resuelven el mismo tablero."},
+            {"When Is A Invertible?", "¿Cuándo es invertible A?"},
+            {"A true inverse matrix can exist only when A is square, meaning it has the same number of rows and columns.", "Una matriz inversa de verdad solo puede existir cuando A es cuadrada, es decir, cuando tiene el mismo número de filas y columnas."},
+            {"This happens on a w by h board with no tiles with lock icons and no empty holes.", "Esto ocurre en un tablero de w por h sin casillas con candado ni huecos vacíos."},
+            {"In that case, A sends vectors in (Z/nZ)^(w h) to vectors in (Z/nZ)^(w h).", "En ese caso, A transforma vectores de (Z/nZ)^(w h) en vectores de (Z/nZ)^(w h)."},
+            {"An inverse means every starting board has one unique tap-count vector.", "Una inversa significa que todo tablero inicial tiene una única solución como vector de toques."},
+            {"Over Z/nZ, this happens exactly when det(A) has a multiplicative inverse modulo n.", "Sobre Z/nZ, esto ocurre exactamente cuando det(A) tiene inverso multiplicativo módulo n."},
+            {"For prime n, this means det(A) is not equal to 0 modulo n.", "Para n primo, esto significa que det(A) no es igual a 0 módulo n."},
             {"For n = 4, det(A) must be odd.", "Para n = 4, det(A) debe ser impar."},
-            {"If this fails in the square case, unreachable boards and nonzero silent plans both exist.", "Si esto falla en el caso cuadrado, existen tableros inalcanzables y planes silenciosos no nulos."},
-            {"With locks or gaps, A may be rectangular, so image and kernel are the useful tests instead.", "Con bloqueos o huecos, A puede ser rectangular, así que imagen y núcleo son las pruebas útiles."},
+            {"If this fails in the square case, some starting boards cannot be solved and ker(A) contains tap-count vectors different from zero.", "Si esto falla en el caso cuadrado, algunos tableros iniciales no se pueden resolver y ker(A) contiene vectores de toques distintos de cero."},
+            {"With tiles with lock icons or empty holes, A may have different numbers of rows and columns.", "Con casillas con candado o huecos vacíos, A puede tener distinto número de filas y columnas."},
+            {"Then the useful tests are whether the target change can be reached and whether ker(A) contains tap-count vectors different from zero.", "Entonces las pruebas útiles son si el cambio objetivo se puede alcanzar y si ker(A) contiene vectores de toques distintos de cero."},
             {"Why The Minimum Matters", "Por qué importa el mínimo"},
-            {"Linear algebra may give many valid tap-count vectors.", "El álgebra lineal puede dar muchos vectores de conteo válidos."},
-            {"For each residue x_j, use its representative from 0 through n - 1.", "Para cada residuo x_j, usa su representante de 0 a n - 1."},
-            {"The physical length is the sum of those representatives.", "La longitud física es la suma de esos representantes."},
+            {"Linear algebra may give many valid tap-count vectors.", "El álgebra lineal puede dar muchos vectores de toques válidos."},
+            {"For each tap count x_j, use the number from 0 through n - 1 that represents it.", "Para cada número de toques x_j, usa el número de 0 a n - 1 que lo representa."},
+            {"The physical length is the sum of those chosen numbers.", "La longitud física es la suma de esos números elegidos."},
             {"The three-star target is based on a shortest solution found for that board.", "El objetivo de tres estrellas se basa en una solución más corta encontrada para ese tablero."},
             {"How The Shortest Solver Works", "Cómo funciona el solucionador más corto"},
-            {"Small boards use breadth-first search through board states.", "Los tableros pequeños usan búsqueda en anchura por estados del tablero."},
-            {"Each edge is one legal tap, so the first solved state reached is a true minimum.", "Cada arista es un toque legal, así que el primer estado resuelto alcanzado es un mínimo real."},
-            {"Larger prime-state boards row-reduce A x = -s.", "Los tableros más grandes con estados primos reducen por filas A x = -s."},
-            {"If free variables remain and the nullspace search is small enough, the app enumerates x0 + ker(A).", "Si quedan variables libres y la búsqueda del espacio nulo es pequeña, la app enumera x0 + ker(A)."},
-            {"It chooses the vector with the smallest sum of residues from 0 through n - 1.", "Elige el vector con la menor suma de residuos de 0 a n - 1."},
-            {"If exact search is too large, or composite n is too large for BFS, the game uses a known solving plan.", "Si la búsqueda exacta es demasiado grande, o n compuesto es demasiado grande para BFS, el juego usa un plan conocido."},
-            {"The shortest tap-count vector need not be unique; ties are possible.", "El vector de conteo más corto no tiene por qué ser único; puede haber empates."},
-            {"The app keeps one deterministic shortest plan, but does not mark shortest-plan uniqueness.", "La app conserva un plan más corto determinista, pero no marca la unicidad de los planes más cortos."},
-            {"Locked Tiles And Gaps", "Fichas bloqueadas y huecos"},
-            {"Locked tiles remain rows because their values must become zero.", "Las fichas bloqueadas permanecen como filas porque sus valores deben llegar a cero."},
-            {"They are not columns, because they cannot be tapped directly.", "No son columnas, porque no se pueden tocar directamente."},
-            {"Gaps are omitted from the ordered active positions, so they are neither rows nor columns.", "Los huecos se omiten de las posiciones activas ordenadas, así que no son filas ni columnas."},
-            {"The same map A: (Z/nZ)^r -> (Z/nZ)^m handles these irregular boards.", "La misma aplicación A: (Z/nZ)^r -> (Z/nZ)^m maneja estos tableros irregulares."},
+            {"Small boards search by tap count: first one tap, then two taps, and so on.", "En tableros pequeños, el juego busca por número de toques: primero un toque, luego dos toques, y así sucesivamente."},
+            {"The first solved state reached gives the true minimum.", "El primer estado resuelto alcanzado da el mínimo real."},
+            {"Larger prime-state boards simplify the rows of A x = -s.", "En tableros más grandes con estados primos se simplifican las filas de A x = -s."},
+            {"If the simplified system leaves choices that are not forced, the solutions are x0 + ker(A).", "Si el sistema simplificado deja elecciones que no están forzadas, las soluciones son x0 + ker(A)."},
+            {"When that search is small enough, the app enumerates those tap-count vectors.", "Cuando esa búsqueda es lo bastante pequeña, el juego enumera esos vectores de toques."},
+            {"It chooses the vector with the smallest sum of tap counts from 0 through n - 1.", "Elige el vector con la menor suma de números de toques de 0 a n - 1."},
+            {"If exact search is too large, or composite n is too large for this search, the game uses a known solving plan.", "Si la búsqueda exacta es demasiado grande, o si n compuesto es demasiado grande para esta búsqueda, el juego usa un plan conocido."},
+            {"The shortest tap-count vector need not be unique. Ties are possible.", "El vector de toques más corto no tiene por qué ser único. Puede haber empates."},
+            {"The app keeps the same shortest plan every time when it can prove the minimum.", "El juego guarda el mismo plan más corto cada vez cuando puede probar el mínimo."},
+            {"Tiles With Lock Icons And Empty Holes", "Casillas con candado y huecos vacíos"},
+            {"A tile with a lock icon stays in the board vector because its value must become zero, and nearby taps may still change it.", "Una casilla con candado permanece en el vector del tablero porque su valor debe llegar a cero, y los toques cercanos todavía pueden cambiarla."},
+            {"It does not get its own tap choice in x because it cannot be tapped directly.", "No tiene su propia opción de toque en x porque no se puede tocar directamente."},
+            {"An empty hole is left out of the ordered list P, so the equation only tracks active board positions.", "Un hueco no es una casilla, así que se queda fuera de la lista ordenada P. La ecuación solo sigue las casillas."},
+            {"This is how the same equation adapts to irregular boards.", "Así se adapta la misma ecuación a tableros irregulares."},
             {"How The Generator Uses This", "Cómo usa esto el generador"},
-            {"The generator determines the pulse vectors from the board shape, locks, gaps, and pattern.", "El generador determina los vectores de pulso desde la forma del tablero, bloqueos, huecos y patrón."},
-            {"It chooses or certifies a starting vector s with some x satisfying s + A x = 0.", "Elige o certifica un vector inicial s con algún x que satisface s + A x = 0."},
-            {"When the exact solver is available, it searches the solution set for a short representative.", "Cuando el solucionador exacto está disponible, busca un representante corto en el conjunto de soluciones."},
-            {"Hints follow a stored solving plan one move at a time.", "Las pistas siguen un plan almacenado, un movimiento a la vez."},
-            {"The red outline marks exactly the tiles changed by that hint move.", "El borde rojo marca exactamente las fichas cambiadas por esa pista."},
+            {"The generator uses the same ingredients: board shape, tiles with lock icons, empty holes, tap pattern, and effect vectors.", "El generador usa los mismos ingredientes: forma del tablero, casillas con candado, huecos vacíos, patrón de toque y vectores de efecto."},
+            {"It chooses or verifies a starting vector s with some x satisfying s + A x = 0.", "Elige o comprueba un vector inicial s con algún x que cumple s + A x = 0."},
+            {"When the exact solver is available, it searches the solution set for a short tap-count vector.", "Cuando el solucionador exacto está disponible, busca un vector de toques corto en el conjunto de soluciones."},
+            {"Hints follow a stored solving plan one tap at a time.", "Las pistas siguen un plan guardado, toque a toque."},
+            {"The red outline marks exactly the tiles changed by that hint tap.", "El borde rojo marca exactamente las casillas cambiadas por esa pista."},
             {"What The Symbols Mean", "Qué significan los símbolos"},
             {"These are the compact labels used by the equations and solver.", "Estas son las etiquetas compactas usadas por las ecuaciones y el solucionador."},
-            {"modulus / tile states", "módulo / estados de ficha"},
+            {"modulus / tile states", "módulo / estados de casilla"},
             {"board vector in (Z/nZ)^m", "vector del tablero en (Z/nZ)^m"},
-            {"columns are pulse vectors", "las columnas son vectores de pulso"},
-            {"tap-count vector in (Z/nZ)^r", "vector de conteo en (Z/nZ)^r"},
-            {"reachable board changes", "cambios de tablero alcanzables"},
-            {"tap counts with A x = 0", "conteos de toque con A x = 0"},
-            {"residues wrap after n - 1", "los residuos reinician tras n - 1"},
-            {"if tap j changes tile i", "si el toque j cambia la ficha i"},
+            {"columns are effect vectors", "columnas de vectores de efecto"},
+            {"tap-count vector in (Z/nZ)^r", "vector de toques en (Z/nZ)^r"},
+            {"reachable board changes", "cambios de tablero que se pueden conseguir"},
+            {"tap-count vectors with A x = 0", "vectores de toques con A x = 0"},
+            {"values wrap after n - 1", "los valores vuelven a 0 tras n - 1"},
+            {"if tap j changes tile i", "si el toque j cambia la casilla i"},
             {"otherwise", "en caso contrario"},
-            {"number of taps on tile j", "número de toques en la ficha j"},
+            {"number of taps on tile j", "número de toques en la casilla j"},
             {"solution exists iff", "hay solución sii"},
             {"solutions", "soluciones"},
-            {"is a field", "es un campo"},
-            {"Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows credits and version history.", "Los ajustes ahora ocultan controles específicos de plataforma, se eliminaron los interruptores de animación y símbolos daltónicos, y Acerca de muestra créditos e historial de versiones."},
+            {"is a field", "es un cuerpo"},
+            {"Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.", "Los retos diarios ahora separan las tarjetas de rompecabezas de las clasificaciones, la configuración personalizada usa opciones visuales de patrón con generación única siempre activa y las pantallas de juego y resultado son más claras."},
+            {"Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.", "Los ajustes ahora ocultan controles específicos de plataforma, se eliminaron los interruptores de animación y símbolos daltónicos, y Acerca de muestra el historial de versiones con el enlace de GitHub."},
             {"Release builds keep native debug symbols for Play Console crash reports.", "Las compilaciones de lanzamiento conservan símbolos nativos de depuración para los informes de fallos de Play Console."},
-            {"The Math guide explains uniqueness, silent plans, and cross-pattern invertibility.", "La guía de matemáticas explica la unicidad, los planes silenciosos y la invertibilidad del patrón de cruz."}
+            {"The Math guide explains solution uniqueness and matrix invertibility.", "La guía de matemáticas explica cuándo una solución es única y cuándo la matriz es invertible."}
     };
     static const std::unordered_map<std::string, std::string> fr = {
             {"A modular tile puzzle", "Un casse-tête de tuiles modulaires"},
@@ -2555,10 +2397,14 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Custom Level", "Niveau personnalisé"},
             {"Custom Puzzle", "Casse-tête personnalisé"},
             {"Daily Challenge", "Défi quotidien"},
+            {"Daily Challenges", "Défis quotidiens"},
+            {"Today's Puzzles", "Casse-têtes du jour"},
             {"How to Play", "Comment jouer"},
             {"The Math", "Les maths"},
             {"Settings", "Paramètres"},
             {"Chapter", "Chapitre"},
+            {"Campaign data unavailable", "Données de campagne indisponibles"},
+            {"The bundled campaign asset could not be loaded. Reload the app or check that campaign-levels.json is included.", "La ressource de campagne incluse n'a pas pu être chargée. Recharge l'app ou vérifie que campaign-levels.json est inclus."},
             {"Daily", "Quotidien"},
             {"Easy", "Facile"},
             {"Medium", "Moyen"},
@@ -2567,32 +2413,34 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Global", "Global"},
             {"Leaderboards", "Classements"},
             {"Compare today's marks by tier or as one combined daily score.", "Compare les marques d'aujourd'hui par niveau ou comme un score quotidien combiné."},
+            {"All daily tiers", "Tous les niveaux quotidiens"},
             {"Grid Size", "Taille de la grille"},
             {"Custom", "Personnalisé"},
             {"Width", "Largeur"},
             {"Height", "Hauteur"},
             {"States", "États"},
             {"states", "états"},
-            {"Pulse Pattern", "Motif de pulsation"},
+            {"Tap Pattern", "Motif de toucher"},
             {"Difficulty", "Difficulté"},
             {"Cross", "Croix"},
             {"Diagonal", "Diagonale"},
             {"Square", "Carré"},
-            {"Horizontal", "Horizontal"},
-            {"Vertical", "Vertical"},
+            {"Horizontal line", "Ligne horizontale"},
+            {"Vertical line", "Ligne verticale"},
             {"Knight", "Cavalier"},
             {"Random mixed", "Mélange aléatoire"},
             {"Mixed patterns", "Motifs mixtes"},
-            {"Locked tiles", "Tuiles verrouillées"},
+            {"Tiles with lock icons", "Tuiles avec cadenas"},
             {"Irregular board", "Grille irrégulière"},
+            {"Extras", "Extras"},
             {"Unique preferred", "Solution unique préférée"},
             {"Create Puzzle", "Créer un casse-tête"},
             {"ON", "OUI"},
             {"OFF", "NON"},
             {"on", "oui"},
             {"off", "non"},
-            {"Locks", "Verrous"},
-            {"Holes", "Trous"},
+            {"Lock icons", "Cadenas"},
+            {"Empty holes", "Trous vides"},
             {"Sound", "Son"},
             {"Vibration", "Vibration"},
             {"Show numbers on tiles", "Afficher les nombres sur les tuiles"},
@@ -2601,22 +2449,24 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Options", "Options"},
             {"Version", "Version"},
             {"Changelog", "Journal des changements"},
-            {"Credits", "Crédits"},
             {"Complete", "Terminé"},
             {"Level Complete", "Niveau terminé"},
-            {"Moves Used", "Coups utilisés"},
+            {"Taps Used", "Touchers utilisés"},
             {"Minimum", "Minimum"},
             {"Mark", "Marque"},
-            {"Best Moves", "Meilleur score"},
+            {"Best Taps", "Meilleur score"},
             {"Time", "Temps"},
             {"Next Level", "Niveau suivant"},
             {"New Puzzle", "Nouveau casse-tête"},
             {"Leaderboard", "Classement"},
             {"Replay", "Rejouer"},
-            {"Reset", "Réinit."},
+            {"Reset", "Réinitialiser"},
             {"Menu", "Menu"},
-            {"Moves", "Coups"},
+            {"Taps", "Touchers"},
             {"Pattern", "Motif"},
+            {"Tap pattern info", "Info sur le motif de toucher"},
+            {"When you tap a tile, this pattern is centered on that tile. Every tile inside the pattern changes state.", "Quand tu touches une tuile, ce motif se centre sur cette tuile. Chaque tuile dans le motif change d'état."},
+            {"The green outline matches the preview you see when you hold a tile.", "Le contour vert correspond à l'aperçu visible quand tu gardes une tuile appuyée."},
             {"Personal Best", "Meilleur score"},
             {"Leaderboard try", "Essai de classement"},
             {"No reset or hints", "Pas de réinitialisation ni d'indices"},
@@ -2625,36 +2475,37 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Keep Playing", "Continuer"},
             {"Exit for 0", "Quitter pour 0"},
             {"Best:", "Meilleur :"},
-            {"moves", "coups"},
+            {"Not played today", "Pas joué aujourd'hui"},
+            {"taps", "touchers"},
             {"First try:", "Premier essai :"},
             {"Replays open", "Reprises ouvertes"},
             {"First try counts", "Le premier essai compte"},
-            {"Previewing this pulse.", "Aperçu de cette pulsation."},
+            {"Previewing this tap.", "Aperçu de ce toucher."},
             {"Hint applied. Red tiles changed. This try is worth 0 stars.", "Indice appliqué. Les tuiles rouges ont changé. Cet essai vaut 0 étoile."},
-            {"No useful move is available.", "Aucun coup utile disponible."},
+            {"No useful tap is available.", "Aucun toucher utile disponible."},
             {"Binary Beginnings", "Débuts binaires"},
             {"Fourfold Flips", "Basculements quadruples"},
-            {"Locked Lights", "Lumières verrouillées"},
+            {"Lights With Lock Icons", "Lumières avec cadenas"},
             {"Lockstep Squares", "Carrés synchronisés"},
-            {"First Holes", "Premiers trous"},
+            {"First Empty Holes", "Premiers trous vides"},
             {"Binary Breakaways", "Échappées binaires"},
             {"Fivefold Binary", "Binaire quintuple"},
             {"Three-Color Start", "Départ tricolore"},
             {"Triple Grid", "Grille triple"},
-            {"Triple Locks", "Verrous triples"},
-            {"Triple Holes", "Trous triples"},
+            {"Three Lock-Icon Tiles", "Trois tuiles avec cadenas"},
+            {"Three Empty Holes", "Trois trous vides"},
             {"Triple Combine", "Combinaison triple"},
             {"Pattern Primer", "Premiers motifs"},
-            {"Pattern Locks", "Verrous de motif"},
+            {"Patterns With Lock Icons", "Motifs avec tuiles à cadenas"},
             {"Color Gauntlet", "Défi des couleurs"},
             {"Four-State Start", "Départ à quatre états"},
-            {"Four-State Locks", "Verrous à quatre états"},
-            {"Four-State Gaps", "Trous à quatre états"},
+            {"Four-State Lock-Icon Tiles", "Tuiles avec cadenas à quatre états"},
+            {"Four-State Empty Holes", "Trous vides à quatre états"},
             {"Four-State Patterns", "Motifs à quatre états"},
             {"Four-State Matrix", "Matrice à quatre états"},
             {"Five-State Start", "Départ à cinq états"},
-            {"Five-State Locks", "Verrous à cinq états"},
-            {"Five-State Gaps", "Trous à cinq états"},
+            {"Five-State Lock-Icon Tiles", "Tuiles avec cadenas à cinq états"},
+            {"Five-State Empty Holes", "Trous vides à cinq états"},
             {"Five-State Patterns", "Motifs à cinq états"},
             {"Dense Dimensions", "Dimensions denses"},
             {"Prime Pressure", "Pression première"},
@@ -2663,146 +2514,165 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Endgame Circuit", "Circuit final"},
             {"Final Inversion", "Inversion finale"},
             {"Clear the board", "Vide le plateau"},
-            {"Solve the puzzle by turning every active tile white.", "Résous le casse-tête en rendant blanches toutes les tuiles actives."},
-            {"Tap tiles to send pulses across the board; every tile reached by a pulse advances to its next state.", "Touche des tuiles pour envoyer des pulsations sur le plateau; chaque tuile atteinte avance à son état suivant."},
+            {"Clear every active tile by turning it white.", "Vide chaque tuile active en la rendant blanche."},
+            {"Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.", "Un toucher sur une tuile applique son motif de toucher au plateau, et chaque tuile atteinte avance d'un état."},
+            {"Use previews and level clues to plan calmly: colored tiles still need to advance, tiles with lock icons can be changed by nearby taps, and empty holes are outside the board.", "Utilise les aperçus et les indices du niveau pour planifier calmement : les tuiles colorées doivent encore avancer, les tuiles avec cadenas peuvent changer avec des touchers voisins et les trous vides sont hors du plateau."},
             {"1. Make every tile white", "1. Rends toutes les tuiles blanches"},
             {"A white tile is solved.", "Une tuile blanche est résolue."},
-            {"Colored tiles still need more pulses before the board is complete.", "Les tuiles colorées ont encore besoin de pulsations avant que le plateau soit terminé."},
-            {"The puzzle is solved only when every active tile is white.", "Le casse-tête est résolu seulement quand toutes les tuiles actives sont blanches."},
+            {"Colored tiles are not wrong. They just need to keep advancing until they return to white.", "Les tuiles colorées ne sont pas fausses. Elles doivent simplement continuer à avancer jusqu'à revenir au blanc."},
+            {"The puzzle ends only when every active tile is white at the same time.", "Le casse-tête se termine seulement quand toutes les tuiles actives sont blanches en même temps."},
             {"2. Tap and cycle", "2. Touche et fais cycler"},
-            {"Tap an available tile to send its pulse pattern.", "Touche une tuile disponible pour envoyer son motif de pulsation."},
-            {"Every tile in that pattern advances one state.", "Chaque tuile dans ce motif avance d'un état."},
-            {"After the last colored state, the next advance turns that tile white.", "Après le dernier état coloré, l'avancée suivante rend cette tuile blanche."},
+            {"Tap an available tile to apply the level's tap pattern.", "Touche une tuile disponible pour appliquer le motif de toucher du niveau."},
+            {"Every tile reached by the pattern advances one state.", "Chaque tuile atteinte par le motif avance d'un état."},
+            {"States cycle: after the last colored state, the next advance returns that tile to white.", "Les états forment un cycle: après le dernier état coloré, l'avancée suivante ramène cette tuile au blanc."},
             {"3. Use the pattern preview", "3. Utilise l'aperçu du motif"},
-            {"Levels can use cross, diagonal, square, horizontal, vertical, knight, or mixed patterns.", "Les niveaux peuvent utiliser des motifs croix, diagonale, carré, horizontal, vertical, cavalier ou mixtes."},
-            {"Hold or hover a tile to preview the tiles that will change.", "Maintiens ou survole une tuile pour voir celles qui changeront."},
+            {"A level can use a cross, diagonal, square, horizontal, vertical, knight, or mixed pattern.", "Un niveau peut utiliser un motif croix, diagonale, carré, horizontal, vertical, cavalier ou mixte."},
+            {"Hold or hover a tile to see exactly which tiles will change before you tap.", "Maintiens ou survole une tuile pour voir exactement lesquelles changeront avant de toucher."},
             {"4. Handle special tiles", "4. Gère les tuiles spéciales"},
-            {"Locked tiles can change when nearby pulses reach them.", "Les tuiles verrouillées peuvent changer quand des pulsations voisines les atteignent."},
-            {"You cannot tap locked tiles directly.", "Tu ne peux pas toucher directement les tuiles verrouillées."},
-            {"Empty holes are not part of the board.", "Les trous vides ne font pas partie du plateau."},
+            {"A tile with a lock icon still needs to become white and can change when a nearby tap reaches it.", "Une tuile avec cadenas doit aussi devenir blanche et peut changer quand un toucher voisin l'atteint."},
+            {"You cannot tap a tile with a lock icon directly.", "Tu ne peux pas toucher directement une tuile avec cadenas."},
+            {"An empty hole is outside the board. Tap patterns skip empty holes.", "Un trou vide est hors du plateau. Les motifs de toucher ignorent les trous vides."},
             {"Modes: Choose your puzzle", "Modes : choisis ton casse-tête"},
-            {"Campaign: Complete fixed levels in order; the next level opens after each solve.", "Campagne : termine les niveaux fixes dans l'ordre; le suivant s'ouvre après chaque résolution."},
-            {"Custom Level: Choose board size, states, pattern, difficulty, locks, gaps, and whether the generator should prefer a unique solution.", "Niveau personnalisé : choisis taille, états, motif, difficulté, verrous, trous et préférence de solution unique."},
-            {"Daily Challenge: Play the same three generated puzzles as everyone else for the date; each puzzle keeps its own saved best score.", "Défi quotidien : joue les mêmes trois casse-têtes générés que tout le monde pour la date; chacun garde son meilleur score."},
-            {"Moves, stars, and hints", "Coups, étoiles et indices"},
-            {"The move counter counts every tap.", "Le compteur de coups compte chaque toucher."},
-            {"Three stars means you matched the generator's minimum found move count.", "Trois étoiles signifient que tu as égalé le minimum de coups trouvé par le générateur."},
-            {"Two-star and one-star targets allow extra moves.", "Les objectifs à deux et une étoile autorisent des coups en plus."},
-            {"Undo rewinds one move. Reset restores the starting board.", "Annuler revient d'un coup. Réinitialiser restaure le plateau de départ."},
-            {"Hint applies the next move from a solver plan. Using a hint removes stars for that try, but the puzzle still counts as complete.", "Indice applique le coup suivant d'un plan de résolution. Utiliser un indice retire les étoiles de cet essai, mais le casse-tête compte comme terminé."},
-            {"Tiles changed by a hint are marked in red.", "Les tuiles changées par un indice sont marquées en rouge."},
+            {"Campaign: Solve fixed levels in order. Each solve opens the next level.", "Campagne : résous les niveaux fixes dans l'ordre. Chaque résolution ouvre le suivant."},
+            {"Custom Level: Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.", "Niveau personnalisé : choisis taille, états, motif, difficulté, tuiles avec cadenas et trous vides. Le générateur préfère toujours une solution unique."},
+            {"Daily Challenge: Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.", "Défi quotidien : joue les mêmes trois casse-têtes générés que tout le monde pour la date. Chacun garde son meilleur score."},
+            {"Taps, stars, and hints", "Touchers, étoiles et indices"},
+            {"The tap counter counts every tap you commit.", "Le compteur de touchers compte chaque toucher que tu valides."},
+            {"Three stars mean you matched the generator's minimum found tap count.", "Trois étoiles signifient que tu as égalé le minimum de touchers trouvé par le générateur."},
+            {"Two-star and one-star targets allow extra taps.", "Les objectifs à deux et une étoile autorisent quelques touchers en plus."},
+            {"Undo rewinds one tap, and Reset restores the starting board.", "Annuler revient d'un toucher, et Réinitialiser restaure le plateau de départ."},
+            {"Hint applies the next tap from a solver plan. A hinted try can still complete the puzzle, but it no longer earns stars.", "Indice applique le toucher suivant d'un plan de résolution. Un essai avec indice peut quand même terminer le casse-tête, mais il ne gagne plus d'étoiles."},
+            {"Tiles changed by a hint are outlined in red.", "Les tuiles changées par un indice sont entourées en rouge."},
             {"Sound toggles audio effects.", "Son active ou désactive les effets audio."},
-            {"Show numbers on tiles displays state values when you want them.", "Afficher les nombres sur les tuiles montre les valeurs d'état quand tu les veux."},
+            {"Show numbers on tiles displays state values when you want a more exact view.", "Afficher les nombres sur les tuiles montre les valeurs d'état quand tu veux une vue plus exacte."},
             {"Android also includes haptic feedback controls.", "Android inclut aussi des contrôles de retour haptique."},
-            {"A spin on classical Lights Out", "Une variation du Lights Out classique"},
-            {"Fix an order for the active tiles.", "Fixe un ordre pour les tuiles actives."},
-            {"Then each board grid is represented by a vector s in (Z/nZ)^m.", "Chaque grille est alors représentée par un vecteur s dans (Z/nZ)^m."},
-            {"Each legal tap pulse has its own vector v_j in the same module.", "Chaque toucher légal a son vecteur v_j dans le même module."},
-            {"The columns of A are those pulse vectors, and solving asks for A x = -s modulo n.", "Les colonnes de A sont ces vecteurs, et résoudre demande A x = -s modulo n."},
+            {"Invert the Matrix is a modular linear-algebra puzzle.", "Invert the Matrix est un casse-tête d'algèbre linéaire modulaire."},
+            {"To play, think of each active tile as having a state, shown by its color.", "Pour jouer, imagine que chaque tuile active possède un état, indiqué par sa couleur."},
+            {"A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile.", "Un toucher sur une tuile ne change pas seulement cette tuile, mais toutes les tuiles qui se trouvent dans un motif centré sur la tuile choisie."},
+            {"After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all active tiles white at the same time.", "Après le dernier état, ou couleur, une tuile revient au blanc. Le but est de trouver une suite de touchers pour que toutes les tuiles actives soient blanches en même temps."},
+            {"Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap.", "Certains plateaux n'ont que deux états possibles : blanc et bleu, et un seul motif : une croix centrée sur la tuile que tu touches."},
+            {"But later on, everything gets much more complicated.", "Mais plus tard, tout se complique beaucoup plus."},
+            {"Modeling The Game", "Modéliser le jeu"},
+            {"Turn the board into one equation.", "Transformer le plateau en une équation."},
+            {"First list the active board positions in a fixed order.", "Liste d'abord les positions actives du plateau dans un ordre fixe."},
+            {"Then the displayed board is a vector s in (Z/nZ)^m.", "Le plateau affiché est alors un vecteur s dans (Z/nZ)^m."},
+            {"Each allowed tap has an effect vector recording which tiles it advances.", "Chaque toucher autorisé a un vecteur d'effet qui indique quelles tuiles il avance."},
+            {"The columns of A are those effect vectors, and a tap-count vector x solves the puzzle when s + A x = 0 modulo n.", "Les colonnes de A sont ces vecteurs d'effet, et un vecteur de touchers x résout le casse-tête quand s + A x = 0 modulo n."},
+            {"Values are read modulo n, so after n - 1 the next value is 0.", "Les valeurs sont lues modulo n, donc après n - 1 la valeur suivante est 0."},
             {"From Lights Out", "Depuis Lights Out"},
-            {"Classical Lights Out is the n = 2 case: tiles are off or on.", "Lights Out classique est le cas n = 2 : les tuiles sont éteintes ou allumées."},
-            {"Pressing a tile toggles a fixed neighborhood, which is addition by 1 modulo 2.", "Appuyer sur une tuile inverse un voisinage fixe, soit ajouter 1 modulo 2."},
-            {"Pressing the same tile twice gives no net change.", "Appuyer deux fois sur la même tuile ne produit aucun changement net."},
-            {"Invert the Matrix keeps the same linear question over Z/nZ, with more states and richer boards.", "Invert the Matrix garde la même question linéaire sur Z/nZ, avec plus d'états et des plateaux plus riches."},
+            {"Classical Lights Out is the n = 2 case: tiles are 0 or 1.", "Lights Out classique est le cas n = 2 : les tuiles valent 0 ou 1."},
+            {"Tapping a tile changes the same shape of nearby tiles every time.", "Toucher une tuile change toujours le même groupe de tuiles proches."},
+            {"Usually that shape is the tapped tile plus the tiles above, below, left, and right.", "En général, ce groupe est la tuile touchée plus les tuiles au-dessus, en dessous, à gauche et à droite."},
+            {"Changing a tile is adding 1 modulo 2, so tapping the same tile twice gives no net change.", "Changer une tuile revient à ajouter 1 modulo 2, donc toucher deux fois la même tuile ne produit aucun changement net."},
+            {"Invert the Matrix keeps that add-the-effects rule while allowing n states over Z/nZ.", "Invert the Matrix conserve cette règle d'addition des effets, mais permet n états sur Z/nZ."},
+            {"Empty holes are not included in the board vector. Tiles with lock icons stay in it because they must become white.", "Les trous vides ne sont pas inclus dans le vecteur du plateau. Les tuiles avec cadenas y restent parce qu'elles doivent devenir blanches."},
+            {"Tiles with lock icons do not get tap choices because they cannot be tapped directly.", "Les tuiles avec cadenas n'ont pas de choix de toucher parce qu'on ne peut pas les toucher directement."},
+            {"The mathematical question is precise: can the allowed taps add up to the target change -s?", "La question mathématique est précise : les touchers autorisés peuvent-ils produire le changement cible -s ?"},
             {"1. The Board Is A Vector", "1. Le plateau est un vecteur"},
-            {"Let p_1, ..., p_m be the active positions, listed in a fixed order.", "Soient p_1, ..., p_m les positions actives, listées dans un ordre fixe."},
-            {"The board vector s has coordinate s_i equal to the value at p_i.", "Le vecteur de plateau s a pour coordonnée s_i la valeur en p_i."},
-            {"Thus the displayed grid is represented by s in (Z/nZ)^m.", "La grille affichée est donc représentée par s dans (Z/nZ)^m."},
+            {"Let P = {p_1, ..., p_m} be the set of active board positions, in a fixed order.", "Soit P = {p_1, ..., p_m} l'ensemble des positions actives du plateau, dans un ordre fixé."},
+            {"A configuration is the vector s = (s_1, ..., s_m) in (Z/nZ)^m.", "Une configuration est le vecteur s = (s_1, ..., s_m) dans (Z/nZ)^m."},
+            {"Value s_i is the state value shown at p_i, read modulo n.", "La valeur s_i est l'état affiché en p_i, lu modulo n."},
             {"The solved board is the zero vector.", "Le plateau résolu est le vecteur zéro."},
-            {"2. Each Tap Has A Pulse Vector", "2. Chaque toucher a un vecteur de pulsation"},
-            {"Let q_1, ..., q_r be the legal tap positions.", "Soient q_1, ..., q_r les positions de toucher légales."},
-            {"The pulse at q_j defines a vector v_j in (Z/nZ)^m.", "La pulsation en q_j définit un vecteur v_j dans (Z/nZ)^m."},
-            {"Coordinate (v_j)_i is 1 when that pulse changes p_i, and 0 otherwise.", "La coordonnée (v_j)_i vaut 1 quand cette pulsation change p_i, et 0 sinon."},
-            {"The move matrix is A = [v_1 ... v_r].", "La matrice des coups est A = [v_1 ... v_r]."},
-            {"Locked tiles can be rows, because they must be solved, but they are not tap columns.", "Les tuiles verrouillées peuvent être des lignes, car elles doivent être résolues, mais pas des colonnes de toucher."},
-            {"3. A Plan Is A Vector", "3. Un plan est un vecteur"},
-            {"The tap-count vector x = (x_1, ..., x_r) lies in (Z/nZ)^r.", "Le vecteur de comptes x = (x_1, ..., x_r) appartient à (Z/nZ)^r."},
-            {"Coordinate x_j records how many times tap q_j is used, modulo n.", "La coordonnée x_j indique combien de fois le toucher q_j est utilisé, modulo n."},
+            {"2. Each Tap Has An Effect Vector", "2. Chaque toucher a un vecteur d'effet"},
+            {"Let q_1, ..., q_r be the positions that can be tapped.", "Soient q_1, ..., q_r les positions que l'on peut toucher."},
+            {"The effect vector of the tap at q_j is v_j in (Z/nZ)^m.", "Le vecteur d'effet du toucher en q_j est v_j dans (Z/nZ)^m."},
+            {"Value (v_j)_i is 1 when that tap advances p_i, and 0 otherwise.", "La valeur (v_j)_i est 1 quand ce toucher avance p_i, et 0 sinon."},
+            {"The tap matrix is A = [v_1 ... v_r].", "La matrice des touchers est A = [v_1 ... v_r]."},
+            {"A row tracks a board position. A column tracks an allowed tap.", "Une ligne suit une position du plateau. Une colonne suit un toucher autorisé."},
+            {"A tile with a lock icon gets a row, but no column, because it must become white and cannot be tapped directly.", "Une tuile avec cadenas garde une ligne, mais pas de colonne, parce qu'elle doit devenir blanche et qu'on ne peut pas la toucher directement."},
+            {"3. The Tap Vector", "3. Le vecteur de touchers"},
+            {"The tap-count vector x = (x_1, ..., x_r) lies in (Z/nZ)^r.", "Le vecteur de touchers x = (x_1, ..., x_r) appartient à (Z/nZ)^r."},
+            {"Value x_j records how many times the tap at q_j is used, modulo n.", "La valeur x_j indique combien de fois le toucher en q_j est utilisé, modulo n."},
             {"Executing x adds sum_j x_j v_j, which is A x.", "Exécuter x ajoute sum_j x_j v_j, c'est-à-dire A x."},
             {"Tap order does not enter the algebra.", "L'ordre des touchers n'intervient pas dans l'algèbre."},
-            {"Goal: Find A Tap-Count Vector", "Objectif : trouver un vecteur de comptes"},
+            {"Goal: Find A Tap-Count Vector", "Objectif : trouver le vecteur de touchers"},
             {"After applying x, the board vector is s + A x.", "Après application de x, le vecteur du plateau est s + A x."},
             {"The target is the zero vector in (Z/nZ)^m.", "La cible est le vecteur zéro dans (Z/nZ)^m."},
             {"So a solution satisfies A x = -s modulo n.", "Une solution satisfait donc A x = -s modulo n."},
-            {"This is a system of linear congruences.", "C'est un système de congruences linéaires."},
+            {"This is a set of linear equations with arithmetic modulo n.", "C'est un ensemble d'équations linéaires avec arithmétique modulo n."},
             {"When Does A Solution Exist?", "Quand une solution existe-t-elle ?"},
-            {"The columns of A describe all board changes reachable by legal moves.", "Les colonnes de A décrivent tous les changements atteignables par coups légaux."},
+            {"The columns of A describe all board changes reachable by allowed taps.", "Les colonnes de A décrivent tous les changements atteignables par touchers autorisés."},
             {"Equivalently, Im(A) = {A x : x in (Z/nZ)^r}.", "De façon équivalente, Im(A) = {A x : x dans (Z/nZ)^r}."},
             {"There is a solution exactly when the target -s lies in Im(A).", "Il existe une solution exactement quand la cible -s appartient à Im(A)."},
-            {"Over prime n, row-reduce the augmented system [A | -s].", "Pour n premier, réduis par lignes le système augmenté [A | -s]."},
-            {"A row [0 ... 0 | c] with c nonzero proves inconsistency.", "Une ligne [0 ... 0 | c] avec c non nul prouve l'incohérence."},
+            {"Over prime n, simplify the rows of the system [A | -s].", "Pour n premier, simplifie les lignes du système [A | -s]."},
+            {"A row [0 ... 0 | c] with c not 0 proves that no solution exists.", "Une ligne [0 ... 0 | c] avec c différent de 0 prouve qu'il n'existe pas de solution."},
+            {"If no impossible row appears, the simplified system gives at least one tap plan.", "Si aucune ligne impossible n'apparaît, le système simplifié donne au moins un plan de touchers."},
             {"Prime n: Fields", "n premier : corps"},
             {"For n = 2, 3, or 5, Z/nZ is a field.", "Pour n = 2, 3 ou 5, Z/nZ est un corps."},
-            {"Every nonzero value has an inverse, so division by a pivot is legal.", "Toute valeur non nulle a un inverse, donc diviser par un pivot est légal."},
-            {"Gaussian elimination works like ordinary linear algebra, only with modular arithmetic.", "L'élimination gaussienne fonctionne comme l'algèbre linéaire ordinaire, mais en arithmétique modulaire."},
-            {"Free variables correspond to different solving plans.", "Les variables libres correspondent à différents plans de résolution."},
+            {"Every value different from 0 has an inverse, so simplifying rows can divide by it.", "Toute valeur différente de 0 a un inverse, donc simplifier les lignes peut diviser par elle."},
+            {"Simplifying rows works like ordinary linear algebra, only with modular arithmetic.", "Simplifier les lignes fonctionne comme l'algèbre linéaire ordinaire, mais en arithmétique modulaire."},
+            {"When simplification leaves a choice open, that choice gives another solving plan.", "Quand la simplification laisse un choix ouvert, ce choix donne un autre plan de résolution."},
             {"Composite n: Rings", "n composé : anneaux"},
             {"For composite n, Z/nZ is a ring rather than a field.", "Pour n composé, Z/nZ est un anneau plutôt qu'un corps."},
-            {"For n = 4, the number 2 is nonzero but has no inverse.", "Pour n = 4, le nombre 2 est non nul mais n'a pas d'inverse."},
+            {"For n = 4, the number 2 is different from 0 but has no inverse.", "Pour n = 4, le nombre 2 est différent de 0 mais n'a pas d'inverse."},
             {"So division by 2 is not a valid row operation.", "Diviser par 2 n'est donc pas une opération de ligne valide."},
-            {"The criterion is unchanged: -s must lie in Im(A) over Z/nZ.", "Le critère ne change pas : -s doit appartenir à Im(A) sur Z/nZ."},
-            {"Verification must use ring-valid operations, or compatible prime-power checks.", "La vérification doit utiliser des opérations valides dans l'anneau, ou des contrôles compatibles par puissances premières."},
+            {"The rule is unchanged: -s must lie in Im(A) over Z/nZ.", "La règle ne change pas : -s doit appartenir à Im(A) sur Z/nZ."},
+            {"Verification must use operations that are valid in the ring, or smaller modulo checks that agree with each other.", "La vérification doit utiliser des opérations valides dans l'anneau, ou des contrôles modulo plus petits qui sont compatibles entre eux."},
             {"When Is It Unique?", "Quand est-ce unique ?"},
-            {"If x0 solves the puzzle, every other solution is x0 plus a silent plan z.", "Si x0 résout le casse-tête, toute autre solution est x0 plus un plan silencieux z."},
-            {"Here z lies in ker(A), because A z is the zero vector.", "Ici z appartient à ker(A), car A z est le vecteur zéro."},
-            {"Tapping one tile n extra times adds n e_j, the zero vector in tap-count space.", "Toucher une tuile n fois de plus ajoute n e_j, le vecteur zéro dans l'espace des comptes."},
-            {"That built-in repetition is not a new algebraic solution.", "Cette répétition intégrée n'est pas une nouvelle solution algébrique."},
+            {"If x0 solves the puzzle, every other solution is x0 plus a tap-count vector z with A z = 0.", "Si x0 résout le casse-tête, toute autre solution est x0 plus un vecteur de touchers z avec A z = 0."},
+            {"The equation A z = 0 means that z causes no net board change.", "L'équation A z = 0 signifie que z ne produit aucun changement net sur le plateau."},
+            {"The set of all such z is ker(A), the kernel of the tap matrix.", "L'ensemble de tous ces z est ker(A), le noyau de la matrice des touchers."},
+            {"Tapping one tile n extra times adds n e_j, the zero vector in (Z/nZ)^r.", "Toucher une tuile n fois de plus ajoute n e_j, le vecteur zéro dans (Z/nZ)^r."},
+            {"That represents the same tap-count vector, not a new tap-count solution.", "Cela représente le même vecteur de touchers, pas une nouvelle solution comme vecteur de touchers."},
             {"Thus the full solution set is x0 + ker(A).", "L'ensemble complet des solutions est donc x0 + ker(A)."},
-            {"The solution is unique exactly when ker(A) has only the zero vector.", "La solution est unique exactement quand ker(A) ne contient que le vecteur zéro."},
-            {"A nonzero silent plan gives genuinely different tap-count vectors for the same board.", "Un plan silencieux non nul donne des vecteurs de comptes réellement différents pour le même plateau."},
-            {"Cross Pattern: When Is A Invertible?", "Motif en croix : quand A est-elle inversible ?"},
-            {"On a plain board with no locks or gaps, the cross pattern has one tap column per tile.", "Sur un plateau simple sans verrous ni trous, le motif en croix a une colonne de toucher par tuile."},
-            {"Then A is a square endomorphism of (Z/nZ)^(w h).", "Alors A est un endomorphisme carré de (Z/nZ)^(w h)."},
-            {"An inverse means every starting board has one unique tap-count vector.", "Un inverse signifie que chaque plateau de départ a un unique vecteur de comptes."},
-            {"Over Z/nZ, this happens exactly when det(A) is a unit modulo n.", "Sur Z/nZ, cela arrive exactement quand det(A) est une unité modulo n."},
-            {"Equivalently, gcd(det(A), n) = 1.", "Équivalemment, gcd(det(A), n) = 1."},
-            {"For prime n, this is the same as full rank, or det(A) not equal to 0 modulo n.", "Pour n premier, cela équivaut au rang plein, ou à det(A) non égal à 0 modulo n."},
+            {"The solution is unique exactly when ker(A) contains only the zero vector.", "La solution est unique exactement quand ker(A) ne contient que le vecteur zéro."},
+            {"If a tap-count vector z is not zero and has A z = 0, then x0 and x0 + z solve the same board.", "Si un vecteur de touchers z est différent de zéro et vérifie A z = 0, alors x0 et x0 + z résolvent le même plateau."},
+            {"When Is A Invertible?", "Quand A est-elle inversible ?"},
+            {"A true inverse matrix can exist only when A is square, meaning it has the same number of rows and columns.", "Une vraie matrice inverse ne peut exister que si A est carrée, c'est-à-dire si elle a le même nombre de lignes et de colonnes."},
+            {"This happens on a w by h board with no tiles with lock icons and no empty holes.", "Cela arrive sur un plateau w par h sans tuiles avec cadenas et sans trous vides."},
+            {"In that case, A sends vectors in (Z/nZ)^(w h) to vectors in (Z/nZ)^(w h).", "Dans ce cas, A transforme des vecteurs de (Z/nZ)^(w h) en vecteurs de (Z/nZ)^(w h)."},
+            {"An inverse means every starting board has one unique tap-count vector.", "Un inverse signifie que chaque plateau de départ a une solution unique comme vecteur de touchers."},
+            {"Over Z/nZ, this happens exactly when det(A) has a multiplicative inverse modulo n.", "Sur Z/nZ, cela arrive exactement quand det(A) a un inverse multiplicatif modulo n."},
+            {"For prime n, this means det(A) is not equal to 0 modulo n.", "Pour n premier, cela signifie que det(A) n'est pas égal à 0 modulo n."},
             {"For n = 4, det(A) must be odd.", "Pour n = 4, det(A) doit être impair."},
-            {"If this fails in the square case, unreachable boards and nonzero silent plans both exist.", "Si cela échoue dans le cas carré, il existe des plateaux inatteignables et des plans silencieux non nuls."},
-            {"With locks or gaps, A may be rectangular, so image and kernel are the useful tests instead.", "Avec des verrous ou des trous, A peut être rectangulaire; l'image et le noyau sont alors les tests utiles."},
+            {"If this fails in the square case, some starting boards cannot be solved and ker(A) contains tap-count vectors different from zero.", "Si cela échoue dans le cas carré, certains plateaux de départ ne peuvent pas être résolus et ker(A) contient des vecteurs de touchers différents de zéro."},
+            {"With tiles with lock icons or empty holes, A may have different numbers of rows and columns.", "Avec des tuiles avec cadenas ou des trous vides, A peut avoir des nombres de lignes et de colonnes différents."},
+            {"Then the useful tests are whether the target change can be reached and whether ker(A) contains tap-count vectors different from zero.", "Les tests utiles sont alors de savoir si le changement cible peut être atteint et si ker(A) contient des vecteurs de touchers différents de zéro."},
             {"Why The Minimum Matters", "Pourquoi le minimum compte"},
-            {"Linear algebra may give many valid tap-count vectors.", "L'algèbre linéaire peut donner de nombreux vecteurs de comptes valides."},
-            {"For each residue x_j, use its representative from 0 through n - 1.", "Pour chaque résidu x_j, utilise son représentant de 0 à n - 1."},
-            {"The physical length is the sum of those representatives.", "La longueur physique est la somme de ces représentants."},
+            {"Linear algebra may give many valid tap-count vectors.", "L'algèbre linéaire peut donner de nombreux vecteurs de touchers valides."},
+            {"For each tap count x_j, use the number from 0 through n - 1 that represents it.", "Pour chaque nombre de touchers x_j, utilise le nombre de 0 à n - 1 qui le représente."},
+            {"The physical length is the sum of those chosen numbers.", "La longueur physique est la somme de ces nombres choisis."},
             {"The three-star target is based on a shortest solution found for that board.", "L'objectif trois étoiles se base sur une solution la plus courte trouvée pour ce plateau."},
             {"How The Shortest Solver Works", "Comment fonctionne le solveur le plus court"},
-            {"Small boards use breadth-first search through board states.", "Les petits plateaux utilisent une recherche en largeur dans les états."},
-            {"Each edge is one legal tap, so the first solved state reached is a true minimum.", "Chaque arête est un toucher légal, donc le premier état résolu atteint est un vrai minimum."},
-            {"Larger prime-state boards row-reduce A x = -s.", "Les grands plateaux à états premiers réduisent par lignes A x = -s."},
-            {"If free variables remain and the nullspace search is small enough, the app enumerates x0 + ker(A).", "S'il reste des variables libres et que la recherche dans le noyau est assez petite, l'app énumère x0 + ker(A)."},
-            {"It chooses the vector with the smallest sum of residues from 0 through n - 1.", "Elle choisit le vecteur avec la plus petite somme de résidus de 0 à n - 1."},
-            {"If exact search is too large, or composite n is too large for BFS, the game uses a known solving plan.", "Si la recherche exacte est trop grande, ou si n composé est trop grand pour BFS, le jeu utilise un plan connu."},
-            {"The shortest tap-count vector need not be unique; ties are possible.", "Le vecteur de comptes le plus court n'est pas forcément unique; des égalités sont possibles."},
-            {"The app keeps one deterministic shortest plan, but does not mark shortest-plan uniqueness.", "L'app garde un plan le plus court déterministe, mais n'indique pas l'unicité des plans les plus courts."},
-            {"Locked Tiles And Gaps", "Tuiles verrouillées et trous"},
-            {"Locked tiles remain rows because their values must become zero.", "Les tuiles verrouillées restent des lignes car leurs valeurs doivent devenir zéro."},
-            {"They are not columns, because they cannot be tapped directly.", "Ce ne sont pas des colonnes, car on ne peut pas les toucher directement."},
-            {"Gaps are omitted from the ordered active positions, so they are neither rows nor columns.", "Les trous sont omis des positions actives ordonnées; ils ne sont donc ni lignes ni colonnes."},
-            {"The same map A: (Z/nZ)^r -> (Z/nZ)^m handles these irregular boards.", "La même application A: (Z/nZ)^r -> (Z/nZ)^m gère ces plateaux irréguliers."},
+            {"Small boards search by tap count: first one tap, then two taps, and so on.", "Pour les petits plateaux, le jeu cherche par nombre de touchers : d'abord un toucher, puis deux touchers, et ainsi de suite."},
+            {"The first solved state reached gives the true minimum.", "Le premier état résolu atteint donne le vrai minimum."},
+            {"Larger prime-state boards simplify the rows of A x = -s.", "Les grands plateaux à états premiers simplifient les lignes de A x = -s."},
+            {"If the simplified system leaves choices that are not forced, the solutions are x0 + ker(A).", "Si le système simplifié laisse des choix qui ne sont pas forcés, les solutions sont x0 + ker(A)."},
+            {"When that search is small enough, the app enumerates those tap-count vectors.", "Quand cette recherche est assez petite, le jeu énumère ces vecteurs de touchers."},
+            {"It chooses the vector with the smallest sum of tap counts from 0 through n - 1.", "Elle choisit le vecteur avec la plus petite somme de nombres de touchers de 0 à n - 1."},
+            {"If exact search is too large, or composite n is too large for this search, the game uses a known solving plan.", "Si la recherche exacte est trop grande, ou si n composé est trop grand pour cette recherche, le jeu utilise un plan connu."},
+            {"The shortest tap-count vector need not be unique. Ties are possible.", "Le vecteur de touchers le plus court n'est pas forcément unique. Des égalités sont possibles."},
+            {"The app keeps the same shortest plan every time when it can prove the minimum.", "Le jeu garde le même plan le plus court chaque fois qu'il peut prouver le minimum."},
+            {"Tiles With Lock Icons And Empty Holes", "Tuiles avec cadenas et trous vides"},
+            {"A tile with a lock icon stays in the board vector because its value must become zero, and nearby taps may still change it.", "Une tuile avec cadenas reste dans le vecteur du plateau parce que sa valeur doit devenir zéro, et des touchers voisins peuvent encore la changer."},
+            {"It does not get its own tap choice in x because it cannot be tapped directly.", "Elle n'a pas son propre choix de toucher dans x parce qu'on ne peut pas la toucher directement."},
+            {"An empty hole is left out of the ordered list P, so the equation only tracks active board positions.", "Un trou vide est laissé hors de la liste ordonnée P, donc l'équation ne suit que les positions actives du plateau."},
+            {"This is how the same equation adapts to irregular boards.", "C'est ainsi que la même équation s'adapte aux plateaux irréguliers."},
             {"How The Generator Uses This", "Comment le générateur utilise cela"},
-            {"The generator determines the pulse vectors from the board shape, locks, gaps, and pattern.", "Le générateur détermine les vecteurs de pulsation depuis la forme du plateau, les verrous, les trous et le motif."},
-            {"It chooses or certifies a starting vector s with some x satisfying s + A x = 0.", "Il choisit ou certifie un vecteur de départ s avec un x satisfaisant s + A x = 0."},
-            {"When the exact solver is available, it searches the solution set for a short representative.", "Quand le solveur exact est disponible, il cherche un représentant court dans l'ensemble des solutions."},
-            {"Hints follow a stored solving plan one move at a time.", "Les indices suivent un plan stocké, un coup à la fois."},
-            {"The red outline marks exactly the tiles changed by that hint move.", "Le contour rouge marque exactement les tuiles changées par cet indice."},
+            {"The generator uses the same ingredients: board shape, tiles with lock icons, empty holes, tap pattern, and effect vectors.", "Le générateur utilise les mêmes ingrédients : forme du plateau, tuiles avec cadenas, trous vides, motif de toucher et vecteurs d'effet."},
+            {"It chooses or verifies a starting vector s with some x satisfying s + A x = 0.", "Il choisit ou vérifie un vecteur de départ s avec un x satisfaisant s + A x = 0."},
+            {"When the exact solver is available, it searches the solution set for a short tap-count vector.", "Quand le solveur exact est disponible, il cherche un vecteur de touchers court dans l'ensemble des solutions."},
+            {"Hints follow a stored solving plan one tap at a time.", "Les indices suivent un plan stocké, toucher par toucher."},
+            {"The red outline marks exactly the tiles changed by that hint tap.", "Le contour rouge marque exactement les tuiles changées par cet indice."},
             {"What The Symbols Mean", "Signification des symboles"},
             {"These are the compact labels used by the equations and solver.", "Ce sont les étiquettes compactes utilisées par les équations et le solveur."},
             {"modulus / tile states", "module / états des tuiles"},
             {"board vector in (Z/nZ)^m", "vecteur du plateau dans (Z/nZ)^m"},
-            {"columns are pulse vectors", "les colonnes sont des vecteurs de pulsation"},
-            {"tap-count vector in (Z/nZ)^r", "vecteur de comptes dans (Z/nZ)^r"},
+            {"columns are effect vectors", "colonnes de vecteurs d'effet"},
+            {"tap-count vector in (Z/nZ)^r", "vecteur de touchers dans (Z/nZ)^r"},
             {"reachable board changes", "changements de plateau atteignables"},
-            {"tap counts with A x = 0", "comptes de touchers avec A x = 0"},
-            {"residues wrap after n - 1", "les résidus reviennent après n - 1"},
+            {"tap-count vectors with A x = 0", "vecteurs de touchers avec A x = 0"},
+            {"values wrap after n - 1", "les valeurs reviennent après n - 1"},
             {"if tap j changes tile i", "si le toucher j change la tuile i"},
             {"otherwise", "sinon"},
             {"number of taps on tile j", "nombre de touchers sur la tuile j"},
             {"solution exists iff", "solution existe ssi"},
             {"solutions", "solutions"},
             {"is a field", "est un corps"},
-            {"Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows credits and version history.", "Les paramètres masquent désormais les contrôles propres à chaque plateforme, les options d'animation et de symboles daltoniens ont été retirées, et À propos affiche les crédits et l'historique."},
+            {"Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.", "Les défis quotidiens séparent désormais les cartes de casse-têtes des classements, la configuration personnalisée utilise des puces visuelles de motif avec génération unique toujours active, et les écrans de jeu et de résultat sont plus clairs."},
+            {"Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.", "Les paramètres masquent désormais les contrôles propres à chaque plateforme, les options d'animation et de symboles daltoniens ont été retirées, et À propos affiche l'historique avec le lien GitHub."},
             {"Release builds keep native debug symbols for Play Console crash reports.", "Les builds de publication conservent les symboles de débogage natifs pour les rapports de plantage Play Console."},
-            {"The Math guide explains uniqueness, silent plans, and cross-pattern invertibility.", "Le guide des maths explique l'unicité, les plans silencieux et l'inversibilité du motif en croix."}
+            {"The Math guide explains solution uniqueness and matrix invertibility.", "Le guide des maths explique quand une solution est unique et quand la matrice est inversible."}
     };
     if (language == "es") return es;
     if (language == "fr") return fr;
@@ -2853,9 +2723,9 @@ float safeTop(AppState *s) { return dp(s, 70); }
 float safeBottom(AppState *s) { return dp(s, 30); }
 
 bool scrollable(Screen screen) {
-    return screen == Screen::Campaign || screen == Screen::Freeplay || screen == Screen::HowTo ||
-           screen == Screen::Daily || screen == Screen::Math || screen == Screen::Settings ||
-           screen == Screen::About;
+    return screen == Screen::Main || screen == Screen::Campaign || screen == Screen::Freeplay ||
+           screen == Screen::HowTo || screen == Screen::Daily || screen == Screen::Math ||
+           screen == Screen::Settings || screen == Screen::About;
 }
 
 float maxScrollOffset(AppState *s) {
@@ -3169,7 +3039,7 @@ Puzzle campaignLevelFromJson(const JsonValue &level) {
 bool loadCampaignLevels(AppState *s) {
     std::vector<unsigned char> bytes;
     if (!readAssetBytes(s, "campaign-levels.json", bytes)) {
-        LOGE("Unable to load campaign-levels.json; campaign levels will be generated on demand.");
+        LOGE("Unable to load campaign-levels.json. Campaign is unavailable until the bundled asset is restored.");
         return false;
     }
     try {
@@ -3198,12 +3068,17 @@ bool loadCampaignLevels(AppState *s) {
     }
 }
 
+bool campaignLevelsReady(const AppState *s) {
+    return s && s->campaignLevelsLoaded && s->campaignLevels.size() == 300;
+}
+
 Puzzle campaignLevel(AppState *s, int index) {
     int clamped = clampInt(index, 0, 299);
-    if (s && s->campaignLevelsLoaded && clamped < static_cast<int>(s->campaignLevels.size())) {
+    if (campaignLevelsReady(s) && clamped < static_cast<int>(s->campaignLevels.size())) {
         return s->campaignLevels[static_cast<size_t>(clamped)];
     }
-    return createCampaignLevel(clamped);
+    LOGE("Campaign level requested before campaign-levels.json was loaded.");
+    return Puzzle{};
 }
 
 Color stateTopColor(int state);
@@ -3250,7 +3125,8 @@ void saveFreePrefs(AppState *s) {
     s->progress.setString("free_difficulty", s->freeDifficulty);
     s->progress.setInt("free_locked", s->freeLocked ? 1 : 0);
     s->progress.setInt("free_irregular", s->freeIrregular ? 1 : 0);
-    s->progress.setInt("free_unique", s->freeUnique ? 1 : 0);
+    s->freeUnique = true;
+    s->progress.setInt("free_unique", 1);
 }
 
 void loadPrefs(AppState *s) {
@@ -3262,7 +3138,7 @@ void loadPrefs(AppState *s) {
     s->freeDifficulty = s->progress.getString("free_difficulty", "Medium");
     s->freeLocked = s->progress.getBool("free_locked", false);
     s->freeIrregular = s->progress.getBool("free_irregular", false);
-    s->freeUnique = s->progress.getBool("free_unique", true);
+    s->freeUnique = true;
     s->sound = s->progress.getBool("setting_sound", true);
     s->vibration = s->progress.getBool("setting_vibration", true);
     s->hideNumbers = s->progress.getBool("setting_hide_numbers", true);
@@ -3419,9 +3295,21 @@ void go(AppState *s, Screen screen) {
     stopScrollMomentum(s);
     s->completion = false;
     s->dailyExitConfirm = false;
+    s->patternInfoOpen = false;
     s->hintCompletionDueAt = 0;
     s->hasPressedButton = false;
     s->pressedButtonUntil = 0;
+}
+
+Screen settingsReturnScreen(AppState *s) {
+    if (!s) return Screen::Main;
+    if (s->returnScreen == Screen::Settings || s->returnScreen == Screen::About) return Screen::Main;
+    if (s->returnScreen == Screen::Game && !s->hasSession) return Screen::Main;
+    return s->returnScreen;
+}
+
+void closeSettings(AppState *s) {
+    go(s, settingsReturnScreen(s));
 }
 
 void startGame(AppState *s, const Puzzle &p, const std::string &mode) {
@@ -3432,6 +3320,7 @@ void startGame(AppState *s, const Puzzle &p, const std::string &mode) {
     s->hasSession = true;
     s->completionStars = 0;
     s->completionMark = 0;
+    s->patternInfoOpen = false;
     s->hintLine.clear();
     s->pressTile = -1;
     s->longPreviewShown = false;
@@ -3456,11 +3345,16 @@ int calculateStars(const Session &session) {
 }
 
 int dailyMark(const Session &session) {
-    if (session.usedHint) return 0;
+    constexpr int minSolvedMark = 1000;
+    constexpr int maxMark = 10000;
+    constexpr int timeTieMax = 19;
+    constexpr int moveStep = timeTieMax + 1;
+
+    if (session.usedHint) return minSolvedMark;
     int extraMoves = std::max(0, session.moves - session.puzzle.minimumMoves);
-    int movePenalty = extraMoves * 800 + session.moves * 25;
-    int timePenalty = session.elapsed * 3;
-    return clampInt(10000 - movePenalty - timePenalty, 0, 10000);
+    int timeTie = std::max(0, timeTieMax - std::max(0, session.elapsed) / 15);
+    int mark = maxMark - extraMoves * moveStep - timeTieMax + timeTie;
+    return clampInt(mark, minSolvedMark, maxMark);
 }
 
 std::string formatMark(int mark) {
@@ -3558,6 +3452,7 @@ void confirmDailyExitForZero(AppState *s) {
 
 void completeGame(AppState *s) {
     if (!s->hasSession || s->session.completed) return;
+    s->patternInfoOpen = false;
     s->session.completed = true;
     s->session.elapsed = static_cast<int>((nowMs() - s->session.started) / 1000);
     s->completionStars = calculateStars(s->session);
@@ -3637,6 +3532,88 @@ void drawHintEye(AppState *s, float cx, float cy, float size, Color color = DANG
     r.line(cx - size * 0.24f, cy + size * 0.26f, cx + size * 0.24f, cy + size * 0.26f, stroke, color);
     r.line(cx + size * 0.24f, cy + size * 0.26f, cx + size * 0.58f, cy, stroke, color);
     r.circle(cx, cy, size * 0.17f, color, 16);
+}
+
+Color dailyTierAccent(int tier) {
+    if (tier == 0) return GREEN;
+    if (tier == 1) return BLUE;
+    if (tier == 2) return ORANGE;
+    return TEXT;
+}
+
+void drawDailyGridIcon(AppState *s, Rect rect, int tier, Color accent) {
+    Renderer &r = s->renderer;
+    float radius = std::min(dp(s, 8), rect.h * 0.24f);
+    r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, rgba(229, 236, 245, 0.16f));
+    r.roundedRect(rect.x + 1.0f, rect.y + 1.0f, rect.w - 2.0f, rect.h - 2.0f,
+                  std::max(1.0f, radius - 1.0f), rgba(7, 10, 14, 0.24f));
+
+    int grid = tier == 0 ? 3 : (tier == 1 ? 4 : (tier == 2 ? 5 : 3));
+    float pad = std::max(2.0f, rect.w * 0.10f);
+    float gap = std::max(1.0f, rect.w * 0.045f);
+    float side = std::min(rect.w, rect.h) - pad * 2.0f;
+    float tile = (side - gap * static_cast<float>(grid - 1)) / static_cast<float>(grid);
+    float left = rect.x + (rect.w - (tile * grid + gap * (grid - 1))) * 0.5f;
+    float top = rect.y + (rect.h - (tile * grid + gap * (grid - 1))) * 0.5f;
+    for (int y = 0; y < grid; ++y) {
+        for (int x = 0; x < grid; ++x) {
+            int state = 0;
+            if (tier == 0) {
+                state = ((x + y) % 3 == 0 || (x == 1 && y == 1)) ? 1 : 0;
+            } else if (tier == 1) {
+                state = ((x == y) || ((x * 2 + y) % 3 == 0)) ? 1 : 0;
+            } else if (tier == 2) {
+                state = ((x + y) % 4 == 0) ? 2 : (((x * 2 + y) % 3 == 0) ? 1 : 0);
+            } else {
+                state = (x + y) % 2 == 0 ? 1 : 0;
+            }
+            Color fill = state == 0 ? rgba(244, 247, 251, 0.88f) : withAlpha(accent, 0.92f);
+            if (state == 2) fill = BLUE;
+            Rect cell{left + x * (tile + gap), top + y * (tile + gap), tile, tile};
+            r.roundedRect(cell.x, cell.y, cell.w, cell.h, std::max(1.0f, tile * 0.20f), fill);
+        }
+    }
+}
+
+void drawCrownIcon(AppState *s, Rect rect, Color color) {
+    Renderer &r = s->renderer;
+    float side = std::min(rect.w, rect.h);
+    float scale = side / 24.0f;
+    float ox = rect.x + rect.w * 0.5f - 12.0f * scale;
+    float oy = rect.y + rect.h * 0.5f - 12.0f * scale;
+    float stroke = std::max(dp(s, 1.15f), side * 0.092f);
+    auto x = [&](float v) { return ox + v * scale; };
+    auto y = [&](float v) { return oy + v * scale; };
+    auto line = [&](float ax, float ay, float bx, float by) {
+        r.line(x(ax), y(ay), x(bx), y(by), stroke, color);
+    };
+
+    // Shape adapted from Lucide's crown icon.
+    line(2.0f, 4.0f, 5.0f, 16.0f);
+    line(5.0f, 16.0f, 19.0f, 16.0f);
+    line(19.0f, 16.0f, 22.0f, 4.0f);
+    line(22.0f, 4.0f, 16.0f, 11.0f);
+    line(16.0f, 11.0f, 12.0f, 4.0f);
+    line(12.0f, 4.0f, 8.0f, 11.0f);
+    line(8.0f, 11.0f, 2.0f, 4.0f);
+    line(5.0f, 20.0f, 19.0f, 20.0f);
+    if (r.skSurface && r.skContext) r.skContext->flushAndSubmit(r.skSurface.get());
+    if (r.skContext) r.skContext->resetContext();
+}
+
+void drawDailyLeaderboardIcon(AppState *s, Rect iconRect, int tier, Color accent) {
+    float crownW = std::min(iconRect.w * 0.56f, dp(s, 26));
+    float crownH = crownW * 0.72f;
+    float gap = dp(s, 1);
+    float boardSize = std::min(iconRect.w, std::max(dp(s, 20), iconRect.h - crownH - gap));
+    Rect boardRect{iconRect.x + (iconRect.w - boardSize) * 0.5f,
+                   iconRect.y + iconRect.h - boardSize,
+                   boardSize, boardSize};
+    Rect crown{iconRect.x + (iconRect.w - crownW) * 0.5f,
+               boardRect.y - gap - crownH,
+               crownW, crownH};
+    drawCrownIcon(s, crown, withAlpha(ORANGE, 0.98f));
+    drawDailyGridIcon(s, boardRect, tier, accent);
 }
 
 void addButton(AppState *s, Rect r, Action action, int value, bool enabled = true) {
@@ -3746,7 +3723,7 @@ std::vector<std::string> wrapTextLines(AppState *s, const std::string &text, flo
     return lines;
 }
 
-std::vector<std::string> wrapTextLines(AppState *s, const std::vector<std::string> &text, float scale, float maxWidth) {
+[[maybe_unused]] std::vector<std::string> wrapTextLines(AppState *s, const std::vector<std::string> &text, float scale, float maxWidth) {
     std::vector<std::string> lines;
     for (const std::string &line : text) {
         std::vector<std::string> wrapped = wrapTextLines(s, tr(s, line), scale, maxWidth);
@@ -3759,10 +3736,121 @@ struct WrappedGuideLine {
     std::string text;
     bool bullet;
     bool indent;
+    struct HighlightSpan {
+        size_t start;
+        size_t len;
+        Color color;
+    };
+    std::vector<HighlightSpan> highlights;
 };
 
+struct HighlightRule {
+    std::vector<std::string> terms;
+    Color color;
+    bool used = false;
+};
+
+bool isHighlightWordByte(unsigned char c) {
+    return std::isalnum(c) || c == '_' || c >= 128;
+}
+
+bool isHighlightBoundary(const std::string &text, size_t index) {
+    return index >= text.size() || !isHighlightWordByte(static_cast<unsigned char>(text[index]));
+}
+
+void applyGuideHighlights(std::string const &line, std::vector<HighlightRule> *rules,
+                          std::vector<WrappedGuideLine::HighlightSpan> &spans) {
+    if (!rules) return;
+    size_t searchFrom = 0;
+    while (searchFrom < line.size()) {
+        int bestRule = -1;
+        size_t bestStart = std::string::npos;
+        size_t bestLen = 0;
+        for (size_t i = 0; i < rules->size(); ++i) {
+            HighlightRule &rule = (*rules)[i];
+            if (rule.used) continue;
+            for (const std::string &term : rule.terms) {
+                if (term.empty()) continue;
+                size_t from = searchFrom;
+                while (from < line.size()) {
+                    size_t found = line.find(term, from);
+                    if (found == std::string::npos) break;
+                    size_t end = found + term.size();
+                    bool startsClean = found == 0 || isHighlightBoundary(line, found - 1);
+                    bool endsClean = isHighlightBoundary(line, end);
+                    if (startsClean && endsClean &&
+                        (bestRule < 0 || found < bestStart || (found == bestStart && term.size() > bestLen))) {
+                        bestRule = static_cast<int>(i);
+                        bestStart = found;
+                        bestLen = term.size();
+                    }
+                    break;
+                }
+            }
+        }
+        if (bestRule < 0) break;
+        HighlightRule &rule = (*rules)[static_cast<size_t>(bestRule)];
+        spans.push_back({bestStart, bestLen, rule.color});
+        rule.used = true;
+        searchFrom = bestStart + bestLen;
+    }
+}
+
+std::vector<HighlightRule> guideHighlightRules(AppState *s, bool math) {
+    if (!s || s->language == "es") {
+        return math
+            ? std::vector<HighlightRule>{
+                  {{"modular"}, PURPLE}, {{"casilla", "casillas"}, GREEN}, {{"estado", "estados"}, ORANGE},
+                  {{"toque", "toques"}, BLUE},
+                  {{"vector de efecto", "vectores de efecto"}, GREEN},
+                  {{"vector de toques", "vectores de toques"}, GREEN},
+                  {{"vector del tablero"}, GREEN},
+                  {{"vector cero"}, GREEN},
+                  {{"matriz"}, ORANGE},
+                  {{"módulo"}, PURPLE}, {{"cuerpo", "cuerpos"}, GREEN}, {{"anillo", "anillos"}, PURPLE},
+                  {{"imagen"}, GREEN}, {{"núcleo"}, BLUE}, {{"invertible"}, ORANGE}}
+            : std::vector<HighlightRule>{
+                  {{"casilla", "casillas"}, GREEN}, {{"toque", "toques"}, BLUE}, {{"estado", "estados"}, PURPLE},
+                  {{"patrón", "patrones"}, ORANGE}, {{"candado", "casillas con candado"}, PURPLE},
+                  {{"hueco vacío", "huecos vacíos"}, ORANGE}, {{"pista", "pistas"}, GREEN}};
+    }
+    if (s->language == "fr") {
+        return math
+            ? std::vector<HighlightRule>{
+                  {{"modulaire"}, PURPLE}, {{"tuile", "tuiles"}, GREEN}, {{"état", "états"}, ORANGE},
+                  {{"Toucher", "toucher", "touchers"}, BLUE},
+                  {{"vecteur d'effet", "vecteurs d'effet"}, GREEN},
+                  {{"vecteur de touchers", "vecteurs de touchers"}, GREEN},
+                  {{"vecteur du plateau"}, GREEN},
+                  {{"vecteur zéro", "vecteur nul"}, GREEN},
+                  {{"matrice"}, ORANGE},
+                  {{"modulo"}, PURPLE}, {{"corps"}, GREEN}, {{"anneau", "anneaux"}, PURPLE},
+                  {{"image"}, GREEN}, {{"noyau"}, BLUE}, {{"inversible", "inversibilité"}, ORANGE}}
+            : std::vector<HighlightRule>{
+                  {{"tuile", "tuiles"}, GREEN}, {{"toucher", "touchers"}, BLUE}, {{"état", "états"}, PURPLE},
+                  {{"motif", "motifs"}, ORANGE}, {{"cadenas", "tuiles avec cadenas"}, PURPLE},
+                  {{"trou vide", "trous vides"}, ORANGE}, {{"indice", "indices"}, GREEN}};
+    }
+    return math
+        ? std::vector<HighlightRule>{
+              {{"modular"}, PURPLE}, {{"tile", "tiles"}, GREEN}, {{"state", "states"}, ORANGE},
+              {{"Tapping", "tap", "taps"}, BLUE},
+              {{"effect vector", "effect vectors"}, GREEN},
+              {{"tap-count vector", "tap-count vectors"}, GREEN},
+              {{"board vector"}, GREEN},
+              {{"zero vector"}, GREEN},
+              {{"matrix", "Matrix"}, ORANGE},
+              {{"modulo"}, PURPLE}, {{"field", "fields"}, GREEN}, {{"ring", "rings"}, PURPLE},
+              {{"image"}, GREEN}, {{"kernel"}, BLUE}, {{"invertible"}, ORANGE}}
+        : std::vector<HighlightRule>{
+              {{"tile", "tiles"}, GREEN}, {{"Tapping", "Tap", "tap", "taps"}, BLUE}, {{"state", "states", "States"}, PURPLE},
+              {{"pattern", "patterns"}, ORANGE}, {{"lock icon", "lock icons"}, PURPLE},
+              {{"empty hole", "empty holes"}, ORANGE}, {{"hints", "hint", "Hint"}, GREEN}};
+}
+
 std::vector<WrappedGuideLine> wrapGuideLines(AppState *s, const std::vector<std::string> &text,
-                                             float scale, float maxWidth, float bulletIndent) {
+                                             float scale, float maxWidth, float bulletIndent,
+                                             std::vector<HighlightRule> *highlights = nullptr) {
     std::vector<WrappedGuideLine> lines;
     for (const std::string &line : text) {
         bool bullet = line.rfind("- ", 0) == 0;
@@ -3770,7 +3858,9 @@ std::vector<WrappedGuideLine> wrapGuideLines(AppState *s, const std::vector<std:
         float textW = bullet ? std::max(1.0f, maxWidth - bulletIndent) : maxWidth;
         std::vector<std::string> wrapped = wrapTextLines(s, copy, scale, textW);
         for (size_t i = 0; i < wrapped.size(); ++i) {
-            lines.push_back({wrapped[i], bullet && i == 0, bullet});
+            WrappedGuideLine wrappedLine{wrapped[i], bullet && i == 0, bullet, {}};
+            applyGuideHighlights(wrappedLine.text, highlights, wrappedLine.highlights);
+            lines.push_back(wrappedLine);
         }
     }
     return lines;
@@ -3851,6 +3941,7 @@ void drawMaterialChevronLeftIcon(AppState *s, Rect rect, Color color) {
     paint.setColor(Renderer::skColor(color));
     paint.setStyle(SkPaint::kFill_Style);
     r.skCanvas->drawPath(path, paint);
+    if (r.skContext) r.skContext->resetContext();
 }
 
 void drawMaterialUndoIcon(AppState *s, Rect rect, Color color) {
@@ -3949,8 +4040,8 @@ void drawHintToolButton(AppState *s, Rect rect, bool enabled = true) {
 
 void drawResetToolButton(AppState *s, Rect rect, bool enabled = true) {
     drawToolIconShell(s, rect, Action::Reset, enabled);
-    drawFittedText(s, tr(s, "Reset"), rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f - dp(s, 7),
-                   rect.w - dp(s, 10), dp(s, 2.35f), enabled ? TEXT : withAlpha(MUTED, 0.45f), 1, true, 1.1f);
+    drawFittedText(s, tr(s, "Reset"), rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f - dp(s, 8.0f),
+                   rect.w - dp(s, 12), dp(s, 2.86f), enabled ? TEXT : withAlpha(MUTED, 0.45f), 1, true, 1.22f);
 }
 
 void drawBackIcon(AppState *s, Rect rect, Action action) {
@@ -3981,20 +4072,22 @@ void drawBackground(AppState *s) {
     float w = static_cast<float>(r.width), h = static_cast<float>(r.height);
     r.rectGradient(0, 0, w, h, BG, rgba(10, 14, 21));
     float gap = dp(s, 42);
+    float gridLine = std::max(1.0f, dp(s, 0.55f));
+    Color gridColor = rgba(190, 203, 220, 0.046f);
     for (float x = 0; x < w; x += gap) {
-        r.rect(x, 0, 1, h, rgba(190, 203, 220, 0.032f));
+        r.rect(x, 0, gridLine, h, gridColor);
     }
     for (float y = 0; y < h; y += gap) {
-        r.rect(0, y, w, 1, rgba(190, 203, 220, 0.032f));
+        r.rect(0, y, w, gridLine, gridColor);
     }
 }
 
-void drawHeader(AppState *s, const std::string &kicker, const std::string &title, Action backAction = Action::Main) {
+void drawHeader(AppState *s, const std::string &, const std::string &title, Action backAction = Action::Main) {
     Renderer &r = s->renderer;
     float top = safeTop(s) + dp(s, 8);
+    drawFittedText(s, tr(s, title), dp(s, 84), top + dp(s, 15),
+                   r.width - dp(s, 102), dp(s, 3.55f), TEXT, 0, false, 2.2f);
     drawBackIcon(s, {dp(s, 18), top, dp(s, 50), dp(s, 44)}, backAction);
-    r.text(tr(s, kicker), dp(s, 84), top + dp(s, 2), dp(s, 2.25f), GREEN);
-    r.text(tr(s, title), dp(s, 84), top + dp(s, 24), dp(s, 3.65f), TEXT);
 }
 
 float guideTextScale(AppState *s) {
@@ -4016,7 +4109,20 @@ void drawGuideSizeControl(AppState *s) {
     Rect rail{r.width - dp(s, 18) - w, safeTop(s) + dp(s, 8), w, button + pad * 2.0f};
     drawGlassPanel(s, rail, rgba(10, 13, 19, 0.55f));
 
-    std::array<float, 3> textScale{{dp(s, 1.42f), dp(s, 2.18f), dp(s, 2.94f)}};
+    auto drawSizeGlyph = [&](Rect b, float height, Color color) {
+        float cx = b.x + b.w * 0.5f;
+        float top = b.y + (b.h - height) * 0.5f;
+        float bottom = top + height;
+        float half = height * 0.31f;
+        float stroke = std::max(dp(s, 1.55f), height * 0.11f);
+        r.line(cx - half, bottom, cx, top, stroke, color);
+        r.line(cx, top, cx + half, bottom, stroke, color);
+        r.line(cx - half * 0.52f, top + height * 0.60f,
+               cx + half * 0.52f, top + height * 0.60f, stroke, color);
+        if (r.skContext) r.skContext->resetContext();
+    };
+
+    std::array<float, 3> glyphHeight{{dp(s, 13.0f), dp(s, 18.0f), dp(s, 23.0f)}};
     for (int i = 0; i < 3; ++i) {
         Rect b{rail.x + pad + static_cast<float>(i) * (button + gap), rail.y + pad, button, button};
         bool selected = s->guideTextSize == i;
@@ -4025,10 +4131,16 @@ void drawGuideSizeControl(AppState *s) {
         r.roundedRect(b.x + 1.0f, b.y + 1.0f, b.w - 2.0f, b.h - 2.0f, radius - 1.0f,
                       selected ? rgba(34, 66, 86, 0.82f) : rgba(21, 27, 36, 0.70f));
         if (isPressedButton(s, b, Action::GuideSize, i)) drawPressedButtonFeedback(s, b, radius);
-        r.textHeavy("A", b.x + b.w * 0.5f, b.y + b.h * 0.5f - textScale[static_cast<size_t>(i)] * 3.8f,
-                    textScale[static_cast<size_t>(i)], selected ? TEXT : MUTED, 1, 0.92f);
+        drawSizeGlyph(b, glyphHeight[static_cast<size_t>(i)], selected ? TEXT : MUTED);
         addButton(s, b, Action::GuideSize, i, true);
     }
+}
+
+float guideSizeControlWidth(AppState *s) {
+    float button = dp(s, 32);
+    float gap = dp(s, 4);
+    float pad = dp(s, 4);
+    return button * 3.0f + gap * 2.0f + pad * 2.0f;
 }
 
 void drawGuideHeaderChrome(AppState *s) {
@@ -4065,9 +4177,14 @@ void drawStickyScreenHeader(AppState *s, const std::string &kicker, const std::s
     drawHeader(s, kicker, title, backAction);
 }
 
-void drawGuideHeader(AppState *s) {
+void drawGuideHeader(AppState *s, const std::string &title) {
     drawGuideHeaderChrome(s);
-    drawBackIcon(s, {dp(s, 18), safeTop(s) + dp(s, 8), dp(s, 42), dp(s, 38)}, Action::Main);
+    Renderer &r = s->renderer;
+    float top = safeTop(s) + dp(s, 8);
+    float controlW = guideSizeControlWidth(s);
+    drawFittedText(s, tr(s, title), dp(s, 84), top + dp(s, 13),
+                   r.width - dp(s, 120) - controlW, dp(s, 3.20f), TEXT, 0, false, 1.85f);
+    drawBackIcon(s, {dp(s, 18), top, dp(s, 42), dp(s, 38)}, Action::Main);
     drawGuideSizeControl(s);
 }
 
@@ -4189,33 +4306,53 @@ void finishScrollContent(AppState *s, float y) {
 void drawMain(AppState *s) {
     Renderer &r = s->renderer;
     float w = r.width;
-    float logoSize = std::min(dp(s, 142), w - dp(s, 96));
-    float brandPad = std::min(r.height * 0.042f, dp(s, 36));
-    float buttonH = dp(s, 48);
-    float buttonGap = dp(s, 9);
-    float titleScale = dp(s, 5.85f);
+    float availableH = std::max(dp(s, 180), r.height - safeTop(s) - safeBottom(s) - dp(s, 24));
+    float logoLimit = std::max(dp(s, 64), w - dp(s, 96));
+    float baseLogoSize = std::min(dp(s, 142), logoLimit);
+    float baseBrandPad = std::min(r.height * 0.042f, dp(s, 36));
+    float baseButtonH = dp(s, 48);
+    float baseButtonGap = dp(s, 9);
+    float baseTitleScale = dp(s, 5.85f);
+    bool baseTwoLineTitle = w < dp(s, 560) || r.textWidth("Invert the Matrix", baseTitleScale) > w - dp(s, 70);
+    float baseTitleBlockH = baseTwoLineTitle ? dp(s, 82) : dp(s, 46);
+    float baseMenuStackH = baseButtonH * 6.0f + baseButtonGap * 5.0f;
+    float baseContentH = baseBrandPad + baseLogoSize + dp(s, 48) + baseTitleBlockH + dp(s, 28) + baseMenuStackH;
+    float fit = clampFloat(availableH / std::max(1.0f, baseContentH), 0.72f, 1.0f);
+
+    float minLogoSize = std::min(dp(s, 92), logoLimit);
+    float logoSize = std::max(minLogoSize, baseLogoSize * fit);
+    float brandPad = std::max(0.0f, baseBrandPad * fit);
+    float buttonH = std::max(dp(s, 40), baseButtonH * fit);
+    float buttonGap = std::max(dp(s, 5), baseButtonGap * fit);
+    float titleScale = std::max(dp(s, 4.45f), baseTitleScale * fit);
+    float titleOffset = std::max(dp(s, 34), dp(s, 48) * fit);
+    float titleMenuGap = std::max(dp(s, 14), dp(s, 28) * fit);
+    float titleLineGap = std::max(dp(s, 30), dp(s, 40) * fit);
     bool twoLineTitle = w < dp(s, 560) || r.textWidth("Invert the Matrix", titleScale) > w - dp(s, 70);
-    float titleBlockH = twoLineTitle ? dp(s, 82) : dp(s, 46);
+    float titleBlockH = twoLineTitle ? std::max(dp(s, 60), dp(s, 82) * fit) : std::max(dp(s, 38), dp(s, 46) * fit);
     float menuStackH = buttonH * 6.0f + buttonGap * 5.0f;
-    float contentH = brandPad + logoSize + dp(s, 14) + dp(s, 18) + dp(s, 20) + titleBlockH + dp(s, 28) + menuStackH;
+    float contentH = brandPad + logoSize + titleOffset + titleBlockH + titleMenuGap + menuStackH;
     float containerTop = (r.height - contentH - safeBottom(s) * 0.5f) * 0.5f + safeTop(s) * 0.35f;
-    containerTop = std::max(safeTop(s) + dp(s, 2), containerTop);
+    float minTop = safeTop(s) + dp(s, 2);
+    float maxTop = std::max(minTop, r.height - safeBottom(s) - contentH - dp(s, 8));
+    containerTop = contentH <= availableH ? clampFloat(containerTop, minTop, maxTop) : minTop;
+    containerTop = beginScrollContent(s, containerTop);
     float top = containerTop + brandPad;
 
     drawLogo(s, w * 0.5f, top, logoSize);
-    drawFittedText(s, tr(s, "A modular tile puzzle"), w * 0.5f, top + logoSize + dp(s, 14),
+    drawFittedText(s, tr(s, "A modular tile puzzle"), w * 0.5f, top + logoSize + std::max(dp(s, 9), dp(s, 14) * fit),
                    w - dp(s, 56), dp(s, 2.20f), GREEN, 1, true, 1.45f);
-    float titleY = top + logoSize + dp(s, 48);
+    float titleY = top + logoSize + titleOffset;
     if (twoLineTitle) {
         r.textHeavy("Invert the", w * 0.5f, titleY, titleScale, TEXT, 1, 1.0f);
-        r.textHeavy("Matrix", w * 0.5f, titleY + dp(s, 40), titleScale, TEXT, 1, 1.0f);
+        r.textHeavy("Matrix", w * 0.5f, titleY + titleLineGap, titleScale, TEXT, 1, 1.0f);
     } else {
         r.textHeavy("Invert the Matrix", w * 0.5f, titleY, titleScale, TEXT, 1, 1.0f);
     }
 
     float bw = std::min(w - dp(s, 36), dp(s, 420));
     float x = (w - bw) * 0.5f;
-    float y = titleY + titleBlockH + dp(s, 28);
+    float y = titleY + titleBlockH + titleMenuGap;
     auto drawMenuButton = [&](const std::string &label, Action action) {
         Rect rect{x, y, bw, buttonH};
         float radius = dp(s, 8);
@@ -4240,6 +4377,7 @@ void drawMain(AppState *s) {
     drawMenuButton(tr(s, "How to Play"), Action::HowTo);
     drawMenuButton(tr(s, "The Math"), Action::Math);
     drawMenuButton(tr(s, "Settings"), Action::Settings);
+    finishScrollContent(s, y - buttonGap + dp(s, 18));
 }
 
 void drawLevelNode(AppState *s, Rect rect, int index, int stars, bool completed, bool hintUsed, bool enabled) {
@@ -4290,6 +4428,27 @@ void drawCampaign(AppState *s) {
     float cell = (panelW - panelPad * 2.0f - gridGap * 3.0f) / 4.0f;
     float titleH = dp(s, 28);
     float panelH = panelPad + titleH + dp(s, 14) + cellH * 3.0f + gridGap * 2.0f + panelPad;
+    if (!campaignLevelsReady(s)) {
+        Rect panel{margin, y, panelW, dp(s, 156)};
+        drawGlassPanel(s, panel, PANEL);
+        float pad = dp(s, 16);
+        float titleScale = dp(s, 2.65f);
+        float bodyScale = dp(s, 1.86f);
+        r.textHeavy(tr(s, "Campaign data unavailable"), panel.x + pad, panel.y + pad + dp(s, 8), titleScale, TEXT);
+        std::vector<std::string> lines = wrapTextLines(s,
+                                                       tr(s, "The bundled campaign asset could not be loaded. Reload the app or check that campaign-levels.json is included."),
+                                                       bodyScale,
+                                                       panel.w - pad * 2.0f);
+        float ly = panel.y + pad + dp(s, 46);
+        for (const std::string &line : lines) {
+            drawFittedText(s, line, panel.x + pad, ly, panel.w - pad * 2.0f, bodyScale, MUTED);
+            ly += dp(s, 23);
+        }
+        y += panel.h + dp(s, 24);
+        finishScrollContent(s, y);
+        drawStickyScreenHeader(s, "Campaign", "Campaign", Action::Main, contentTop);
+        return;
+    }
     for (int chapter = 1; chapter <= 30; ++chapter) {
         Rect panel{margin, y, panelW, panelH};
         bool visible = panel.y < r.height + dp(s, 48) && panel.y + panel.h > -dp(s, 48);
@@ -4318,71 +4477,186 @@ void drawCampaign(AppState *s) {
     drawStickyScreenHeader(s, "Campaign", "Campaign", Action::Main, contentTop);
 }
 
+std::string dailyChallengeBestText(AppState *s, int tier, const std::string &date) {
+    int moves = s->progress.getInt("daily_moves_" + dailyChallengeKey(date, tier), -1);
+    return moves < 0 ? tr(s, "Not played today") : tr(s, "Best:") + " " + std::to_string(moves);
+}
+
+std::string dailyLeaderboardName(AppState *s, int index) {
+    if (index < 3) return localizedDailyTierLabel(s, index);
+    return tr(s, "Global");
+}
+
+float vectorLabelWidth(Renderer &r, const std::string &text, float textScale) {
+    if (!r.vectorFontReady) return r.textWidth(text, textScale);
+    float pixelHeight = std::max(8.0f, textScale * 6.2f);
+    float scale = stbtt_ScaleForPixelHeight(&r.vectorFontInfo, pixelHeight);
+    float width = 0.0f;
+    int previous = 0;
+    for (int codepoint : r.utf8Codepoints(text)) {
+        if (previous) width += stbtt_GetCodepointKernAdvance(&r.vectorFontInfo, previous, codepoint) * scale;
+        int advance = 0;
+        int leftBearing = 0;
+        stbtt_GetCodepointHMetrics(&r.vectorFontInfo, codepoint, &advance, &leftBearing);
+        width += advance * scale;
+        previous = codepoint;
+    }
+    return width;
+}
+
+void drawVectorFittedText(AppState *s, const std::string &text, float x, float centerY, float maxWidth,
+                          float textScale, Color color, int align = 0) {
+    Renderer &r = s->renderer;
+    while (vectorLabelWidth(r, text, textScale) > maxWidth && textScale > dp(s, 1.18f)) {
+        textScale *= 0.94f;
+    }
+    if (!r.skiaReady() || !r.vectorFontReady) {
+        drawFittedText(s, text, x, centerY - textScale * 3.1f, maxWidth, textScale, color, align, true, 1.18f);
+        return;
+    }
+
+    float width = vectorLabelWidth(r, text, textScale);
+    if (align == 1) x -= width * 0.5f;
+    if (align == 2) x -= width;
+
+    float pixelHeight = std::max(8.0f, textScale * 6.2f);
+    float scale = stbtt_ScaleForPixelHeight(&r.vectorFontInfo, pixelHeight);
+    int ascent = 0;
+    int descent = 0;
+    stbtt_GetFontVMetrics(&r.vectorFontInfo, &ascent, &descent, nullptr);
+    float baseline = centerY + (ascent + descent) * scale * 0.5f;
+    float cursor = x;
+    int previous = 0;
+    SkPathBuilder textBuilder;
+    for (int codepoint : r.utf8Codepoints(text)) {
+        if (previous) cursor += stbtt_GetCodepointKernAdvance(&r.vectorFontInfo, previous, codepoint) * scale;
+        stbtt_vertex *vertices = nullptr;
+        int vertexCount = stbtt_GetCodepointShape(&r.vectorFontInfo, codepoint, &vertices);
+        bool open = false;
+        for (int i = 0; i < vertexCount; ++i) {
+            const stbtt_vertex &v = vertices[i];
+            float px = cursor + v.x * scale;
+            float py = baseline - v.y * scale;
+            if (v.type == STBTT_vmove) {
+                if (open) textBuilder.close();
+                textBuilder.moveTo(px, py);
+                open = true;
+            } else if (v.type == STBTT_vline) {
+                textBuilder.lineTo(px, py);
+            } else if (v.type == STBTT_vcurve) {
+                textBuilder.quadTo(cursor + v.cx * scale, baseline - v.cy * scale, px, py);
+            } else if (v.type == STBTT_vcubic) {
+                textBuilder.cubicTo(cursor + v.cx * scale, baseline - v.cy * scale,
+                                    cursor + v.cx1 * scale, baseline - v.cy1 * scale, px, py);
+            }
+        }
+        if (open) textBuilder.close();
+        if (vertices) stbtt_FreeShape(&r.vectorFontInfo, vertices);
+        int advance = 0;
+        int leftBearing = 0;
+        stbtt_GetCodepointHMetrics(&r.vectorFontInfo, codepoint, &advance, &leftBearing);
+        cursor += advance * scale;
+        previous = codepoint;
+    }
+
+    SkPaint paint;
+    paint.setAntiAlias(true);
+    paint.setColor(Renderer::skColor(color));
+    paint.setStyle(SkPaint::kFill_Style);
+    r.skCanvas->drawPath(textBuilder.detach(), paint);
+}
+
 void drawDaily(AppState *s) {
     Renderer &r = s->renderer;
-    std::string date = dailyKey();
-    float contentTop = safeTop(s) + dp(s, 108);
+    float contentTop = safeTop(s) + dp(s, 90);
     float y = beginScrollContent(s, contentTop);
     float margin = dp(s, 18);
-    float gap = dp(s, 10);
+    float gap = dp(s, 12);
     float cardW = r.width - margin * 2.0f;
+    std::string date = dailyKey();
+
+    r.text(tr(s, "Today's Puzzles"), margin, y, dp(s, 2.55f), TEXT);
+    y += dp(s, 32);
 
     for (int tier = 0; tier < 3; ++tier) {
-        std::string key = dailyChallengeKey(date, tier);
-        int mark = s->progress.getInt("daily_mark_" + key, -1);
-        int moves = s->progress.getInt("daily_moves_" + key, -1);
-        bool firstTryRecorded = dailyLeaderboardRecorded(s, key);
-        int firstTryMark = dailyLeaderboardMark(s, key);
-        Config cfg = dailyConfig(tier, date);
-        Rect card{margin, y, cardW, dp(s, 106)};
-        Color accent = tier == 0 ? GREEN : tier == 1 ? BLUE : ORANGE;
+        Rect card{margin, y, cardW, dp(s, 78)};
+        Color accent = dailyTierAccent(tier);
         drawGlassPanel(s, card, PANEL);
         float radius = std::min(dp(s, 8), card.h * 0.18f);
-        r.roundedRectGradient(card.x + 1.0f, card.y + 1.0f, card.w - 2.0f, card.h - 2.0f,
-                              std::max(1.0f, radius - 1.0f),
-                              withAlpha(accent, mark >= 0 ? 0.32f : 0.24f),
-                              withAlpha(accent, mark >= 0 ? 0.10f : 0.055f));
         if (isPressedButton(s, card, Action::DailyChallenge, tier)) drawPressedButtonFeedback(s, card, radius);
-        r.roundedRect(card.x + dp(s, 1.4f), card.y + dp(s, 6), dp(s, 4), card.h - dp(s, 12), dp(s, 2), withAlpha(accent, 0.86f));
-        r.textHeavy(localizedDailyTierLabel(s, tier), card.x + dp(s, 14), card.y + dp(s, 13), dp(s, 3.02f), accent, 0, 0.85f);
-        std::string configText = std::to_string(cfg.width) + "x" + std::to_string(cfg.height) +
-                                 " / " + std::to_string(cfg.states) + " " + tr(s, "states") + " / " + localizedPatternLabel(s, cfg.pattern);
-        drawFittedText(s, configText, card.x + dp(s, 14), card.y + dp(s, 44), card.w - dp(s, 54), dp(s, 1.96f), TEXT);
-        std::string detail = tr(s, "Locks") + " " + tr(s, cfg.locked ? "on" : "off") +
-                             " / " + tr(s, "Holes") + " " + tr(s, cfg.irregular ? "on" : "off");
-        drawFittedText(s, detail, card.x + dp(s, 14), card.y + dp(s, 68), card.w - dp(s, 54), dp(s, 1.82f), MUTED);
-        std::string stats = mark >= 0
-                            ? (tr(s, "Best:") + " " + std::to_string(moves) + " " + tr(s, "moves") + " / " + tr(s, "Mark") + " " + formatMark(mark))
-                            : (firstTryRecorded ? (tr(s, "First try:") + " " + formatMark(firstTryMark) + " / " + tr(s, "Replays open")) : tr(s, "First try counts"));
-        drawFittedText(s, stats, card.x + dp(s, 14), card.y + dp(s, 91), card.w - dp(s, 54), dp(s, 1.82f), mark >= 0 ? GREEN : MUTED);
-        float cx = card.x + card.w - dp(s, 24);
-        float cy = card.y + card.h * 0.62f;
-        r.line(cx - dp(s, 4), cy - dp(s, 7), cx + dp(s, 3), cy, dp(s, 1.9f), withAlpha(TEXT, 0.72f));
-        r.line(cx + dp(s, 3), cy, cx - dp(s, 4), cy + dp(s, 7), dp(s, 1.9f), withAlpha(TEXT, 0.72f));
+
+        float iconSize = dp(s, 48);
+        float iconX = card.x + dp(s, 14);
+        drawDailyGridIcon(s, {iconX, card.y + (card.h - iconSize) * 0.5f, iconSize, iconSize}, tier, accent);
+
+        float recordW = std::min(dp(s, 160), card.w * 0.40f);
+        float recordX = card.x + card.w - dp(s, 14) - recordW;
+        float textX = iconX + iconSize + dp(s, 14);
+        float textW = std::max(dp(s, 96), recordX - textX - dp(s, 12));
+        bool hasPlayedToday = s->progress.getInt("daily_moves_" + dailyChallengeKey(date, tier), -1) >= 0;
+        drawFittedText(s, localizedDailyTierLabel(s, tier),
+                       textX, card.y + card.h * 0.5f - dp(s, 13),
+                       textW, dp(s, 3.18f), accent, 0, true, 2.05f);
+        drawFittedText(s, dailyChallengeBestText(s, tier, date),
+                       recordX + recordW, card.y + card.h * 0.5f - dp(s, 8),
+                       recordW, hasPlayedToday ? dp(s, 1.88f) : dp(s, 1.72f),
+                       hasPlayedToday ? TEXT : MUTED, 2, hasPlayedToday, 1.20f);
         addButton(s, card, Action::DailyChallenge, tier, true);
         y += card.h + gap;
     }
 
-    y += dp(s, 6);
-    Rect board{margin, y, cardW, dp(s, 156)};
-    drawGlassPanel(s, board, PANEL);
-    r.text(tr(s, "Leaderboards"), board.x + dp(s, 12), board.y + dp(s, 14), dp(s, 2.65f), TEXT);
-    drawFittedText(s, tr(s, "Compare today's marks by tier or as one combined daily score."),
-                   board.x + dp(s, 12), board.y + dp(s, 47), board.w - dp(s, 24), dp(s, 1.55f), MUTED);
-    float buttonW = (board.w - dp(s, 34)) * 0.5f;
-    float by = board.y + dp(s, 75);
-    drawButton(s, {board.x + dp(s, 12), by, buttonW, dp(s, 34)}, tr(s, "Easy"), Action::Leaderboard, 0);
-    drawButton(s, {board.x + dp(s, 22) + buttonW, by, buttonW, dp(s, 34)}, tr(s, "Medium"), Action::Leaderboard, 1);
-    by += dp(s, 42);
-    drawButton(s, {board.x + dp(s, 12), by, buttonW, dp(s, 34)}, tr(s, "Hard"), Action::Leaderboard, 2);
-    drawButton(s, {board.x + dp(s, 22) + buttonW, by, buttonW, dp(s, 34)}, tr(s, "Global"), Action::Leaderboard, 3);
-    y += board.h + dp(s, 18);
+    y += dp(s, 14);
+    r.text(tr(s, "Leaderboards"), margin, y, dp(s, 2.55f), TEXT);
+    y += dp(s, 32);
+
+    float leaderboardGap = dp(s, 8);
+    float leaderboardSmallW = (cardW - leaderboardGap * 2.0f) / 3.0f;
+    float leaderboardSmallH = dp(s, 76);
+    for (int i = 0; i < 3; ++i) {
+        Rect row{margin + static_cast<float>(i) * (leaderboardSmallW + leaderboardGap), y,
+                 leaderboardSmallW, leaderboardSmallH};
+        Color accent = dailyTierAccent(i);
+        drawGlassPanel(s, row, PANEL_2);
+        float radius = std::min(dp(s, 8), row.h * 0.18f);
+        if (isPressedButton(s, row, Action::Leaderboard, i)) drawPressedButtonFeedback(s, row, radius);
+
+        float iconW = std::min(dp(s, 48), row.w * 0.44f);
+        float iconH = row.h - dp(s, 10);
+        Rect icon{row.x + dp(s, 7), row.y + (row.h - iconH) * 0.5f, iconW, iconH};
+        drawDailyLeaderboardIcon(s, icon, i, accent);
+        float labelX = icon.x + icon.w + dp(s, 5);
+        float labelW = std::max(dp(s, 24), row.x + row.w - dp(s, 7) - labelX);
+        drawVectorFittedText(s, dailyLeaderboardName(s, i),
+                             labelX, row.y + row.h * 0.5f,
+                             labelW, dp(s, 1.94f), TEXT, 0);
+        addButton(s, row, Action::Leaderboard, i, true);
+    }
+
+    y += leaderboardSmallH + dp(s, 28);
+    float globalW = std::min(cardW * 0.72f, dp(s, 300));
+    Rect global{margin + (cardW - globalW) * 0.5f, y, globalW, dp(s, 82)};
+    drawGlassPanel(s, global, PANEL_2);
+    float globalRadius = std::min(dp(s, 8), global.h * 0.18f);
+    if (isPressedButton(s, global, Action::Leaderboard, 3)) drawPressedButtonFeedback(s, global, globalRadius);
+    float globalIconW = dp(s, 62);
+    float globalIconH = global.h - dp(s, 12);
+    Rect globalIcon{global.x + dp(s, 16), global.y + (global.h - globalIconH) * 0.5f,
+                    globalIconW, globalIconH};
+    drawDailyLeaderboardIcon(s, globalIcon, 3, withAlpha(TEXT, 0.88f));
+    float globalLabelX = globalIcon.x + globalIcon.w + dp(s, 12);
+    drawVectorFittedText(s, dailyLeaderboardName(s, 3),
+                         globalLabelX, global.y + global.h * 0.5f,
+                         global.x + global.w - dp(s, 16) - globalLabelX, dp(s, 2.60f), TEXT, 0);
+    addButton(s, global, Action::Leaderboard, 3, true);
+    y += global.h;
+
+    y += dp(s, 10);
     finishScrollContent(s, y);
-    drawStickyScreenHeader(s, "Daily", "Daily Challenge", Action::Main, contentTop);
+    drawStickyScreenHeader(s, "Daily", "Daily Challenges", Action::Main, contentTop);
 }
 
 void drawChips(AppState *s, float &y, const std::vector<std::string> &labels, const std::string &selected,
-               Action action, int columns = 3, int selectedIndex = -1) {
+               Action action, int columns = 3, int selectedIndex = -1, float textScaleBoost = 1.0f) {
     float margin = dp(s, 18), gap = dp(s, 8);
     float cell = (s->renderer.width - margin * 2 - gap * (columns - 1)) / columns;
     for (int i = 0; i < static_cast<int>(labels.size()); ++i) {
@@ -4390,9 +4664,95 @@ void drawChips(AppState *s, float &y, const std::vector<std::string> &labels, co
         int row = i / columns;
         Rect rect{margin + col * (cell + gap), y + row * (dp(s, 46) + gap), cell, dp(s, 46)};
         bool isSelected = selectedIndex >= 0 ? i == selectedIndex : labels[i] == selected;
-        drawButton(s, rect, labels[i], action, i, false, isSelected);
+        drawButton(s, rect, labels[i], action, i, false, isSelected, true, textScaleBoost);
     }
     y += (static_cast<int>((labels.size() + columns - 1) / columns)) * (dp(s, 46) + gap) + dp(s, 10);
+}
+
+std::set<std::pair<int, int>> patternChoiceCells(const std::string &key) {
+    if (key == "randomMixed") {
+        return {{2, 2}, {1, 1}, {3, 3}, {0, 2}, {4, 2}, {1, 4}, {3, 0}};
+    }
+    std::set<std::pair<int, int>> active;
+    Pattern pattern = patternFor(key);
+    int center = 2;
+    for (auto &offset : pattern.offsets) {
+        int x = center + offset.first;
+        int y = center + offset.second;
+        if (x >= 0 && x < 5 && y >= 0 && y < 5) active.insert({x, y});
+    }
+    return active;
+}
+
+Color patternChoiceActiveColor(const std::string &key, int x, int y) {
+    if (x == 2 && y == 2) return GREEN;
+    if (key != "randomMixed") return BLUE;
+    int shade = (x + y) % 3;
+    if (shade == 0) return ORANGE;
+    if (shade == 1) return PURPLE;
+    return BLUE;
+}
+
+void drawPatternChoiceIcon(AppState *s, Rect rect, const std::string &key) {
+    Renderer &r = s->renderer;
+    float radius = std::min(dp(s, 6), rect.h * 0.20f);
+    r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, rgba(190, 203, 220, 0.20f));
+    r.roundedRect(rect.x + 1.0f, rect.y + 1.0f, rect.w - 2.0f, rect.h - 2.0f,
+                  std::max(1.0f, radius - 1.0f), rgba(7, 10, 14, 0.30f));
+
+    std::set<std::pair<int, int>> active = patternChoiceCells(key);
+    int grid = 5;
+    float pad = std::max(2.0f, rect.w * 0.12f);
+    float gap = std::max(1.0f, rect.w * 0.045f);
+    float side = std::min(rect.w, rect.h) - pad * 2.0f;
+    float tile = (side - gap * static_cast<float>(grid - 1)) / static_cast<float>(grid);
+    float left = rect.x + (rect.w - (tile * grid + gap * (grid - 1))) * 0.5f;
+    float top = rect.y + (rect.h - (tile * grid + gap * (grid - 1))) * 0.5f;
+
+    for (int y = 0; y < grid; ++y) {
+        for (int x = 0; x < grid; ++x) {
+            bool on = active.count({x, y}) > 0;
+            Rect cell{left + x * (tile + gap), top + y * (tile + gap), tile, tile};
+            Color fill = on ? patternChoiceActiveColor(key, x, y) : rgba(244, 247, 251, 0.14f);
+            r.roundedRect(cell.x, cell.y, cell.w, cell.h, std::max(1.0f, tile * 0.22f), fill);
+            if (x == 2 && y == 2) {
+                r.roundedStroke(cell, std::max(1.0f, tile * 0.22f), 1.0f, rgba(7, 19, 15, on ? 0.42f : 0.0f));
+            }
+        }
+    }
+}
+
+void drawPatternChips(AppState *s, float &y, const std::vector<std::string> &patternKeys, int selectedIndex) {
+    Renderer &r = s->renderer;
+    float margin = dp(s, 18);
+    float gap = dp(s, 8);
+    int columns = 2;
+    float cellW = (r.width - margin * 2 - gap * static_cast<float>(columns - 1)) / static_cast<float>(columns);
+    float cellH = dp(s, 62);
+    for (int i = 0; i < static_cast<int>(patternKeys.size()); ++i) {
+        int col = i % columns;
+        int row = i / columns;
+        Rect card{margin + col * (cellW + gap), y + row * (cellH + gap), cellW, cellH};
+        bool selected = i == selectedIndex;
+        float radius = std::min(dp(s, 8), card.h * 0.20f);
+        Color border = selected ? withAlpha(BLUE, 0.68f) : LINE;
+        Color fill = selected ? rgba(34, 66, 86, 0.82f) : PANEL_2;
+        r.roundedRect(card.x, card.y, card.w, card.h, radius, border);
+        r.roundedRect(card.x + 1.5f, card.y + 1.5f, card.w - 3.0f, card.h - 3.0f,
+                      std::max(0.0f, radius - 1.5f), fill);
+        if (isPressedButton(s, card, Action::Pattern, i)) drawPressedButtonFeedback(s, card, radius);
+
+        Rect icon{card.x + dp(s, 8), card.y + (card.h - dp(s, 42)) * 0.5f, dp(s, 42), dp(s, 42)};
+        drawPatternChoiceIcon(s, icon, patternKeys[static_cast<size_t>(i)]);
+        float textX = icon.x + icon.w + dp(s, 8);
+        drawFittedText(s, localizedPatternLabel(s, patternKeys[static_cast<size_t>(i)]),
+                       textX, card.y + card.h * 0.5f - dp(s, 8.5f),
+                       card.x + card.w - textX - dp(s, 8), dp(s, 2.34f),
+                       selected ? TEXT : MUTED_STRONG, 0, true, 1.18f);
+        addButton(s, card, Action::Pattern, i, true);
+    }
+    int rows = static_cast<int>((patternKeys.size() + columns - 1) / columns);
+    y += rows * (cellH + gap) + dp(s, 10);
 }
 
 void drawFreeplay(AppState *s) {
@@ -4401,30 +4761,28 @@ void drawFreeplay(AppState *s) {
     float y = beginScrollContent(s, contentTop);
     std::vector<std::string> sizes = {"3x3", "4x4", "5x5", "6x6", "7x7", tr(s, "Custom")};
     int sizeIndex = s->freeSize == "Custom" ? 5 : s->freeSize == "7x7" ? 4 : s->freeSize == "6x6" ? 3 : s->freeSize == "5x5" ? 2 : s->freeSize == "4x4" ? 1 : 0;
-    r.text(tr(s, "Grid Size"), dp(s, 18), y, dp(s, 3.0f), TEXT); y += dp(s, 28);
-    drawChips(s, y, sizes, "", Action::Size, 3, sizeIndex);
+    r.text(tr(s, "Grid Size"), dp(s, 18), y, dp(s, 3.28f), TEXT); y += dp(s, 31);
+    drawChips(s, y, sizes, "", Action::Size, 3, sizeIndex, 1.10f);
     if (s->freeSize == "Custom") {
         drawButton(s, {dp(s, 18), y, dp(s, 70), dp(s, 44)}, "W-", Action::WidthMinus);
-        r.text(tr(s, "Width") + " " + std::to_string(s->customW), r.width * 0.5f, y + dp(s, 12), dp(s, 2.8f), TEXT, 1);
+        r.text(tr(s, "Width") + " " + std::to_string(s->customW), r.width * 0.5f, y + dp(s, 11), dp(s, 3.05f), TEXT, 1);
         drawButton(s, {r.width - dp(s, 88), y, dp(s, 70), dp(s, 44)}, "W+", Action::WidthPlus);
         y += dp(s, 54);
         drawButton(s, {dp(s, 18), y, dp(s, 70), dp(s, 44)}, "H-", Action::HeightMinus);
-        r.text(tr(s, "Height") + " " + std::to_string(s->customH), r.width * 0.5f, y + dp(s, 12), dp(s, 2.8f), TEXT, 1);
+        r.text(tr(s, "Height") + " " + std::to_string(s->customH), r.width * 0.5f, y + dp(s, 11), dp(s, 3.05f), TEXT, 1);
         drawButton(s, {r.width - dp(s, 88), y, dp(s, 70), dp(s, 44)}, "H+", Action::HeightPlus);
         y += dp(s, 62);
     }
-    r.text(tr(s, "States"), dp(s, 18), y, dp(s, 3.0f), TEXT); y += dp(s, 28);
-    drawChips(s, y, {"2", "3", "4", "5"}, std::to_string(s->freeStates), Action::States, 4);
-    r.text(tr(s, "Pulse Pattern"), dp(s, 18), y, dp(s, 3.0f), TEXT); y += dp(s, 28);
+    r.text(tr(s, "States"), dp(s, 18), y, dp(s, 3.28f), TEXT); y += dp(s, 31);
+    drawChips(s, y, {"2", "3", "4", "5"}, std::to_string(s->freeStates), Action::States, 4, -1, 1.10f);
+    r.text(tr(s, "Tap Pattern"), dp(s, 18), y, dp(s, 3.28f), TEXT); y += dp(s, 31);
     std::vector<std::string> patternKeys = {"cross", "diagonal", "square", "horizontal", "vertical", "knight", "randomMixed"};
-    std::vector<std::string> patternLabels;
     int patternIndex = 0;
     for (int i = 0; i < static_cast<int>(patternKeys.size()); ++i) {
         if (patternKeys[static_cast<size_t>(i)] == s->freePattern) patternIndex = i;
-        patternLabels.push_back(localizedPatternLabel(s, patternKeys[static_cast<size_t>(i)]));
     }
-    drawChips(s, y, patternLabels, "", Action::Pattern, 2, patternIndex);
-    r.text(tr(s, "Difficulty"), dp(s, 18), y, dp(s, 3.0f), TEXT); y += dp(s, 28);
+    drawPatternChips(s, y, patternKeys, patternIndex);
+    r.text(tr(s, "Difficulty"), dp(s, 18), y, dp(s, 3.28f), TEXT); y += dp(s, 31);
     std::vector<std::string> difficulties = {"Easy", "Medium", "Hard", "Expert"};
     std::vector<std::string> difficultyLabels;
     int difficultyIndex = 1;
@@ -4432,13 +4790,15 @@ void drawFreeplay(AppState *s) {
         if (difficulties[static_cast<size_t>(i)] == s->freeDifficulty) difficultyIndex = i;
         difficultyLabels.push_back(localizedDifficulty(s, difficulties[static_cast<size_t>(i)]));
     }
-    drawChips(s, y, difficultyLabels, "", Action::Difficulty, 2, difficultyIndex);
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 46)}, tr(s, "Locked tiles") + " " + onOff(s, s->freeLocked), Action::ToggleLocked, 0, false, s->freeLocked); y += dp(s, 56);
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 46)}, tr(s, "Irregular board") + " " + onOff(s, s->freeIrregular), Action::ToggleIrregular, 0, false, s->freeIrregular); y += dp(s, 56);
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 46)}, tr(s, "Unique preferred") + " " + onOff(s, s->freeUnique), Action::ToggleUnique, 0, false, s->freeUnique); y += dp(s, 66);
+    drawChips(s, y, difficultyLabels, "", Action::Difficulty, 2, difficultyIndex, 1.10f);
+    r.text(tr(s, "Extras"), dp(s, 18), y, dp(s, 3.28f), TEXT); y += dp(s, 31);
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 46)}, tr(s, "Tiles with lock icons") + " " + onOff(s, s->freeLocked), Action::ToggleLocked, 0, false, s->freeLocked, true, 1.10f); y += dp(s, 56);
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 46)}, tr(s, "Irregular board") + " " + onOff(s, s->freeIrregular), Action::ToggleIrregular, 0, false, s->freeIrregular, true, 1.10f); y += dp(s, 56);
+    s->freeUnique = true;
+    y += dp(s, 10);
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 56)}, tr(s, "Create Puzzle"), Action::Generate, 0, true); y += dp(s, 80);
     finishScrollContent(s, y);
-    drawStickyScreenHeader(s, "Custom Level", "Custom Puzzle", Action::Main, contentTop);
+    drawStickyScreenHeader(s, "Custom Level", "Custom Level", Action::Main, contentTop);
 }
 
 enum class FormulaKind {
@@ -4786,11 +5146,11 @@ void drawFormulaCard(AppState *s, Rect card, FormulaKind kind, Color accent = GR
         std::array<std::pair<std::string, std::string>, 7> rows = {{
                 {"n", "modulus / tile states"},
                 {"s", "board vector in (Z/nZ)^m"},
-                {"A", "columns are pulse vectors"},
+                {"A", "columns are effect vectors"},
                 {"x", "tap-count vector in (Z/nZ)^r"},
                 {"Im(A)", "reachable board changes"},
-                {"ker(A)", "tap counts with A x = 0"},
-                {"mod n", "residues wrap after n - 1"}
+                {"ker(A)", "tap-count vectors with A x = 0"},
+                {"mod n", "values wrap after n - 1"}
         }};
         for (auto &row : rows) {
             r.textHeavy(row.first, card.x + dp(s, 12), rowY, dp(s, 1.82f), TEXT, 0, 0.45f);
@@ -4940,8 +5300,34 @@ void drawGuideDiagram(AppState *s, Rect area, GuideDiagramKind kind, Color accen
     }
 }
 
+void drawHighlightedGuideLine(AppState *s, const WrappedGuideLine &line, float x, float y, float maxWidth,
+                              float scale, Color baseColor) {
+    if (line.highlights.empty()) {
+        drawFittedText(s, line.text, x, y, maxWidth, scale, baseColor);
+        return;
+    }
+    Renderer &r = s->renderer;
+    float cursor = x;
+    size_t offset = 0;
+    for (const auto &span : line.highlights) {
+        if (span.start > offset) {
+            std::string before = line.text.substr(offset, span.start - offset);
+            r.text(before, cursor, y, scale, baseColor);
+            cursor += r.textWidth(before, scale);
+        }
+        std::string marked = line.text.substr(span.start, span.len);
+        r.textHeavy(marked, cursor, y, scale, span.color, 0, 0.85f);
+        cursor += r.textWidth(marked, scale);
+        offset = span.start + span.len;
+    }
+    if (offset < line.text.size()) {
+        r.text(line.text.substr(offset), cursor, y, scale, baseColor);
+    }
+}
+
 void drawGuideBlock(AppState *s, float &y, const std::string &title, const std::vector<std::string> &lines,
-                    Color accent = GREEN, GuideDiagramKind diagram = GuideDiagramKind::None) {
+                    Color accent = GREEN, GuideDiagramKind diagram = GuideDiagramKind::None,
+                    std::vector<HighlightRule> *highlights = nullptr) {
     Renderer &r = s->renderer;
     float scale = guideTextScale(s);
     float pad = dp(s, 14);
@@ -4951,7 +5337,7 @@ void drawGuideBlock(AppState *s, float &y, const std::string &title, const std::
     float maxTextW = panelW - pad * 2.0f;
     float bodyScale = dp(s, 1.72f) * scale;
     float bulletIndent = dp(s, 12) * std::min(1.30f, scale);
-    std::vector<WrappedGuideLine> wrappedLines = wrapGuideLines(s, lines, bodyScale, maxTextW, bulletIndent);
+    std::vector<WrappedGuideLine> wrappedLines = wrapGuideLines(s, lines, bodyScale, maxTextW, bulletIndent, highlights);
     float diagramH = diagram == GuideDiagramKind::None ? 0.0f : dp(s, 92) * std::min(1.22f, scale);
     float diagramGap = diagram == GuideDiagramKind::None ? 0.0f : dp(s, 12) * std::min(1.12f, scale);
     float panelH = pad * 2.0f + titleH + diagramH + diagramGap +
@@ -4975,13 +5361,13 @@ void drawGuideBlock(AppState *s, float &y, const std::string &title, const std::
         }
         float tx = panel.x + pad + (line.indent ? bulletIndent : 0.0f);
         float tw = maxTextW - (line.indent ? bulletIndent : 0.0f);
-        drawFittedText(s, line.text, tx, ly, tw, bodyScale, MUTED);
+        drawHighlightedGuideLine(s, line, tx, ly, tw, bodyScale, MUTED);
         ly += lineH;
     }
     y += panel.h + dp(s, 14);
 }
 
-void drawHowToIntro(AppState *s, float &y) {
+void drawHowToIntro(AppState *s, float &y, std::vector<HighlightRule> *highlights = nullptr) {
     Renderer &r = s->renderer;
     float scale = guideTextScale(s);
     float pad = dp(s, 14);
@@ -4994,10 +5380,11 @@ void drawHowToIntro(AppState *s, float &y) {
     float diagramH = dp(s, 94) * std::min(1.22f, scale);
     float diagramGap = dp(s, 12) * std::min(1.12f, scale);
     std::vector<std::string> titleLines = wrapTextLines(s, tr(s, "Clear the board"), titleScale, maxTextW);
-    std::vector<std::string> bodyLines = wrapTextLines(s, std::vector<std::string>{
-        "Solve the puzzle by turning every active tile white.",
-        "Tap tiles to send pulses across the board; every tile reached by a pulse advances to its next state."
-    }, bodyScale, maxTextW);
+    std::vector<WrappedGuideLine> bodyLines = wrapGuideLines(s, std::vector<std::string>{
+        "Clear every active tile by turning it white.",
+        "Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.",
+        "Use previews and level clues to plan calmly: colored tiles still need to advance, tiles with lock icons can be changed by nearby taps, and empty holes are outside the board."
+    }, bodyScale, maxTextW, 0.0f, highlights);
     Rect panel{dp(s, 18), y, panelW,
                pad * 2.0f + titleLineH * static_cast<float>(titleLines.size()) + dp(s, 12) +
                    diagramH + diagramGap +
@@ -5016,8 +5403,8 @@ void drawHowToIntro(AppState *s, float &y) {
     drawGuideDiagram(s, {panel.x + pad, ly, std::min(maxTextW, dp(s, 118) * std::min(1.24f, scale)), diagramH},
                      GuideDiagramKind::Goal, GREEN);
     ly += diagramH + diagramGap;
-    for (const std::string &line : bodyLines) {
-        drawFittedText(s, line, panel.x + pad, ly, maxTextW, bodyScale, MUTED);
+    for (const WrappedGuideLine &line : bodyLines) {
+        drawHighlightedGuideLine(s, line, panel.x + pad, ly, maxTextW, bodyScale, MUTED);
         ly += bodyLineH;
     }
     y += panel.h + dp(s, 14);
@@ -5025,49 +5412,111 @@ void drawHowToIntro(AppState *s, float &y) {
 
 void drawHowTo(AppState *s) {
     float y = beginScrollContent(s, guideContentTop(s));
-    drawHowToIntro(s, y);
+    std::vector<HighlightRule> highlights = guideHighlightRules(s, false);
+    drawHowToIntro(s, y, &highlights);
     drawGuideBlock(s, y, "1. Make every tile white",
                    {"- A white tile is solved.",
-                    "- Colored tiles still need more pulses before the board is complete.",
-                    "- The puzzle is solved only when every active tile is white."},
-                   GREEN, GuideDiagramKind::Read);
+                    "- Colored tiles are not wrong. They just need to keep advancing until they return to white.",
+                    "- The puzzle ends only when every active tile is white at the same time."},
+                   GREEN, GuideDiagramKind::Read, &highlights);
     drawGuideBlock(s, y, "2. Tap and cycle",
-                   {"- Tap an available tile to send its pulse pattern.",
-                    "- Every tile in that pattern advances one state.",
-                    "- After the last colored state, the next advance turns that tile white."},
-                   BLUE, GuideDiagramKind::Tap);
+                   {"- Tap an available tile to apply the level's tap pattern.",
+                    "- Every tile reached by the pattern advances one state.",
+                    "- States cycle: after the last colored state, the next advance returns that tile to white."},
+                   BLUE, GuideDiagramKind::Tap, &highlights);
     drawGuideBlock(s, y, "3. Use the pattern preview",
-                   {"- Levels can use cross, diagonal, square, horizontal, vertical, knight, or mixed patterns.",
-                    "- Hold or hover a tile to preview the tiles that will change."},
-                   ORANGE, GuideDiagramKind::Pattern);
+                   {"- A level can use a cross, diagonal, square, horizontal, vertical, knight, or mixed pattern.",
+                    "- Hold or hover a tile to see exactly which tiles will change before you tap."},
+                   ORANGE, GuideDiagramKind::Pattern, &highlights);
     drawGuideBlock(s, y, "4. Handle special tiles",
-                   {"- Locked tiles can change when nearby pulses reach them.",
-                    "- You cannot tap locked tiles directly.",
-                    "- Empty holes are not part of the board."},
-                   PURPLE, GuideDiagramKind::Special);
+                   {"- A tile with a lock icon still needs to become white and can change when a nearby tap reaches it.",
+                    "- You cannot tap a tile with a lock icon directly.",
+                    "- An empty hole is outside the board. Tap patterns skip empty holes."},
+                   PURPLE, GuideDiagramKind::Special, &highlights);
     drawGuideBlock(s, y, "Modes: Choose your puzzle",
-                   {"- Campaign: Complete fixed levels in order; the next level opens after each solve.",
-                    "- Custom Level: Choose board size, states, pattern, difficulty, locks, gaps, and whether the generator should prefer a unique solution.",
-                    "- Daily Challenge: Play the same three generated puzzles as everyone else for the date; each puzzle keeps its own saved best score."},
-                   GREEN, GuideDiagramKind::Modes);
-    drawGuideBlock(s, y, "Moves, stars, and hints",
-                   {"- The move counter counts every tap.",
-                    "- Three stars means you matched the generator's minimum found move count.",
-                    "- Two-star and one-star targets allow extra moves.",
-                    "- Undo rewinds one move. Reset restores the starting board.",
-                    "- Hint applies the next move from a solver plan. Using a hint removes stars for that try, but the puzzle still counts as complete.",
-                    "- Tiles changed by a hint are marked in red."},
-                   BLUE, GuideDiagramKind::Moves);
+                   {"- Campaign: Solve fixed levels in order. Each solve opens the next level.",
+                    "- Custom Level: Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.",
+                    "- Daily Challenge: Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score."},
+                   GREEN, GuideDiagramKind::Modes, &highlights);
+    drawGuideBlock(s, y, "Taps, stars, and hints",
+                   {"- The tap counter counts every tap you commit.",
+                    "- Three stars mean you matched the generator's minimum found tap count.",
+                    "- Two-star and one-star targets allow extra taps.",
+                    "- Undo rewinds one tap, and Reset restores the starting board.",
+                    "- Hint applies the next tap from a solver plan. A hinted try can still complete the puzzle, but it no longer earns stars.",
+                    "- Tiles changed by a hint are outlined in red."},
+                   BLUE, GuideDiagramKind::Moves, &highlights);
     drawGuideBlock(s, y, "Settings",
                    {"- Sound toggles audio effects.",
-                    "- Show numbers on tiles displays state values when you want them.",
+                    "- Show numbers on tiles displays state values when you want a more exact view.",
                     "- Android also includes haptic feedback controls."},
-                   ORANGE, GuideDiagramKind::Options);
+                   ORANGE, GuideDiagramKind::Options, &highlights);
     finishScrollContent(s, y);
-    drawGuideHeader(s);
+    drawGuideHeader(s, "How to Play");
 }
 
-void drawMathIntro(AppState *s, float &y) {
+void drawMathPulseDemo(AppState *s, Rect area, bool showPatternBorders = false) {
+    if (area.w <= 0.0f || area.h <= 0.0f) return;
+    Renderer &r = s->renderer;
+    drawGlassPanel(s, area, rgba(7, 10, 14, 0.36f), withAlpha(BLUE, 0.028f));
+    float pad = dp(s, 9);
+    float gap = dp(s, 5);
+    float board = std::min(area.w - pad * 2.0f, area.h - pad * 2.0f);
+    if (board <= gap * 3.0f) return;
+    float tile = (board - gap * 3.0f) / 4.0f;
+    float left = area.x + (area.w - board) * 0.5f;
+    float top = area.y + (area.h - board) * 0.5f;
+    float radius = std::max(3.0f, std::min(dp(s, 7), tile * 0.18f));
+    int64_t elapsed = nowMs() % 2400;
+    float phase = static_cast<float>(elapsed) / 2400.0f;
+    bool changed = phase >= 0.34f && phase < 0.76f;
+    bool pulsing = phase >= 0.18f && phase <= 0.54f;
+    bool ringVisible = phase >= 0.20f && phase < 0.62f;
+    bool patternBorderVisible = showPatternBorders && phase >= 0.14f && phase < 0.38f;
+    float patternBorderAlpha = 0.0f;
+    if (patternBorderVisible) {
+        if (phase < 0.20f) {
+            patternBorderAlpha = (phase - 0.14f) / 0.06f;
+        } else if (phase > 0.30f) {
+            patternBorderAlpha = (0.38f - phase) / 0.08f;
+        } else {
+            patternBorderAlpha = 1.0f;
+        }
+        patternBorderAlpha = clampFloat(patternBorderAlpha, 0.0f, 1.0f);
+    }
+    float pulseScale = 1.0f;
+    if (pulsing) {
+        float pulse = (phase - 0.18f) / 0.36f;
+        if (pulse < 0.65f) {
+            pulseScale = 0.90f + pulse / 0.65f * 0.18f;
+        } else {
+            pulseScale = 1.08f - (pulse - 0.65f) / 0.35f * 0.08f;
+        }
+    }
+    for (int row = 0; row < 4; ++row) {
+        for (int col = 0; col < 4; ++col) {
+            int idx = row * 4 + col;
+            bool affected = idx == 1 || idx == 4 || idx == 5 || idx == 6 || idx == 9;
+            float scale = affected && pulsing ? pulseScale : 1.0f;
+            float extra = tile * (scale - 1.0f) * 0.5f;
+            Rect cell{left + col * (tile + gap) - extra, top + row * (tile + gap) - extra,
+                      tile + extra * 2.0f, tile + extra * 2.0f};
+            drawMatrixTileSurface(s, cell, affected && changed ? 1 : 0, radius, true);
+            if (affected && patternBorderAlpha > 0.0f) {
+                r.roundedStroke({cell.x - dp(s, 2), cell.y - dp(s, 2), cell.w + dp(s, 4), cell.h + dp(s, 4)},
+                                radius + dp(s, 2), std::max(1.0f, tile * 0.070f),
+                                withAlpha(GREEN, 0.95f * patternBorderAlpha));
+            }
+            if (idx == 5 && ringVisible) {
+                float fade = phase < 0.50f ? 0.84f : std::max(0.18f, (0.62f - phase) / 0.12f * 0.84f);
+                r.roundedStroke({cell.x - dp(s, 2), cell.y - dp(s, 2), cell.w + dp(s, 4), cell.h + dp(s, 4)},
+                                radius + dp(s, 2), std::max(1.0f, tile * 0.07f), withAlpha(TEXT, fade));
+            }
+        }
+    }
+}
+
+void drawMathIntro(AppState *s, float &y, std::vector<HighlightRule> *highlights = nullptr) {
     Renderer &r = s->renderer;
     float scale = guideTextScale(s);
     float pad = dp(s, 14);
@@ -5077,17 +5526,18 @@ void drawMathIntro(AppState *s, float &y) {
     float bodyScale = dp(s, 1.78f) * scale;
     float titleLineH = dp(s, 31) * scale;
     float lineH = dp(s, 22) * scale;
-    float formulaH = dp(s, 52) * std::min(1.16f, scale);
-    std::vector<std::string> titleLines = wrapTextLines(s, tr(s, "A spin on classical Lights Out"), titleScale, maxTextW);
-    std::vector<std::string> bodyLines = wrapTextLines(s, std::vector<std::string>{
-        "Fix an order for the active tiles.",
-        "Then each board grid is represented by a vector s in (Z/nZ)^m.",
-        "Each legal tap pulse has its own vector v_j in the same module.",
-        "The columns of A are those pulse vectors, and solving asks for A x = -s modulo n."
-    }, bodyScale, maxTextW);
+    float demoH = dp(s, 108) * std::min(1.16f, scale);
+    std::vector<std::string> titleLines = wrapTextLines(s, tr(s, "Invert the Matrix is a modular linear-algebra puzzle."), titleScale, maxTextW);
+    std::vector<WrappedGuideLine> bodyLines = wrapGuideLines(s, std::vector<std::string>{
+        "To play, think of each active tile as having a state, shown by its color.",
+        "A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile.",
+        "After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all active tiles white at the same time.",
+        "Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap.",
+        "But later on, everything gets much more complicated."
+    }, bodyScale, maxTextW, 0.0f, highlights);
     Rect panel{dp(s, 18), y, panelW,
                pad * 2.0f + titleLineH * static_cast<float>(titleLines.size()) + dp(s, 10) +
-                   lineH * static_cast<float>(bodyLines.size()) + formulaH + dp(s, 14)};
+                   lineH * static_cast<float>(bodyLines.size()) + demoH + dp(s, 14)};
     if (!nearViewport(s, panel)) {
         y += panel.h + dp(s, 14);
         return;
@@ -5099,17 +5549,17 @@ void drawMathIntro(AppState *s, float &y) {
         ly += titleLineH;
     }
     ly += dp(s, 10);
-    for (const std::string &line : bodyLines) {
-        drawFittedText(s, line, panel.x + pad, ly, maxTextW, bodyScale, MUTED);
+    for (const WrappedGuideLine &line : bodyLines) {
+        drawHighlightedGuideLine(s, line, panel.x + pad, ly, maxTextW, bodyScale, MUTED);
         ly += lineH;
     }
-    drawFormulaCard(s, {panel.x + dp(s, 12), panel.y + panel.h - formulaH - dp(s, 12), panel.w - dp(s, 24), formulaH},
-                    FormulaKind::Hero, BLUE);
+    drawMathPulseDemo(s, {panel.x + dp(s, 12), panel.y + panel.h - demoH - dp(s, 12), panel.w - dp(s, 24), demoH});
     y += panel.h + dp(s, 14);
 }
 
 void drawMathBlock(AppState *s, float &y, const std::string &title, const std::vector<std::string> &lines,
-                   FormulaKind kind, Color accent = GREEN, float formulaHeightDp = 64.0f) {
+                   FormulaKind kind, Color accent = GREEN, float formulaHeightDp = 64.0f,
+                   std::vector<HighlightRule> *highlights = nullptr) {
     Renderer &r = s->renderer;
     float scale = guideTextScale(s);
     float lineH = dp(s, 20) * scale;
@@ -5119,7 +5569,7 @@ void drawMathBlock(AppState *s, float &y, const std::string &title, const std::v
     float panelW = r.width - dp(s, 36);
     float maxTextW = panelW - pad * 2.0f;
     float bodyScale = dp(s, 1.72f) * scale;
-    std::vector<std::string> wrappedLines = wrapTextLines(s, lines, bodyScale, maxTextW);
+    std::vector<WrappedGuideLine> wrappedLines = wrapGuideLines(s, lines, bodyScale, maxTextW, 0.0f, highlights);
     float panelH = pad * 2.0f + titleH + lineH * static_cast<float>(wrappedLines.size()) + formulaH + dp(s, 10);
     Rect panel{dp(s, 18), y, panelW, panelH};
     if (!nearViewport(s, panel)) {
@@ -5129,8 +5579,8 @@ void drawMathBlock(AppState *s, float &y, const std::string &title, const std::v
     drawMathPanel(s, panel, accent);
     drawFittedText(s, tr(s, title), panel.x + pad, panel.y + pad, panel.w - pad * 2.0f, dp(s, 2.48f) * scale, TEXT);
     float ly = panel.y + pad + titleH;
-    for (const std::string &line : wrappedLines) {
-        drawFittedText(s, line, panel.x + pad, ly, maxTextW, bodyScale, MUTED);
+    for (const WrappedGuideLine &line : wrappedLines) {
+        drawHighlightedGuideLine(s, line, panel.x + pad, ly, maxTextW, bodyScale, MUTED);
         ly += lineH;
     }
     drawFormulaCard(s, {panel.x + dp(s, 12), panel.y + panel.h - formulaH - dp(s, 12), panel.w - dp(s, 24), formulaH},
@@ -5140,113 +5590,131 @@ void drawMathBlock(AppState *s, float &y, const std::string &title, const std::v
 
 void drawMath(AppState *s) {
     float y = beginScrollContent(s, guideContentTop(s));
-    drawMathIntro(s, y);
+    std::vector<HighlightRule> highlights = guideHighlightRules(s, true);
+    drawMathIntro(s, y, &highlights);
+    drawGuideBlock(s, y, "Modeling The Game",
+                   {"Turn the board into one equation.",
+                    "First list the active board positions in a fixed order.",
+                    "Then the displayed board is a vector s in (Z/nZ)^m.",
+                    "Each allowed tap has an effect vector recording which tiles it advances.",
+                    "The columns of A are those effect vectors, and a tap-count vector x solves the puzzle when s + A x = 0 modulo n.",
+                    "Values are read modulo n, so after n - 1 the next value is 0."},
+                   GREEN, GuideDiagramKind::None, &highlights);
     drawGuideBlock(s, y, "From Lights Out",
-                   {"Classical Lights Out is the n = 2 case: tiles are off or on.",
-                    "Pressing a tile toggles a fixed neighborhood, which is addition by 1 modulo 2.",
-                    "Pressing the same tile twice gives no net change.",
-                    "Invert the Matrix keeps the same linear question over Z/nZ, with more states and richer boards."},
-                   BLUE);
+                   {"Classical Lights Out is the n = 2 case: tiles are 0 or 1.",
+                    "Tapping a tile changes the same shape of nearby tiles every time.",
+                    "Usually that shape is the tapped tile plus the tiles above, below, left, and right.",
+                    "Changing a tile is adding 1 modulo 2, so tapping the same tile twice gives no net change.",
+                    "Invert the Matrix keeps that add-the-effects rule while allowing n states over Z/nZ.",
+                    "Empty holes are not included in the board vector. Tiles with lock icons stay in it because they must become white.",
+                    "Tiles with lock icons do not get tap choices because they cannot be tapped directly.",
+                    "The mathematical question is precise: can the allowed taps add up to the target change -s?"},
+                   BLUE, GuideDiagramKind::None, &highlights);
     drawMathBlock(s, y, "1. The Board Is A Vector",
-                  {"Let p_1, ..., p_m be the active positions, listed in a fixed order.",
-                   "The board vector s has coordinate s_i equal to the value at p_i.",
-                   "Thus the displayed grid is represented by s in (Z/nZ)^m.",
+                  {"Let P = {p_1, ..., p_m} be the set of active board positions, in a fixed order.",
+                   "A configuration is the vector s = (s_1, ..., s_m) in (Z/nZ)^m.",
+                   "Value s_i is the state value shown at p_i, read modulo n.",
                    "The solved board is the zero vector."},
-                  FormulaKind::Remainder, GREEN, 70.0f);
-    drawMathBlock(s, y, "2. Each Tap Has A Pulse Vector",
-                  {"Let q_1, ..., q_r be the legal tap positions.",
-                   "The pulse at q_j defines a vector v_j in (Z/nZ)^m.",
-                   "Coordinate (v_j)_i is 1 when that pulse changes p_i, and 0 otherwise.",
-                   "The move matrix is A = [v_1 ... v_r].",
-                   "Locked tiles can be rows, because they must be solved, but they are not tap columns."},
-                  FormulaKind::Column, ORANGE, 78.0f);
-    drawMathBlock(s, y, "3. A Plan Is A Vector",
+                  FormulaKind::Remainder, GREEN, 70.0f, &highlights);
+    drawMathBlock(s, y, "2. Each Tap Has An Effect Vector",
+                  {"Let q_1, ..., q_r be the positions that can be tapped.",
+                   "The effect vector of the tap at q_j is v_j in (Z/nZ)^m.",
+                   "Value (v_j)_i is 1 when that tap advances p_i, and 0 otherwise.",
+                   "The tap matrix is A = [v_1 ... v_r].",
+                   "A row tracks a board position. A column tracks an allowed tap.",
+                   "A tile with a lock icon gets a row, but no column, because it must become white and cannot be tapped directly."},
+                  FormulaKind::Column, ORANGE, 78.0f, &highlights);
+    drawMathBlock(s, y, "3. The Tap Vector",
                   {"The tap-count vector x = (x_1, ..., x_r) lies in (Z/nZ)^r.",
-                   "Coordinate x_j records how many times tap q_j is used, modulo n.",
+                   "Value x_j records how many times the tap at q_j is used, modulo n.",
                    "Executing x adds sum_j x_j v_j, which is A x.",
                    "Tap order does not enter the algebra."},
-                  FormulaKind::Plan, PURPLE, 60.0f);
+                  FormulaKind::Plan, PURPLE, 60.0f, &highlights);
     drawMathBlock(s, y, "Goal: Find A Tap-Count Vector",
                   {"After applying x, the board vector is s + A x.",
                    "The target is the zero vector in (Z/nZ)^m.",
                    "So a solution satisfies A x = -s modulo n.",
-                   "This is a system of linear congruences."},
-                  FormulaKind::Goal, BLUE, 60.0f);
+                   "This is a set of linear equations with arithmetic modulo n."},
+                  FormulaKind::Goal, BLUE, 60.0f, &highlights);
     drawMathBlock(s, y, "When Does A Solution Exist?",
-                  {"The columns of A describe all board changes reachable by legal moves.",
+                  {"The columns of A describe all board changes reachable by allowed taps.",
                    "Equivalently, Im(A) = {A x : x in (Z/nZ)^r}.",
                    "There is a solution exactly when the target -s lies in Im(A).",
-                   "Over prime n, row-reduce the augmented system [A | -s].",
-                   "A row [0 ... 0 | c] with c nonzero proves inconsistency."},
-                  FormulaKind::Image, GREEN, 70.0f);
+                   "Over prime n, simplify the rows of the system [A | -s].",
+                   "A row [0 ... 0 | c] with c not 0 proves that no solution exists.",
+                   "If no impossible row appears, the simplified system gives at least one tap plan."},
+                  FormulaKind::Image, GREEN, 70.0f, &highlights);
     drawMathBlock(s, y, "Prime n: Fields",
                   {"For n = 2, 3, or 5, Z/nZ is a field.",
-                   "Every nonzero value has an inverse, so division by a pivot is legal.",
-                   "Gaussian elimination works like ordinary linear algebra, only with modular arithmetic.",
-                   "Free variables correspond to different solving plans."},
-                  FormulaKind::Prime, GREEN, 54.0f);
+                   "Every value different from 0 has an inverse, so simplifying rows can divide by it.",
+                   "Simplifying rows works like ordinary linear algebra, only with modular arithmetic.",
+                   "When simplification leaves a choice open, that choice gives another solving plan."},
+                  FormulaKind::Prime, GREEN, 54.0f, &highlights);
     drawMathBlock(s, y, "Composite n: Rings",
                   {"For composite n, Z/nZ is a ring rather than a field.",
-                   "For n = 4, the number 2 is nonzero but has no inverse.",
+                   "For n = 4, the number 2 is different from 0 but has no inverse.",
                    "So division by 2 is not a valid row operation.",
-                   "The criterion is unchanged: -s must lie in Im(A) over Z/nZ.",
-                   "Verification must use ring-valid operations, or compatible prime-power checks."},
-                  FormulaKind::Four, PURPLE, 54.0f);
+                   "The rule is unchanged: -s must lie in Im(A) over Z/nZ.",
+                   "Verification must use operations that are valid in the ring, or smaller modulo checks that agree with each other."},
+                  FormulaKind::Four, PURPLE, 54.0f, &highlights);
     drawMathBlock(s, y, "When Is It Unique?",
-                  {"If x0 solves the puzzle, every other solution is x0 plus a silent plan z.",
-                   "Here z lies in ker(A), because A z is the zero vector.",
-                   "Tapping one tile n extra times adds n e_j, the zero vector in tap-count space.",
-                   "That built-in repetition is not a new algebraic solution.",
+                  {"If x0 solves the puzzle, every other solution is x0 plus a tap-count vector z with A z = 0.",
+                   "The equation A z = 0 means that z causes no net board change.",
+                   "The set of all such z is ker(A), the kernel of the tap matrix.",
+                   "Tapping one tile n extra times adds n e_j, the zero vector in (Z/nZ)^r.",
+                   "That represents the same tap-count vector, not a new tap-count solution.",
                    "Thus the full solution set is x0 + ker(A).",
-                   "The solution is unique exactly when ker(A) has only the zero vector.",
-                   "A nonzero silent plan gives genuinely different tap-count vectors for the same board."},
-                  FormulaKind::Kernel, BLUE, 58.0f);
-    // Android 1.0.5: clarify cross-pattern invertibility and modulo silent-pulse uniqueness.
-    drawGuideBlock(s, y, "Cross Pattern: When Is A Invertible?",
-                   {"On a plain board with no locks or gaps, the cross pattern has one tap column per tile.",
-                    "Then A is a square endomorphism of (Z/nZ)^(w h).",
+                   "The solution is unique exactly when ker(A) contains only the zero vector.",
+                   "If a tap-count vector z is not zero and has A z = 0, then x0 and x0 + z solve the same board."},
+                  FormulaKind::Kernel, BLUE, 58.0f, &highlights);
+    // Android 1.0.5: clarify matrix invertibility and modulo uniqueness.
+    drawGuideBlock(s, y, "When Is A Invertible?",
+                   {"A true inverse matrix can exist only when A is square, meaning it has the same number of rows and columns.",
+                    "This happens on a w by h board with no tiles with lock icons and no empty holes.",
+                    "In that case, A sends vectors in (Z/nZ)^(w h) to vectors in (Z/nZ)^(w h).",
                     "An inverse means every starting board has one unique tap-count vector.",
-                    "Over Z/nZ, this happens exactly when det(A) is a unit modulo n.",
-                    "Equivalently, gcd(det(A), n) = 1.",
-                    "For prime n, this is the same as full rank, or det(A) not equal to 0 modulo n.",
+                    "Over Z/nZ, this happens exactly when det(A) has a multiplicative inverse modulo n.",
+                    "For prime n, this means det(A) is not equal to 0 modulo n.",
                     "For n = 4, det(A) must be odd.",
-                    "If this fails in the square case, unreachable boards and nonzero silent plans both exist.",
-                    "With locks or gaps, A may be rectangular, so image and kernel are the useful tests instead."},
-                   GREEN);
+                    "If this fails in the square case, some starting boards cannot be solved and ker(A) contains tap-count vectors different from zero.",
+                    "With tiles with lock icons or empty holes, A may have different numbers of rows and columns.",
+                    "Then the useful tests are whether the target change can be reached and whether ker(A) contains tap-count vectors different from zero."},
+                   GREEN, GuideDiagramKind::None, &highlights);
     drawMathBlock(s, y, "Why The Minimum Matters",
                   {"Linear algebra may give many valid tap-count vectors.",
-                   "For each residue x_j, use its representative from 0 through n - 1.",
-                   "The physical length is the sum of those representatives.",
+                   "For each tap count x_j, use the number from 0 through n - 1 that represents it.",
+                   "The physical length is the sum of those chosen numbers.",
                    "The three-star target is based on a shortest solution found for that board."},
-                  FormulaKind::Minimum, ORANGE, 64.0f);
+                  FormulaKind::Minimum, ORANGE, 64.0f, &highlights);
     drawGuideBlock(s, y, "How The Shortest Solver Works",
-                   {"Small boards use breadth-first search through board states.",
-                    "Each edge is one legal tap, so the first solved state reached is a true minimum.",
-                    "Larger prime-state boards row-reduce A x = -s.",
-                    "If free variables remain and the nullspace search is small enough, the app enumerates x0 + ker(A).",
-                    "It chooses the vector with the smallest sum of residues from 0 through n - 1.",
-                    "If exact search is too large, or composite n is too large for BFS, the game uses a known solving plan.",
-                    "The shortest tap-count vector need not be unique; ties are possible.",
-                    "The app keeps one deterministic shortest plan, but does not mark shortest-plan uniqueness."},
-                   ORANGE);
-    drawGuideBlock(s, y, "Locked Tiles And Gaps",
-                   {"Locked tiles remain rows because their values must become zero.",
-                    "They are not columns, because they cannot be tapped directly.",
-                    "Gaps are omitted from the ordered active positions, so they are neither rows nor columns.",
-                    "The same map A: (Z/nZ)^r -> (Z/nZ)^m handles these irregular boards."},
-                   PURPLE);
+                   {"Small boards search by tap count: first one tap, then two taps, and so on.",
+                    "The first solved state reached gives the true minimum.",
+                    "Larger prime-state boards simplify the rows of A x = -s.",
+                    "If the simplified system leaves choices that are not forced, the solutions are x0 + ker(A).",
+                    "When that search is small enough, the app enumerates those tap-count vectors.",
+                    "It chooses the vector with the smallest sum of tap counts from 0 through n - 1.",
+                    "If exact search is too large, or composite n is too large for this search, the game uses a known solving plan.",
+                    "The shortest tap-count vector need not be unique. Ties are possible.",
+                    "The app keeps the same shortest plan every time when it can prove the minimum."},
+                   ORANGE, GuideDiagramKind::None, &highlights);
+    drawGuideBlock(s, y, "Tiles With Lock Icons And Empty Holes",
+                   {"A tile with a lock icon stays in the board vector because its value must become zero, and nearby taps may still change it.",
+                    "It does not get its own tap choice in x because it cannot be tapped directly.",
+                    "An empty hole is left out of the ordered list P, so the equation only tracks active board positions.",
+                    "This is how the same equation adapts to irregular boards."},
+                   PURPLE, GuideDiagramKind::Special, &highlights);
     drawGuideBlock(s, y, "How The Generator Uses This",
-                   {"The generator determines the pulse vectors from the board shape, locks, gaps, and pattern.",
-                    "It chooses or certifies a starting vector s with some x satisfying s + A x = 0.",
-                    "When the exact solver is available, it searches the solution set for a short representative.",
-                    "Hints follow a stored solving plan one move at a time.",
-                    "The red outline marks exactly the tiles changed by that hint move."},
-                   GREEN);
+                   {"The generator uses the same ingredients: board shape, tiles with lock icons, empty holes, tap pattern, and effect vectors.",
+                    "It chooses or verifies a starting vector s with some x satisfying s + A x = 0.",
+                    "When the exact solver is available, it searches the solution set for a short tap-count vector.",
+                    "Hints follow a stored solving plan one tap at a time.",
+                    "The red outline marks exactly the tiles changed by that hint tap."},
+                   GREEN, GuideDiagramKind::None, &highlights);
     drawMathBlock(s, y, "What The Symbols Mean",
                   {"These are the compact labels used by the equations and solver."},
-                  FormulaKind::Symbols, BLUE, 166.0f);
+                  FormulaKind::Symbols, BLUE, 166.0f, &highlights);
     finishScrollContent(s, y);
-    drawGuideHeader(s);
+    drawGuideHeader(s, "The Math");
 }
 
 void drawSettings(AppState *s) {
@@ -5273,44 +5741,155 @@ void drawSettings(AppState *s) {
     drawHeader(s, "Options", "Settings", Action::BackReturn);
 }
 
-void drawGithubLogo(AppState *s, float cx, float cy, float size) {
+void drawGithubLogo(AppState *s, float cx, float cy, float size, bool finishSkiaLayer = false) {
     Renderer &r = s->renderer;
-    r.circle(cx, cy, size * 0.5f, TEXT, 48);
-    Color ink = rgba(7, 10, 14, 0.96f);
     if (r.skiaReady()) {
-        SkPaint paint;
-        paint.setAntiAlias(true);
-        paint.setColor(Renderer::skColor(ink));
-        paint.setStyle(SkPaint::kFill_Style);
-
-        SkPathBuilder ears;
-        ears.moveTo(cx - size * 0.23f, cy - size * 0.18f);
-        ears.lineTo(cx - size * 0.30f, cy - size * 0.39f);
-        ears.lineTo(cx - size * 0.08f, cy - size * 0.30f);
-        ears.moveTo(cx + size * 0.23f, cy - size * 0.18f);
-        ears.lineTo(cx + size * 0.30f, cy - size * 0.39f);
-        ears.lineTo(cx + size * 0.08f, cy - size * 0.30f);
-        r.skCanvas->drawPath(ears.close().detach(), paint);
-
-        SkPathBuilder head;
-        head.moveTo(cx - size * 0.29f, cy - size * 0.08f);
-        head.cubicTo(cx - size * 0.29f, cy - size * 0.27f, cx - size * 0.14f, cy - size * 0.37f, cx, cy - size * 0.37f);
-        head.cubicTo(cx + size * 0.14f, cy - size * 0.37f, cx + size * 0.29f, cy - size * 0.27f, cx + size * 0.29f, cy - size * 0.08f);
-        head.cubicTo(cx + size * 0.31f, cy + size * 0.09f, cx + size * 0.22f, cy + size * 0.25f, cx + size * 0.11f, cy + size * 0.30f);
-        head.lineTo(cx + size * 0.09f, cy + size * 0.42f);
-        head.lineTo(cx - size * 0.09f, cy + size * 0.42f);
-        head.lineTo(cx - size * 0.11f, cy + size * 0.30f);
-        head.cubicTo(cx - size * 0.22f, cy + size * 0.25f, cx - size * 0.31f, cy + size * 0.09f, cx - size * 0.29f, cy - size * 0.08f);
-        r.skCanvas->drawPath(head.close().detach(), paint);
-        return;
+        static SkPath markPath;
+        static bool markPathReady = false;
+        if (!markPathReady) {
+            if (auto parsed = SkParsePath::FromSVGString(GITHUB_MARK_SVG_PATH)) {
+                markPath = *parsed;
+                markPathReady = true;
+            }
+        }
+        if (markPathReady) {
+            SkPaint paint;
+            paint.setAntiAlias(true);
+            paint.setColor(Renderer::skColor(TEXT));
+            paint.setStyle(SkPaint::kFill_Style);
+            r.skCanvas->save();
+            r.skCanvas->translate(cx - size * 0.5f, cy - size * 0.5f);
+            r.skCanvas->scale(size / 16.0f, size / 16.0f);
+            r.skCanvas->drawPath(markPath, paint);
+            r.skCanvas->restore();
+            if (finishSkiaLayer) {
+                if (r.skSurface && r.skContext) r.skContext->flushAndSubmit(r.skSurface.get());
+                if (r.skContext) r.skContext->resetContext();
+                r.skCanvas = nullptr;
+                r.skSurface.reset();
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glViewport(0, 0, r.width, r.height);
+            }
+            return;
+        }
     }
 
     r.tri(cx - size * 0.23f, cy - size * 0.18f, cx - size * 0.30f, cy - size * 0.39f,
-          cx - size * 0.08f, cy - size * 0.30f, ink);
+          cx - size * 0.08f, cy - size * 0.30f, TEXT);
     r.tri(cx + size * 0.23f, cy - size * 0.18f, cx + size * 0.30f, cy - size * 0.39f,
-          cx + size * 0.08f, cy - size * 0.30f, ink);
-    r.circle(cx, cy - size * 0.06f, size * 0.31f, ink, 32);
-    r.roundedRect(cx - size * 0.09f, cy + size * 0.18f, size * 0.18f, size * 0.22f, size * 0.04f, ink);
+          cx + size * 0.08f, cy - size * 0.30f, TEXT);
+    r.circle(cx, cy - size * 0.06f, size * 0.31f, TEXT, 32);
+    r.roundedRect(cx - size * 0.09f, cy + size * 0.18f, size * 0.18f, size * 0.22f, size * 0.04f, TEXT);
+}
+
+float githubLabelPixelHeight(float textScale) {
+    return std::max(8.0f, textScale * 6.2f);
+}
+
+std::array<uint8_t, 7> githubLabelGlyph(char c) {
+    switch (c) {
+        case 'a': return {0, 0, 14, 1, 15, 17, 15};
+        case 'i': return {4, 0, 12, 4, 4, 4, 14};
+        case 'l': return {12, 4, 4, 4, 4, 4, 14};
+        case 'o': return {0, 0, 14, 17, 17, 17, 14};
+        case 'p': return {0, 0, 30, 17, 30, 16, 16};
+        case 'r': return {0, 0, 22, 25, 16, 16, 16};
+        case 't': return {4, 4, 31, 4, 4, 4, 3};
+        default: return {0, 0, 0, 0, 0, 0, 0};
+    }
+}
+
+float githubPixelLabelWidth(const std::string &text, float scale) {
+    return static_cast<float>(text.size()) * 6.0f * scale;
+}
+
+void drawGithubPixelLabel(AppState *s, const std::string &text, float x, float centerY, float textScale) {
+    Renderer &r = s->renderer;
+    float scale = githubLabelPixelHeight(textScale) / 7.0f;
+    float y = centerY - scale * 3.5f;
+    float cursor = x;
+    for (char c : text) {
+        auto glyph = githubLabelGlyph(c);
+        for (int row = 0; row < 7; ++row) {
+            for (int col = 0; col < 5; ++col) {
+                if (glyph[row] & (1 << (4 - col))) {
+                    r.roundedRect(cursor + col * scale, y + row * scale,
+                                  scale * 0.92f, scale * 0.92f,
+                                  std::max(1.0f, scale * 0.18f), TEXT);
+                }
+            }
+        }
+        cursor += 6.0f * scale;
+    }
+}
+
+float githubSkiaLabelWidth(Renderer &r, const std::string &text, float textScale) {
+    if (!r.vectorFontReady) return githubPixelLabelWidth(text, githubLabelPixelHeight(textScale) / 7.0f);
+    float scale = stbtt_ScaleForPixelHeight(&r.vectorFontInfo, githubLabelPixelHeight(textScale));
+    float width = 0.0f;
+    int previous = 0;
+    for (int codepoint : r.utf8Codepoints(text)) {
+        if (previous) width += stbtt_GetCodepointKernAdvance(&r.vectorFontInfo, previous, codepoint) * scale;
+        int advance = 0;
+        int leftBearing = 0;
+        stbtt_GetCodepointHMetrics(&r.vectorFontInfo, codepoint, &advance, &leftBearing);
+        width += advance * scale;
+        previous = codepoint;
+    }
+    return width;
+}
+
+void drawGithubLabelSkia(AppState *s, const std::string &text, float x, float centerY, float textScale) {
+    Renderer &r = s->renderer;
+    if (!r.skiaReady()) return;
+    if (!r.vectorFontReady) {
+        drawGithubPixelLabel(s, text, x, centerY, textScale);
+        return;
+    }
+    float scale = stbtt_ScaleForPixelHeight(&r.vectorFontInfo, githubLabelPixelHeight(textScale));
+    int ascent = 0;
+    int descent = 0;
+    stbtt_GetFontVMetrics(&r.vectorFontInfo, &ascent, &descent, nullptr);
+    float baseline = centerY + (ascent + descent) * scale * 0.5f;
+    float cursor = x;
+    int previous = 0;
+    SkPathBuilder textBuilder;
+    for (int codepoint : r.utf8Codepoints(text)) {
+        if (previous) cursor += stbtt_GetCodepointKernAdvance(&r.vectorFontInfo, previous, codepoint) * scale;
+        stbtt_vertex *vertices = nullptr;
+        int vertexCount = stbtt_GetCodepointShape(&r.vectorFontInfo, codepoint, &vertices);
+        bool open = false;
+        for (int i = 0; i < vertexCount; ++i) {
+            const stbtt_vertex &v = vertices[i];
+            float px = cursor + v.x * scale;
+            float py = baseline - v.y * scale;
+            if (v.type == STBTT_vmove) {
+                if (open) textBuilder.close();
+                textBuilder.moveTo(px, py);
+                open = true;
+            } else if (v.type == STBTT_vline) {
+                textBuilder.lineTo(px, py);
+            } else if (v.type == STBTT_vcurve) {
+                textBuilder.quadTo(cursor + v.cx * scale, baseline - v.cy * scale, px, py);
+            } else if (v.type == STBTT_vcubic) {
+                textBuilder.cubicTo(cursor + v.cx * scale, baseline - v.cy * scale,
+                                    cursor + v.cx1 * scale, baseline - v.cy1 * scale, px, py);
+            }
+        }
+        if (open) textBuilder.close();
+        if (vertices) stbtt_FreeShape(&r.vectorFontInfo, vertices);
+        int advance = 0;
+        int leftBearing = 0;
+        stbtt_GetCodepointHMetrics(&r.vectorFontInfo, codepoint, &advance, &leftBearing);
+        cursor += advance * scale;
+        previous = codepoint;
+    }
+    SkPaint paint;
+    paint.setAntiAlias(true);
+    paint.setColor(Renderer::skColor(TEXT));
+    paint.setStyle(SkPaint::kFill_Style);
+    SkPath textPath = textBuilder.detach();
+    r.skCanvas->drawPath(textPath, paint);
 }
 
 void drawAbout(AppState *s) {
@@ -5331,31 +5910,43 @@ void drawAbout(AppState *s) {
     y += version.h + gap;
 
     drawGuideBlock(s, y, "Changelog",
-                   {"- 1.0.7 - 2026-05-14: " + tr(s, "Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows credits and version history."),
+                   {"- 1.0.8 - 2026-05-16: " + tr(s, "Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer."),
+                    "- 1.0.7 - 2026-05-14: " + tr(s, "Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link."),
                     "- 1.0.6 - 2026-05-13: " + tr(s, "Release builds keep native debug symbols for Play Console crash reports."),
-                    "- 1.0.5 - 2026-05-13: " + tr(s, "The Math guide explains uniqueness, silent plans, and cross-pattern invertibility.")},
+                    "- 1.0.5 - 2026-05-13: " + tr(s, "The Math guide explains solution uniqueness and matrix invertibility.")},
                    BLUE);
-    drawGuideBlock(s, y, "Credits",
-                   {"pportilla - github.com/pportilla"},
-                   GREEN);
     y += dp(s, 84);
     finishScrollContent(s, y);
     drawScreenHeaderChrome(s, contentTop, 12.0f);
-    drawHeader(s, "About", "About", Action::BackReturn);
+    drawHeader(s, "About", "About", Action::CloseAbout);
 
     float barH = dp(s, 54);
     float barW = std::min(r.width - dp(s, 36), dp(s, 420));
     Rect credit{(r.width - barW) * 0.5f, r.height - safeBottom(s) - dp(s, 16) - barH, barW, barH};
     drawGlassPanel(s, credit, PANEL_2);
     if (isPressedButton(s, credit, Action::OpenGithub, 0)) drawPressedButtonFeedback(s, credit, dp(s, 8));
+    const std::string githubLabel = "pportilla";
     float logo = dp(s, 24);
+    float labelGap = dp(s, 10);
     float textScale = dp(s, 2.55f);
-    float textW = r.textWidth("pportilla", textScale);
-    float groupW = logo + dp(s, 10) + textW;
+    float maxGroupW = credit.w - dp(s, 36);
+    auto labelWidth = [&]() {
+        return r.skiaReady() ? githubSkiaLabelWidth(r, githubLabel, textScale) : r.textWidth(githubLabel, textScale);
+    };
+    while (logo + labelGap + labelWidth() > maxGroupW && textScale > dp(s, 1.85f)) {
+        textScale *= 0.94f;
+    }
+    float textW = labelWidth();
+    float groupW = logo + labelGap + textW;
     float startX = credit.x + (credit.w - groupW) * 0.5f;
-    drawGithubLogo(s, startX + logo * 0.5f, credit.y + credit.h * 0.5f, logo);
-    r.textHeavy("pportilla", startX + logo + dp(s, 10), credit.y + credit.h * 0.5f - textScale * 4.0f,
-                textScale, TEXT, 0, 0.9f);
+    if (r.skiaReady()) {
+        drawGithubLogo(s, startX + logo * 0.5f, credit.y + credit.h * 0.5f, logo);
+        drawGithubLabelSkia(s, githubLabel, startX + logo + labelGap, credit.y + credit.h * 0.5f, textScale);
+    } else {
+        drawGithubLogo(s, startX + logo * 0.5f, credit.y + credit.h * 0.5f, logo);
+        r.textHeavy(githubLabel, startX + logo + labelGap, credit.y + credit.h * 0.5f - textScale * 4.0f,
+                    textScale, TEXT, 0, 0.9f);
+    }
     addButton(s, credit, Action::OpenGithub, 0, true);
 }
 
@@ -5395,7 +5986,7 @@ bool containsIndex(const std::vector<int> &items, int value) {
 
 Rect currentBoardRect(AppState *s) {
     Renderer &r = s->renderer;
-    float top = safeTop(s) + dp(s, 276);
+    float top = safeTop(s) + dp(s, 288);
     float bottom = safeBottom(s) + dp(s, 34);
     float maxW = r.width - dp(s, 42);
     float maxH = r.height - top - bottom;
@@ -5405,17 +5996,18 @@ Rect currentBoardRect(AppState *s) {
     return {(r.width - bw) * 0.5f, top + (maxH - bh) * 0.5f, bw, bh};
 }
 
-void drawPatternMini(AppState *s, Rect rect, const Puzzle &p) {
+void drawPatternPreviewGrid(AppState *s, Rect rect, const Pattern &pat) {
     Renderer &r = s->renderer;
-    drawPanel(r, rect, rgba(7, 10, 14, 0.42f));
-    std::string key = p.defaultPattern;
-    Pattern pat = patternFor(key);
+    float frameRadius = std::min(dp(s, 8), rect.h * 0.18f);
+    r.roundedRect(rect.x, rect.y, rect.w, rect.h, frameRadius, rgba(229, 236, 245, 0.46f));
+    r.roundedRect(rect.x + 1.0f, rect.y + 1.0f, rect.w - 2.0f, rect.h - 2.0f,
+                  std::max(1.0f, frameRadius - 1.0f), rgba(5, 7, 11, 0.98f));
     int maxDist = 1;
     for (auto &off : pat.offsets) {
         maxDist = std::max(maxDist, std::max(std::abs(off.first), std::abs(off.second)));
     }
     int size = std::max(3, maxDist * 2 + 1);
-    float pad = dp(s, 5);
+    float pad = dp(s, 4.5f);
     float dotGap = dp(s, 2);
     float dot = std::min((rect.w - pad * 2 - dotGap * (size - 1)) / size,
                          (rect.h - pad * 2 - dotGap * (size - 1)) / size);
@@ -5428,9 +6020,88 @@ void drawPatternMini(AppState *s, Rect rect, const Puzzle &p) {
         for (int x = 0; x < size; ++x) {
             bool on = active.count({x, y}) > 0;
             Rect d{left + x * (dot + dotGap), top + y * (dot + dotGap), dot, dot};
-            r.roundedRect(d.x, d.y, d.w, d.h, std::max(1.0f, dot * 0.25f), on ? GREEN : rgba(255, 255, 255, 0.09f));
-            if (x == center && y == center) r.stroke(d, 1.0f, withAlpha(TEXT, 0.5f));
+            float radius = std::max(1.0f, dot * 0.22f);
+            drawMatrixTileSurface(s, d, 0, radius, true);
+            if (on) {
+                float thickness = (x == center && y == center) ? std::max(1.4f, dot * 0.22f) : std::max(1.1f, dot * 0.17f);
+                r.roundedStroke(d, radius, thickness, withAlpha(GREEN, x == center && y == center ? 0.92f : 0.76f));
+            }
         }
+    }
+}
+
+void drawPatternMini(AppState *s, Rect rect, const Puzzle &p) {
+    drawPatternPreviewGrid(s, rect, patternFor(p.defaultPattern));
+}
+
+void drawPatternInfoButton(AppState *s, Rect rect, bool pressed = false) {
+    Renderer &r = s->renderer;
+    float cx = rect.x + rect.w * 0.5f;
+    float cy = rect.y + rect.h * 0.5f;
+    float radius = std::min(rect.w, rect.h) * 0.42f;
+    Color ring = pressed ? withAlpha(GREEN, 0.78f) : rgba(229, 236, 245, 0.58f);
+    r.circle(cx, cy, radius, ring, 28);
+    r.circle(cx, cy, std::max(1.0f, radius - dp(s, 1.25f)), PANEL, 28);
+    float dot = std::max(dp(s, 2.2f), radius * 0.18f);
+    float stemW = std::max(dp(s, 1.8f), radius * 0.16f);
+    float stemH = radius * 0.52f;
+    r.circle(cx, cy - radius * 0.30f, dot * 0.5f, TEXT, 14);
+    r.roundedRect(cx - stemW * 0.5f, cy - stemH * 0.06f, stemW, stemH, stemW * 0.5f, TEXT);
+}
+
+void addOutsideDismissButtons(AppState *s, Rect modal, Action action) {
+    Renderer &r = s->renderer;
+    float w = static_cast<float>(r.width);
+    float h = static_cast<float>(r.height);
+    if (modal.y > 0.0f) addButton(s, {0.0f, 0.0f, w, modal.y}, action, 0, true);
+    float bottomY = modal.y + modal.h;
+    if (bottomY < h) addButton(s, {0.0f, bottomY, w, h - bottomY}, action, 0, true);
+    if (modal.x > 0.0f) addButton(s, {0.0f, modal.y, modal.x, modal.h}, action, 0, true);
+    float rightX = modal.x + modal.w;
+    if (rightX < w) addButton(s, {rightX, modal.y, w - rightX, modal.h}, action, 0, true);
+}
+
+void drawPatternInfoPopup(AppState *s) {
+    if (!s->patternInfoOpen) return;
+    Renderer &r = s->renderer;
+    r.rect(0, 0, r.width, r.height, rgba(0, 0, 0, 0.68f));
+
+    float modalW = r.width - dp(s, 36);
+    float pad = dp(s, 18);
+    float textW = modalW - pad * 2.0f;
+    float titleH = dp(s, 74);
+    float demoH = dp(s, 112);
+    float bodyScale = dp(s, 2.54f);
+    float bodyLineH = dp(s, 34);
+    std::vector<std::string> lines = wrapTextLines(s, std::vector<std::string>{
+            "When you tap a tile, this pattern is centered on that tile. Every tile inside the pattern changes state.",
+            "The green outline matches the preview you see when you hold a tile."
+    }, bodyScale, textW);
+    float modalH = pad * 2.0f + titleH + demoH + dp(s, 18) +
+                   bodyLineH * static_cast<float>(lines.size());
+    float maxH = r.height - safeTop(s) - safeBottom(s) - dp(s, 42);
+    modalH = std::min(modalH, maxH);
+    Rect modal{dp(s, 18), (r.height - modalH) * 0.5f, modalW, modalH};
+    modal.y = std::max(safeTop(s) + dp(s, 18), std::min(modal.y, r.height - safeBottom(s) - modalH - dp(s, 18)));
+    addOutsideDismissButtons(s, modal, Action::ClosePatternInfo);
+    addButton(s, modal, Action::PatternInfoBlocker, 0, true);
+
+    r.roundedRect(modal.x, modal.y, modal.w, modal.h, dp(s, 8), LINE_STRONG);
+    r.roundedRect(modal.x + 1.2f, modal.y + 1.2f, modal.w - 2.4f, modal.h - 2.4f, dp(s, 7), PANEL_2);
+    drawBackIcon(s, {modal.x + dp(s, 12), modal.y + dp(s, 12), dp(s, 42), dp(s, 38)}, Action::ClosePatternInfo);
+    drawFittedText(s, tr(s, "Tap Pattern"), modal.x + dp(s, 68), modal.y + dp(s, 15),
+                   modal.w - dp(s, 86), dp(s, 2.08f), GREEN, 0, true, 1.18f);
+    drawFittedText(s, tr(s, "Pattern"), modal.x + dp(s, 68), modal.y + dp(s, 42),
+                   modal.w - dp(s, 86), dp(s, 3.44f), TEXT, 0, true, 1.55f);
+
+    float demoW = std::min(textW, dp(s, 146));
+    float demoY = modal.y + pad + titleH;
+    drawMathPulseDemo(s, {modal.x + (modal.w - demoW) * 0.5f, demoY, demoW, demoH}, true);
+
+    float textY = demoY + demoH + dp(s, 15);
+    for (const std::string &line : lines) {
+        drawFittedText(s, line, modal.x + pad, textY, textW, bodyScale, MUTED, 0, false, 1.0f);
+        textY += bodyLineH;
     }
 }
 
@@ -5474,6 +6145,12 @@ std::string sessionModeLabel(AppState *s, const Session &g) {
     if (g.mode == "campaign") return tr(s, "Campaign");
     if (g.mode == "daily") return tr(s, "Daily");
     return tr(s, "Custom Level");
+}
+
+std::string completionPrimaryActionLabel(AppState *s, const Session &g) {
+    if (g.mode == "daily") return tr(s, "Leaderboard");
+    if (g.mode == "freeplay") return tr(s, "New Puzzle");
+    return tr(s, "Next Level");
 }
 
 int oneStarMax(const Puzzle &p) {
@@ -5611,6 +6288,7 @@ void drawBoard(AppState *s) {
     Renderer &r = s->renderer;
     Puzzle &p = s->session.puzzle;
     Rect board = currentBoardRect(s);
+    bool showPatternBadges = !p.tilePatterns.empty();
     float cell = board.w / p.width;
     float framePad = std::max(8.0f, std::min(dp(s, 10), cell * 0.12f));
     Rect frame{board.x - framePad, board.y - framePad, board.w + framePad * 2.0f, board.h + framePad * 2.0f};
@@ -5669,8 +6347,9 @@ void drawBoard(AppState *s) {
                 Rect badge{tile.x + tile.w - badgeSize - dp(s, 4), tile.y + dp(s, 4), badgeSize, badgeSize};
                 drawPadlockBadge(s, badge);
             }
-            if (p.tilePatterns.count(idx)) {
-                Pattern pat = patternFor(p.tilePatterns[idx]);
+            if (showPatternBadges) {
+                auto patternIt = p.tilePatterns.find(idx);
+                Pattern pat = patternFor(patternIt == p.tilePatterns.end() ? p.defaultPattern : patternIt->second);
                 Rect badge{tile.x + tile.w * 0.07f, tile.y + tile.h * 0.07f, tile.w * 0.25f, tile.h * 0.24f};
                 r.roundedRect(badge.x, badge.y, badge.w, badge.h, badge.h * 0.5f, rgba(9, 11, 18, 0.72f));
                 r.text(pat.badge, badge.x + badge.w * 0.5f, badge.y + badge.h * 0.08f, std::max(1.7f, tile.w / 40.0f), TEXT, 1);
@@ -5698,72 +6377,98 @@ void drawGame(AppState *s) {
     float top = safeTop(s) + dp(s, 8);
     drawBackIcon(s, {dp(s, 14), top, dp(s, 50), dp(s, 44)}, Action::ExitGame);
     drawGearIcon(s, {r.width - dp(s, 64), top, dp(s, 50), dp(s, 44)}, Action::Settings);
-    r.text(sessionModeLabel(s, g), dp(s, 84), top + dp(s, 1), dp(s, 2.14f), GREEN);
-    drawFittedText(s, puzzleDisplayName(s, g), dp(s, 84), top + dp(s, 27), r.width - dp(s, 164), dp(s, 3.08f), TEXT);
+    r.text(sessionModeLabel(s, g), dp(s, 84), top + dp(s, 1), dp(s, 2.32f), GREEN);
+    drawFittedText(s, puzzleDisplayName(s, g), dp(s, 84), top + dp(s, 27), r.width - dp(s, 164), dp(s, 3.28f), TEXT);
     float y = top + dp(s, 68);
+    float margin = dp(s, 14);
     float gap = dp(s, 9);
-    float cell = (r.width - dp(s, 28) - gap * 2) / 3.0f;
-    drawGlassPanel(s, {dp(s, 14), y, cell, dp(s, 66)}, PANEL);
-    r.text(tr(s, "Moves"), dp(s, 14) + cell * 0.5f, y + dp(s, 10), dp(s, 1.94f), MUTED, 1);
-    r.text(std::to_string(g.moves), dp(s, 14) + cell * 0.5f, y + dp(s, 36), dp(s, 3.08f), TEXT, 1);
-    Rect rankingCard{dp(s, 14) + cell + gap, y, cell, dp(s, 66)};
+    float cell = (r.width - margin * 2.0f - gap * 2.0f) / 3.0f;
+    float metricH = dp(s, 68);
+    Rect movesCard{margin, y, cell, metricH};
+    Rect rankingCard{margin + cell + gap, y, cell, metricH};
+    Rect timeCard{margin + (cell + gap) * 2.0f, y, cell, metricH};
+    drawGlassPanel(s, movesCard, PANEL);
+    drawFittedText(s, tr(s, "Taps"), movesCard.x + movesCard.w * 0.5f, y + dp(s, 11),
+                   movesCard.w - dp(s, 16), dp(s, 2.24f), MUTED, 1, true, 1.32f);
+    drawFittedText(s, std::to_string(g.moves), movesCard.x + movesCard.w * 0.5f, y + dp(s, 38),
+                   movesCard.w - dp(s, 14), dp(s, 3.58f), TEXT, 1, true, 1.78f);
     int rankingHighlight = storedStarsForSession(s);
     drawStarRankingCard(s, rankingCard, g.puzzle, rankingHighlight);
-    drawGlassPanel(s, {dp(s, 14) + (cell + gap) * 2, y, cell, dp(s, 66)}, PANEL);
-    r.text(tr(s, "Time"), dp(s, 14) + cell * 2.5f + gap * 2, y + dp(s, 10), dp(s, 1.94f), MUTED, 1);
-    r.text(formatTime(g.elapsed), dp(s, 14) + cell * 2.5f + gap * 2, y + dp(s, 37), dp(s, 2.62f), TEXT, 1);
-    y += dp(s, 74);
-    float miniW = dp(s, 50);
-    float bestW = dp(s, 116);
-    float patternW = r.width - dp(s, 28) - bestW - gap;
-    Rect patternStrip{dp(s, 14), y, patternW, dp(s, 52)};
+    drawGlassPanel(s, timeCard, PANEL);
+    drawFittedText(s, tr(s, "Time"), timeCard.x + timeCard.w * 0.5f, y + dp(s, 11),
+                   timeCard.w - dp(s, 16), dp(s, 2.24f), MUTED, 1, true, 1.32f);
+    drawFittedText(s, formatTime(g.elapsed), timeCard.x + timeCard.w * 0.5f, y + dp(s, 39),
+                   timeCard.w - dp(s, 14), dp(s, 3.26f), TEXT, 1, true, 1.62f);
+    y += metricH + dp(s, 9);
+    float detailH = dp(s, 60);
+    float miniW = dp(s, 52);
+    float patternW = cell * 2.0f + gap;
+    Rect patternStrip{margin, y, patternW, detailH};
     drawGlassPanel(s, patternStrip, PANEL);
-    Rect mini{patternStrip.x + patternStrip.w - miniW - dp(s, 6), y + dp(s, 5), miniW, dp(s, 42)};
+    bool patternCardPressed = isPressedButton(s, patternStrip, Action::PatternInfo, 0);
+    if (patternCardPressed) {
+        drawPressedButtonFeedback(s, patternStrip, std::min(dp(s, 8), patternStrip.h * 0.18f));
+    }
+    Rect mini{patternStrip.x + patternStrip.w - miniW - dp(s, 7), y + dp(s, 6), miniW, dp(s, 48)};
     std::string pat = g.puzzle.tilePatterns.empty() ? localizedPatternLabel(s, g.puzzle.defaultPattern) : tr(s, "Mixed patterns");
-    r.text(tr(s, "Pattern"), patternStrip.x + dp(s, 9), y + dp(s, 8), dp(s, 1.70f), MUTED);
+    std::string patternTitle = tr(s, "Pattern");
+    float patternTitleScale = dp(s, 2.08f);
+    float patternTitleX = patternStrip.x + dp(s, 10);
+    drawFittedText(s, patternTitle, patternTitleX, y + dp(s, 10),
+                   patternStrip.w - miniW - dp(s, 30), patternTitleScale, MUTED, 0, true, 1.28f);
+    float infoSize = dp(s, 22);
+    float infoX = std::min(patternTitleX + r.textWidth(patternTitle, patternTitleScale) + dp(s, 7),
+                           patternStrip.x + patternStrip.w - miniW - dp(s, 33));
+    drawPatternInfoButton(s, {infoX, y + dp(s, 4), infoSize, infoSize}, patternCardPressed);
     drawFittedText(s, pat,
-                   patternStrip.x + dp(s, 9), y + dp(s, 29),
-                   patternStrip.w - miniW - dp(s, 26), dp(s, 2.02f), TEXT);
+                   patternStrip.x + dp(s, 10), y + dp(s, 34),
+                   patternStrip.w - miniW - dp(s, 30), dp(s, 2.50f), TEXT, 0, true, 1.36f);
     drawPatternMini(s, mini, g.puzzle);
-    Rect bestCard{patternStrip.x + patternStrip.w + gap, y, bestW, dp(s, 52)};
+    addButton(s, patternStrip, Action::PatternInfo, 0, true);
+    Rect bestCard{margin + (cell + gap) * 2.0f, y, cell, detailH};
     drawGlassPanel(s, bestCard, PANEL);
-    r.text(tr(s, "Personal Best"), bestCard.x + dp(s, 8), y + dp(s, 8), dp(s, 1.55f), MUTED);
-    drawFittedText(s, bestMovesText(s), bestCard.x + dp(s, 8), y + dp(s, 29),
-                   bestCard.w - dp(s, 16), dp(s, 2.16f), GREEN);
-    y += dp(s, 60);
-    float iconW = dp(s, 70);
-    float resetW = r.width - dp(s, 28) - iconW * 2.0f - gap * 2.0f;
+    drawFittedText(s, tr(s, "Personal Best"), bestCard.x + dp(s, 10), y + dp(s, 10),
+                   bestCard.w - dp(s, 20), dp(s, 1.96f), MUTED, 0, true, 1.18f);
+    drawFittedText(s, bestMovesText(s), bestCard.x + dp(s, 10), y + dp(s, 34),
+                   bestCard.w - dp(s, 20), dp(s, 2.64f), GREEN, 0, true, 1.36f);
+    y += detailH + dp(s, 9);
+    float toolH = dp(s, 58);
     bool leaderboardAttempt = g.mode == "daily" && g.leaderboardAttempt && !g.completed;
     bool waitingForHintCompletion = hintCompletionPending(s);
-    drawUndoToolButton(s, {dp(s, 14), y, iconW, dp(s, 52)}, !waitingForHintCompletion && !g.history.empty());
-    Rect resetButton{dp(s, 14) + iconW + gap, y, resetW, dp(s, 52)};
-    Rect notice{dp(s, 14) + iconW + gap, y, r.width - dp(s, 28) - iconW - gap, dp(s, 52)};
+    Rect undoButton{margin, y, cell, toolH};
+    Rect resetButton{margin + cell + gap, y, cell, toolH};
+    Rect hintButton{margin + (cell + gap) * 2.0f, y, cell, toolH};
+    Rect notice{resetButton.x, y, cell * 2.0f + gap, toolH};
+    drawUndoToolButton(s, undoButton, !waitingForHintCompletion && !g.history.empty());
     if (leaderboardAttempt) {
         drawGlassPanel(s, notice, PANEL);
-        r.text(tr(s, "Leaderboard try"), notice.x + dp(s, 10), notice.y + dp(s, 8), dp(s, 1.55f), ORANGE);
+        drawFittedText(s, tr(s, "Leaderboard try"), notice.x + dp(s, 10), notice.y + dp(s, 9),
+                       notice.w - dp(s, 20), dp(s, 1.96f), ORANGE, 0, true, 1.18f);
         drawFittedText(s, tr(s, "No reset or hints"), notice.x + dp(s, 10), notice.y + dp(s, 31),
-                       notice.w - dp(s, 20), dp(s, 2.05f), TEXT);
+                       notice.w - dp(s, 20), dp(s, 2.44f), TEXT, 0, true, 1.26f);
     } else {
         drawResetToolButton(s, resetButton, !waitingForHintCompletion);
-        drawHintToolButton(s, {r.width - dp(s, 14) - iconW, y, iconW, dp(s, 52)},
-                           !waitingForHintCompletion && t >= s->hintCooldownUntil);
+        drawHintToolButton(s, hintButton, !waitingForHintCompletion && t >= s->hintCooldownUntil);
     }
     drawBoard(s);
     drawStarRankingCardMoveLabels(s, rankingCard, g.puzzle, rankingHighlight);
-    r.text(tr(s, "Time"), dp(s, 14) + cell * 2.5f + gap * 2, top + dp(s, 78), dp(s, 1.94f), MUTED, 1);
-    r.text(formatTime(g.elapsed), dp(s, 14) + cell * 2.5f + gap * 2, top + dp(s, 105), dp(s, 2.62f), TEXT, 1);
+    drawFittedText(s, tr(s, "Time"), timeCard.x + timeCard.w * 0.5f, timeCard.y + dp(s, 11),
+                   timeCard.w - dp(s, 16), dp(s, 2.24f), MUTED, 1, true, 1.32f);
+    drawFittedText(s, formatTime(g.elapsed), timeCard.x + timeCard.w * 0.5f, timeCard.y + dp(s, 39),
+                   timeCard.w - dp(s, 14), dp(s, 3.26f), TEXT, 1, true, 1.62f);
     if (leaderboardAttempt) {
-        r.text(tr(s, "Leaderboard try"), notice.x + dp(s, 10), notice.y + dp(s, 8), dp(s, 1.55f), ORANGE);
+        drawFittedText(s, tr(s, "Leaderboard try"), notice.x + dp(s, 10), notice.y + dp(s, 9),
+                       notice.w - dp(s, 20), dp(s, 1.96f), ORANGE, 0, true, 1.18f);
         drawFittedText(s, tr(s, "No reset or hints"), notice.x + dp(s, 10), notice.y + dp(s, 31),
-                       notice.w - dp(s, 20), dp(s, 2.05f), TEXT);
+                       notice.w - dp(s, 20), dp(s, 2.44f), TEXT, 0, true, 1.26f);
     } else {
         drawFittedText(s, tr(s, "Reset"), resetButton.x + resetButton.w * 0.5f,
-                       resetButton.y + resetButton.h * 0.5f - dp(s, 7),
-                       resetButton.w - dp(s, 10), dp(s, 2.35f),
-                       !waitingForHintCompletion ? TEXT : withAlpha(MUTED, 0.45f), 1, true, 1.1f);
+                       resetButton.y + resetButton.h * 0.5f - dp(s, 8.0f),
+                       resetButton.w - dp(s, 12), dp(s, 2.86f),
+                       !waitingForHintCompletion ? TEXT : withAlpha(MUTED, 0.45f), 1, true, 1.22f);
     }
     if (!s->hintLine.empty()) {
-        r.text(tr(s, s->hintLine), r.width * 0.5f, r.height - safeBottom(s) - dp(s, 24), dp(s, 1.9f), MUTED, 1);
+        r.text(tr(s, s->hintLine), r.width * 0.5f, r.height - safeBottom(s) - dp(s, 24), dp(s, 2.08f), MUTED, 1);
     }
 
     if (s->completion) {
@@ -5778,7 +6483,7 @@ void drawGame(AppState *s) {
                                     ? tr(s, "Daily") + " " + localizedDailyTierLabel(s, dailyTierIndex(g.dailyTier)) + " " + tr(s, "Complete")
                                     : tr(s, "Level Complete");
         r.text(completeTitle, modal.x + dp(s, 18), modal.y + dp(s, 48), dp(s, 3.25f), TEXT);
-        drawStars(s, modal.x + dp(s, 18), modal.y + dp(s, 88), dp(s, 26), s->completionStars, 3, 0, 1.0f);
+        drawStars(s, modal.x + modal.w * 0.5f, modal.y + dp(s, 88), dp(s, 26), s->completionStars, 3, 1, 1.0f);
 
         auto resultCard = [&](Rect card, const std::string &label, const std::string &value) {
             r.roundedRect(card.x, card.y, card.w, card.h, dp(s, 8), LINE);
@@ -5791,15 +6496,26 @@ void drawGame(AppState *s) {
         float cardW = (modal.w - dp(s, 36) - cardGap) * 0.5f;
         float cx = modal.x + dp(s, 18);
         float cy = modal.y + dp(s, 132);
-        resultCard({cx, cy, cardW, dp(s, 60)}, tr(s, "Moves Used"), std::to_string(g.moves));
+        resultCard({cx, cy, cardW, dp(s, 60)}, tr(s, "Taps Used"), std::to_string(g.moves));
         resultCard({cx + cardW + cardGap, cy, cardW, dp(s, 60)}, tr(s, "Minimum"), std::to_string(g.puzzle.minimumMoves));
         cy += dp(s, 70);
-        resultCard({cx, cy, cardW, dp(s, 60)}, g.mode == "daily" ? tr(s, "Mark") : tr(s, "Best Moves"),
+        resultCard({cx, cy, cardW, dp(s, 60)}, g.mode == "daily" ? tr(s, "Mark") : tr(s, "Best Taps"),
                    g.mode == "daily" ? formatMark(s->completionMark) : bestMovesText(s));
         resultCard({cx + cardW + cardGap, cy, cardW, dp(s, 60)}, tr(s, "Time"), formatTime(g.elapsed));
 
+        float buttonH = dp(s, 44);
+        float buttonGap = dp(s, 10);
+        float dismissY = modal.y + modal.h - dp(s, 18) - buttonH;
+        float replayY = dismissY - buttonGap - buttonH;
+        float primaryY = replayY - buttonGap - buttonH;
+
         float by = cy + dp(s, 76);
         float starW = (modal.w - dp(s, 36) - cardGap * 3.0f) / 4.0f;
+        float starCardH = dp(s, 50);
+        float minStarY = cy + dp(s, 68);
+        float maxStarY = primaryY - dp(s, 16) - starCardH;
+        bool showStarBreakdown = maxStarY >= minStarY;
+        if (showStarBreakdown) by = std::min(by, maxStarY);
         int oneMax = oneStarMax(g.puzzle);
         std::array<std::pair<int, std::string>, 4> breakdown = {{
                 {3, moveRangeText(g.puzzle.minimumMoves, g.puzzle.minimumMoves)},
@@ -5808,34 +6524,35 @@ void drawGame(AppState *s) {
                 {0, moveRangeText(oneMax + 1, -1)}
         }};
         std::array<Rect, 4> starCards{};
-        for (int i = 0; i < 4; ++i) {
-            Rect card{modal.x + dp(s, 18) + i * (starW + cardGap), by, starW, dp(s, 50)};
-            starCards[static_cast<size_t>(i)] = card;
-            bool highlighted = breakdown[i].first == s->completionStars;
-            r.roundedRect(card.x, card.y, card.w, card.h, dp(s, 8), highlighted ? rgba(220, 164, 88, 0.34f) : LINE);
-            r.roundedRect(card.x + 1.0f, card.y + 1.0f, card.w - 2.0f, card.h - 2.0f, dp(s, 7),
-                          highlighted ? rgba(62, 45, 28, 0.70f) : rgba(10, 13, 19, 0.58f));
+        if (showStarBreakdown) {
+            for (int i = 0; i < 4; ++i) {
+                Rect card{modal.x + dp(s, 18) + i * (starW + cardGap), by, starW, starCardH};
+                starCards[static_cast<size_t>(i)] = card;
+                bool highlighted = breakdown[i].first == s->completionStars;
+                r.roundedRect(card.x, card.y, card.w, card.h, dp(s, 8), highlighted ? rgba(220, 164, 88, 0.34f) : LINE);
+                r.roundedRect(card.x + 1.0f, card.y + 1.0f, card.w - 2.0f, card.h - 2.0f, dp(s, 7),
+                              highlighted ? rgba(62, 45, 28, 0.70f) : rgba(10, 13, 19, 0.58f));
+            }
+            for (int i = 0; i < 4; ++i) {
+                Rect card = starCards[static_cast<size_t>(i)];
+                drawStars(s, card.x + dp(s, 7), card.y + dp(s, 8), dp(s, 7.2f), breakdown[i].first, 3, 0, 0.95f);
+            }
         }
-        for (int i = 0; i < 4; ++i) {
-            Rect card = starCards[static_cast<size_t>(i)];
-            drawStars(s, card.x + dp(s, 7), card.y + dp(s, 8), dp(s, 7.2f), breakdown[i].first, 3, 0, 0.95f);
-        }
-        by += dp(s, 66);
+        std::string primaryLabel = completionPrimaryActionLabel(s, g);
         if (g.mode != "daily") {
-            drawButton(s, {modal.x + dp(s, 18), by, modal.w - dp(s, 36), dp(s, 44)}, g.mode == "campaign" ? tr(s, "Next Level") : tr(s, "New Puzzle"), Action::Next, 0, true);
-            by += dp(s, 54);
+            drawButton(s, {modal.x + dp(s, 18), primaryY, modal.w - dp(s, 36), buttonH}, primaryLabel, Action::Next, 0, true);
         } else {
-            drawButton(s, {modal.x + dp(s, 18), by, modal.w - dp(s, 36), dp(s, 44)}, tr(s, "Leaderboard"), Action::Leaderboard, dailyTierIndex(g.dailyTier), true);
-            by += dp(s, 54);
+            drawButton(s, {modal.x + dp(s, 18), primaryY, modal.w - dp(s, 36), buttonH}, primaryLabel, Action::Leaderboard, dailyTierIndex(g.dailyTier), true);
         }
-        drawButton(s, {modal.x + dp(s, 18), by, modal.w - dp(s, 36), dp(s, 44)}, tr(s, "Replay"), Action::Replay);
-        by += dp(s, 54);
+        drawButton(s, {modal.x + dp(s, 18), replayY, modal.w - dp(s, 36), buttonH}, tr(s, "Replay"), Action::Replay);
         std::string dismissLabel = g.mode == "campaign" ? tr(s, "Campaign") : (g.mode == "daily" ? tr(s, "Daily") : tr(s, "Menu"));
-        drawButton(s, {modal.x + dp(s, 18), by, modal.w - dp(s, 36), dp(s, 44)}, dismissLabel, Action::Dismiss);
-        for (int i = 0; i < 4; ++i) {
-            Rect card = starCards[static_cast<size_t>(i)];
-            drawFittedText(s, breakdown[i].second, card.x + dp(s, 7), card.y + dp(s, 28),
-                           card.w - dp(s, 14), dp(s, 1.55f), TEXT, 0, false, 1.0f);
+        drawButton(s, {modal.x + dp(s, 18), dismissY, modal.w - dp(s, 36), buttonH}, dismissLabel, Action::Dismiss);
+        if (showStarBreakdown) {
+            for (int i = 0; i < 4; ++i) {
+                Rect card = starCards[static_cast<size_t>(i)];
+                drawFittedText(s, breakdown[i].second, card.x + dp(s, 7), card.y + dp(s, 28),
+                               card.w - dp(s, 14), dp(s, 1.55f), TEXT, 0, false, 1.0f);
+            }
         }
     }
 
@@ -5863,6 +6580,8 @@ void drawGame(AppState *s) {
         drawButton(s, {modal.x + dp(s, 18), buttonY, modal.w - dp(s, 36), dp(s, 44)}, tr(s, "Keep Playing"), Action::CancelDailyExit, 0, true);
         drawButton(s, {modal.x + dp(s, 18), buttonY + dp(s, 54), modal.w - dp(s, 36), dp(s, 44)}, tr(s, "Exit for 0"), Action::ConfirmDailyExit);
     }
+
+    drawPatternInfoPopup(s);
 }
 
 void updateScrollMomentum(AppState *s, int64_t t) {
@@ -5910,7 +6629,7 @@ void updateInteractionState(AppState *s) {
     if (s->previewTile >= 0 && s->previewClearAt > 0 && t >= s->previewClearAt) {
         s->previewTile = -1;
         s->previewClearAt = 0;
-        if (s->hintLine == "Previewing this pulse.") s->hintLine.clear();
+        if (s->hintLine == "Previewing this tap.") s->hintLine.clear();
     }
     if (!s->hintChanged.empty() && t >= s->hintChangedUntil) {
         s->hintChanged.clear();
@@ -5920,12 +6639,12 @@ void updateInteractionState(AppState *s) {
         s->pulseTiles.clear();
         s->pulseUntil = 0;
     }
-    if (s->screen == Screen::Game && s->hasSession && s->pressTile >= 0 && !s->longPreviewShown &&
+    if (!s->patternInfoOpen && s->screen == Screen::Game && s->hasSession && s->pressTile >= 0 && !s->longPreviewShown &&
         t - s->downTime >= 380 && isTappable(s->session.puzzle, s->pressTile)) {
         s->previewTile = s->pressTile;
         s->previewClearAt = 0;
         s->longPreviewShown = true;
-        s->hintLine = "Previewing this pulse.";
+        s->hintLine = "Previewing this tap.";
         playSound(s, SoundCue::Preview);
         vibrate(s, 8);
     }
@@ -5964,7 +6683,8 @@ void startFreeplay(AppState *s) {
     c.difficulty = s->freeDifficulty;
     c.locked = s->freeLocked;
     c.irregular = s->freeIrregular;
-    c.unique = s->freeUnique;
+    s->freeUnique = true;
+    c.unique = true;
     c.seed = "free-" + std::to_string(nowMs());
     c.name = c.difficulty + " Custom Level";
     saveFreePrefs(s);
@@ -5985,7 +6705,8 @@ void handleAction(AppState *s, const Button &b) {
     if (!b.enabled) return;
     switch (b.action) {
         case Action::Main: playSound(s, SoundCue::Ui); go(s, Screen::Main); break;
-        case Action::BackReturn: playSound(s, SoundCue::Ui); go(s, s->returnScreen); break;
+        case Action::BackReturn: playSound(s, SoundCue::Ui); closeSettings(s); break;
+        case Action::CloseAbout: playSound(s, SoundCue::Ui); go(s, Screen::Settings); break;
         case Action::Campaign: playSound(s, SoundCue::Ui); go(s, Screen::Campaign); break;
         case Action::Freeplay: playSound(s, SoundCue::Ui); go(s, Screen::Freeplay); break;
         case Action::Daily: playSound(s, SoundCue::Ui); go(s, Screen::Daily); break;
@@ -5993,12 +6714,11 @@ void handleAction(AppState *s, const Button &b) {
         case Action::Math: playSound(s, SoundCue::Ui); go(s, Screen::Math); break;
         case Action::Settings:
             playSound(s, SoundCue::Ui);
-            s->returnScreen = s->screen;
+            if (s->screen != Screen::Settings && s->screen != Screen::About) s->returnScreen = s->screen;
             go(s, Screen::Settings);
             break;
         case Action::About:
             playSound(s, SoundCue::Ui);
-            s->returnScreen = Screen::Settings;
             go(s, Screen::About);
             break;
         case Action::OpenGithub:
@@ -6015,6 +6735,7 @@ void handleAction(AppState *s, const Button &b) {
             break;
         case Action::StartCampaign:
             playSound(s, SoundCue::Start);
+            if (!campaignLevelsReady(s)) break;
             s->lastCampaign = b.value;
             startGame(s, campaignLevel(s, b.value), "campaign");
             break;
@@ -6039,6 +6760,20 @@ void handleAction(AppState *s, const Button &b) {
             saveFreePrefs(s);
             break;
         }
+        case Action::PatternInfo:
+            playSound(s, SoundCue::Ui);
+            s->patternInfoOpen = true;
+            s->pressTile = -1;
+            s->longPreviewShown = false;
+            s->previewTile = -1;
+            s->previewClearAt = 0;
+            break;
+        case Action::ClosePatternInfo:
+            playSound(s, SoundCue::Ui);
+            s->patternInfoOpen = false;
+            break;
+        case Action::PatternInfoBlocker:
+            break;
         case Action::Difficulty: {
             playSound(s, SoundCue::Ui);
             std::vector<std::string> values = {"Easy", "Medium", "Hard", "Expert"};
@@ -6131,7 +6866,7 @@ void handleAction(AppState *s, const Button &b) {
                 !(s->session.mode == "daily" && s->session.leaderboardAttempt)) {
                 int64_t t = nowMs();
                 if (t < s->hintCooldownUntil) break;
-                // Changelog note: Hints throttle rapid taps and delay the result modal after a final hint move.
+                // Changelog note: Hints throttle rapid taps and delay the result modal after a final hint tap.
                 s->hintCooldownUntil = t + HINT_COOLDOWN_MS;
                 s->previewTile = -1;
                 s->hintChanged.clear();
@@ -6163,7 +6898,7 @@ void handleAction(AppState *s, const Button &b) {
                     }
                 } else {
                     playSound(s, SoundCue::Invalid);
-                    s->hintLine = "No useful move is available.";
+                    s->hintLine = "No useful tap is available.";
                 }
             }
             break;
@@ -6238,6 +6973,10 @@ void tapTile(AppState *s, int idx) {
 }
 
 void back(AppState *s) {
+    if (s->patternInfoOpen) {
+        s->patternInfoOpen = false;
+        return;
+    }
     if (s->dailyExitConfirm) {
         s->dailyExitConfirm = false;
         return;
@@ -6245,7 +6984,7 @@ void back(AppState *s) {
     if (s->screen == Screen::Game) {
         requestExitGame(s);
     } else if (s->screen == Screen::Settings) {
-        go(s, s->returnScreen);
+        closeSettings(s);
     } else if (s->screen == Screen::About) {
         go(s, Screen::Settings);
     } else if (s->screen != Screen::Main) {
@@ -6267,7 +7006,7 @@ void clearPressStateForScroll(AppState *s) {
     clearPressedButton(s);
     if (s->previewClearAt == 0) {
         s->previewTile = -1;
-        if (s->hintLine == "Previewing this pulse.") s->hintLine.clear();
+        if (s->hintLine == "Previewing this tap.") s->hintLine.clear();
     }
 }
 
@@ -6354,13 +7093,15 @@ int32_t handleInput(android_app *app, AInputEvent *event) {
         Button pressed{};
         if (findButtonAt(s, x, y, &pressed)) {
             rememberPressedButton(s, pressed);
-            vibrate(s, 8);
+            if (pressed.action != Action::PatternInfoBlocker) vibrate(s, 8);
+            s->pressTile = -1;
+        } else if (s->patternInfoOpen) {
             s->pressTile = -1;
         } else {
             s->pressTile = tileAt(s, x, y);
         }
         s->longPreviewShown = false;
-        if (s->pressTile >= 0 && s->hintLine == "Previewing this pulse.") s->hintLine.clear();
+        if (s->pressTile >= 0 && s->hintLine == "Previewing this tap.") s->hintLine.clear();
         return 1;
     }
     if (action == AMOTION_EVENT_ACTION_MOVE) {
@@ -6392,6 +7133,12 @@ int32_t handleInput(android_app *app, AInputEvent *event) {
                 s->pressTile = -1;
                 s->longPreviewShown = false;
                 handleAction(s, tapped);
+                return 1;
+            }
+            if (s->patternInfoOpen) {
+                s->pressTile = -1;
+                s->longPreviewShown = false;
+                clearPressedButton(s);
                 return 1;
             }
             if (s->longPreviewShown) {

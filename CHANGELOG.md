@@ -2,6 +2,24 @@
 
 Summarized release notes for Invert the Matrix.
 
+## 1.0.8 - 2026-05-16
+
+Version code: 10
+
+- The Daily Challenges screen now separates today's puzzle cards from Easy,
+  Medium, Hard, and Global leaderboard entries for a cleaner route into each
+  mode.
+- Custom Level setup now uses visual pulse-pattern chips, removes the unique
+  solution toggle, and always generates with unique-solution preference enabled.
+- Gameplay and completion screens have clearer spacing, button labels, pattern
+  badges, and small-screen layout behavior across web and Android.
+- About/settings navigation and the GitHub credit were tightened so the same
+  version history flow works consistently in both apps.
+
+Play Store "What's new":
+
+The Daily Challenges screen now has cleaner puzzle cards and leaderboard entries. Custom Level setup adds visual pattern chips and always prefers unique-solution puzzles. Gameplay, completion, About, and settings screens received layout polish across web and Android.
+
 ## 1.0.7 - 2026-05-14
 
 Version code: 9
@@ -22,8 +40,8 @@ Version code: 8
 
 Version code: 7
 
-- Expanded The Math guide with uniqueness, silent plans in `ker(A)`, and the
-  cross-pattern invertibility criterion.
+- Expanded The Math guide with solution uniqueness, tap-count vectors that
+  change no board tiles, and the cross-pattern invertibility test.
 
 ## Android 1.0.4 - 2026-05-13
 
