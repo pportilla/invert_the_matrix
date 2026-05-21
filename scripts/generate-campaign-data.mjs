@@ -43,8 +43,8 @@ if (!debug || typeof debug.generateCampaignLevels !== "function" || typeof debug
 
 const levels = debug.generateCampaignLevels();
 const data = debug.campaignLevelsToData(levels);
-if (!Array.isArray(data.levels) || data.levels.length !== 300) {
-  throw new Error(`Expected 300 campaign levels, found ${data.levels ? data.levels.length : 0}.`);
+if (!Array.isArray(data.levels) || data.levels.length !== 225) {
+  throw new Error(`Expected 225 campaign levels, found ${data.levels ? data.levels.length : 0}.`);
 }
 
 const output = `${JSON.stringify(data)}\n`;

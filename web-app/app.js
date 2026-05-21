@@ -6,10 +6,15 @@
 (function () {
     "use strict";
     var STORAGE_KEY = "resonance-grid-progress-v1";
-    var APP_VERSION = "1.0.8";
+    var APP_VERSION = "1.0.9";
     var CAMPAIGN_DATA_URL = "campaign-levels.json";
     var MATHJAX_URL = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js";
     var CHANGELOG_ENTRIES = [
+        {
+            version: "1.0.9",
+            date: "2026-05-21",
+            text: "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and menu headers, locks, logos, and text-size controls were polished across web and Android."
+        },
         {
             version: "1.0.8",
             date: "2026-05-16",
@@ -42,9 +47,9 @@
             "Main menu": "Menú principal",
             "Campaign": "Campaña",
             "Custom Level": "Nivel personalizado",
+            "Playground": "Zona de pruebas",
             "Daily Challenge": "Reto diario",
             "Daily Challenges": "Retos diarios",
-            "Today's Puzzles": "Rompecabezas de hoy",
             "Leaderboards": "Clasificaciones",
             "Leaderboard": "Clasificación",
             "Global": "Global",
@@ -54,7 +59,13 @@
             "Settings": "Ajustes",
             "Back": "Volver",
             "Campaign chapters": "Capítulos de la campaña",
+            "Campaign groups": "Grupos de campaña",
+            "Group": "Grupo",
+            "Earn 15 stars in a nearby group.": "Gana 15 estrellas en un grupo adyacente.",
             "Custom Puzzle": "Rompecabezas personalizado",
+            "Playground setup": "Configuración de zona de pruebas",
+            "Playground controls": "Controles de zona de pruebas",
+            "Playground board": "Tablero de zona de pruebas",
             "Custom level setup": "Configuración de nivel personalizado",
             "Grid Size": "Tamaño de cuadrícula",
             "Grid size": "Tamaño de cuadrícula",
@@ -65,6 +76,29 @@
             "Tap Pattern": "Patrón de toque",
             "Tap pattern": "Patrón de toque",
             "Difficulty": "Dificultad",
+            "Edit Tool": "Herramienta de edición",
+            "Tap Tiles": "Tocar casillas",
+            "Paint White": "Pintar blanco",
+            "Paint Color": "Pintar color",
+            "Paint States": "Pintar estados",
+            "Lock Tiles": "Poner candados",
+            "Place Holes": "Poner huecos",
+            "Starting Board": "Tablero inicial",
+            "Playground board editor": "Editor de tablero de zona de pruebas",
+            "Puzzle Code": "Código de rompecabezas",
+            "Puzzle code": "Código de rompecabezas",
+            "Share": "Compartir",
+            "Load Code": "Cargar código",
+            "Copy Code": "Copiar código",
+            "Clear Board": "Borrar tablero",
+            "Play": "Jugar",
+            "Sandbox": "Zona libre",
+            "No goal": "Sin objetivo",
+            "Puzzle code copied.": "Código copiado.",
+            "Puzzle code loaded.": "Código cargado.",
+            "Puzzle code not recognized.": "Código no reconocido.",
+            "Keep at least one tile.": "Mantén al menos una casilla.",
+            "Hints are off in Playground.": "Las pistas están desactivadas en Zona de pruebas.",
             "Tiles with lock icons": "Casillas con candado",
             "Irregular board": "Tablero irregular",
             "Extras": "Extras",
@@ -86,10 +120,10 @@
             "Hint": "Pista",
             "Puzzle board": "Tablero del rompecabezas",
             "Guide": "Guía",
-            "Guide text size": "Tamaño del texto de la guía",
-            "Small guide text": "Texto pequeño de la guía",
-            "Medium guide text": "Texto mediano de la guía",
-            "Large guide text": "Texto grande de la guía",
+            "Text size": "Tamaño del texto",
+            "Small text": "Texto pequeño",
+            "Medium text": "Texto mediano",
+            "Large text": "Texto grande",
             "Play overview": "Resumen del juego",
             "Clear every tile by turning it white. Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.": "Deja en blanco todas las casillas. Un toque en una casilla aplica su patrón de toque al tablero, y cada casilla alcanzada avanza un estado.",
             "Use previews and level clues to plan calmly before each tap.": "Mira la vista previa y las pistas del nivel para jugar con calma antes de cada toque.",
@@ -113,8 +147,11 @@
             "Choose your puzzle": "Elige partida",
             "Campaign:": "Campaña:",
             "Solve fixed levels in order. Each solve opens the next level.": "Resuelve niveles fijos en orden. Cada victoria abre el siguiente nivel.",
+            "Pick groups on a 5x5 map. Earn 15 stars in a group to open adjacent groups.": "Elige grupos en un mapa 5x5. Gana 15 estrellas en un grupo para abrir grupos adyacentes.",
             "Custom Level:": "Nivel personalizado:",
             "Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.": "Elige tamaño, estados, patrón, dificultad, casillas con candado y huecos vacíos. El generador siempre intenta crear una solución única.",
+            "Playground:": "Zona de pruebas:",
+            "Build a board by hand, share its puzzle code, and play without a completion modal.": "Crea un tablero a mano, comparte su código de rompecabezas y juega sin pantalla de finalización.",
             "Daily Challenge:": "Reto diario:",
             "Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.": "Juega los mismos tres niveles generados que el resto para la fecha de hoy. Cada uno guarda su mejor resultado.",
             "Tools and options": "Herramientas y opciones",
@@ -206,6 +243,7 @@
             "Best": "Mejor",
             "Chapter": "Capítulo",
             "Inversion": "Inversión",
+            "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and menu headers, locks, logos, and text-size controls were polished across web and Android.": "Zona de pruebas añade códigos de rompecabezas para compartir, la campaña usa un mapa de grupos 5x5, y las cabeceras de menú, candados, logos y controles de tamaño de texto se pulieron en web y Android.",
             "Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.": "Los retos diarios ahora separan las tarjetas de rompecabezas de las clasificaciones, la configuración personalizada usa opciones visuales de patrón con generación única siempre activa y las pantallas de juego y resultado son más claras.",
             "Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.": "Los ajustes ahora ocultan controles específicos de plataforma, se eliminaron los interruptores de animación y símbolos daltónicos, y Acerca de muestra el historial de versiones con el enlace de GitHub.",
             "Release builds keep native debug symbols for Play Console crash reports.": "Las compilaciones de lanzamiento conservan símbolos nativos de depuración para los informes de fallos de Play Console.",
@@ -236,6 +274,7 @@
             "Daily puzzles are generated from the current date. Reload the app to try again.": "Los rompecabezas diarios se generan a partir de la fecha actual. Recarga la app para intentarlo de nuevo.",
             "Lock icons on": "Casillas con candado activas",
             "Lock icons off": "Casillas con candado inactivas",
+            "Empty hole": "Hueco vacío",
             "Empty holes on": "Huecos vacíos activos",
             "Empty holes off": "Huecos vacíos inactivos",
             "Not played today": "No jugado hoy",
@@ -304,9 +343,9 @@
             "Main menu": "Menu principal",
             "Campaign": "Campagne",
             "Custom Level": "Niveau personnalisé",
+            "Playground": "Bac à sable",
             "Daily Challenge": "Défi quotidien",
             "Daily Challenges": "Défis quotidiens",
-            "Today's Puzzles": "Casse-têtes du jour",
             "Leaderboards": "Classements",
             "Leaderboard": "Classement",
             "Global": "Global",
@@ -316,7 +355,13 @@
             "Settings": "Paramètres",
             "Back": "Retour",
             "Campaign chapters": "Chapitres de campagne",
+            "Campaign groups": "Groupes de campagne",
+            "Group": "Groupe",
+            "Earn 15 stars in a nearby group.": "Gagne 15 étoiles dans un groupe adjacent.",
             "Custom Puzzle": "Casse-tête personnalisé",
+            "Playground setup": "Configuration du bac à sable",
+            "Playground controls": "Commandes du bac à sable",
+            "Playground board": "Plateau du bac à sable",
             "Custom level setup": "Configuration du niveau personnalisé",
             "Grid Size": "Taille de la grille",
             "Grid size": "Taille de la grille",
@@ -327,6 +372,29 @@
             "Tap Pattern": "Motif de toucher",
             "Tap pattern": "Motif de toucher",
             "Difficulty": "Difficulté",
+            "Edit Tool": "Outil d'édition",
+            "Tap Tiles": "Toucher les tuiles",
+            "Paint White": "Peindre en blanc",
+            "Paint Color": "Peindre une couleur",
+            "Paint States": "Peindre les états",
+            "Lock Tiles": "Verrouiller les tuiles",
+            "Place Holes": "Placer des trous",
+            "Starting Board": "Plateau initial",
+            "Playground board editor": "Éditeur de plateau du bac à sable",
+            "Puzzle Code": "Code de casse-tête",
+            "Puzzle code": "Code de casse-tête",
+            "Share": "Partager",
+            "Load Code": "Charger le code",
+            "Copy Code": "Copier le code",
+            "Clear Board": "Effacer le plateau",
+            "Play": "Jouer",
+            "Sandbox": "Bac libre",
+            "No goal": "Sans objectif",
+            "Puzzle code copied.": "Code copié.",
+            "Puzzle code loaded.": "Code chargé.",
+            "Puzzle code not recognized.": "Code non reconnu.",
+            "Keep at least one tile.": "Garde au moins une tuile.",
+            "Hints are off in Playground.": "Les indices sont désactivés dans le bac à sable.",
             "Tiles with lock icons": "Tuiles avec cadenas",
             "Irregular board": "Grille irrégulière",
             "Extras": "Extras",
@@ -348,10 +416,10 @@
             "Hint": "Indice",
             "Puzzle board": "Plateau du casse-tête",
             "Guide": "Guide",
-            "Guide text size": "Taille du texte du guide",
-            "Small guide text": "Petit texte du guide",
-            "Medium guide text": "Texte moyen du guide",
-            "Large guide text": "Grand texte du guide",
+            "Text size": "Taille du texte",
+            "Small text": "Petit texte",
+            "Medium text": "Texte moyen",
+            "Large text": "Grand texte",
             "Play overview": "Aperçu du jeu",
             "Clear every tile by turning it white. Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.": "Rends chaque tuile blanche. Un toucher sur une tuile applique son motif de toucher au plateau, et chaque tuile atteinte avance d'un état.",
             "Use previews and level clues to plan calmly before each tap.": "Utilise les aperçus et les indices du niveau pour planifier calmement avant chaque toucher.",
@@ -375,8 +443,11 @@
             "Choose your puzzle": "Choisis ton casse-tête",
             "Campaign:": "Campagne :",
             "Solve fixed levels in order. Each solve opens the next level.": "Résous les niveaux fixes dans l'ordre. Chaque résolution ouvre le niveau suivant.",
+            "Pick groups on a 5x5 map. Earn 15 stars in a group to open adjacent groups.": "Choisis des groupes sur une carte 5x5. Gagne 15 étoiles dans un groupe pour ouvrir les groupes adjacents.",
             "Custom Level:": "Niveau personnalisé :",
             "Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.": "Choisis la taille du plateau, les états, le motif, la difficulté, les tuiles avec cadenas et les trous vides. Le générateur préfère toujours une solution unique.",
+            "Playground:": "Bac à sable :",
+            "Build a board by hand, share its puzzle code, and play without a completion modal.": "Crée un plateau à la main, partage son code de casse-tête et joue sans écran de fin.",
             "Daily Challenge:": "Défi quotidien :",
             "Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.": "Joue les mêmes trois casse-têtes générés que tout le monde pour la date. Chaque casse-tête garde son meilleur score.",
             "Tools and options": "Outils et options",
@@ -468,6 +539,7 @@
             "Best": "Meilleur",
             "Chapter": "Chapitre",
             "Inversion": "Inversion",
+            "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and menu headers, locks, logos, and text-size controls were polished across web and Android.": "Le bac à sable ajoute des codes de casse-tête à partager, la campagne utilise une carte de groupes 5x5, et les en-têtes de menu, cadenas, logos et contrôles de taille du texte ont été améliorés sur web et Android.",
             "Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.": "Les défis quotidiens séparent désormais les cartes de casse-têtes des classements, la configuration personnalisée utilise des puces visuelles de motif avec génération unique toujours active, et les écrans de jeu et de résultat sont plus clairs.",
             "Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.": "Les paramètres masquent désormais les contrôles propres à chaque plateforme, les options d'animation et de symboles daltoniens ont été retirées, et À propos affiche l'historique des versions avec le lien GitHub.",
             "Release builds keep native debug symbols for Play Console crash reports.": "Les builds de publication conservent les symboles de débogage natifs pour les rapports de plantage Play Console.",
@@ -498,6 +570,7 @@
             "Daily puzzles are generated from the current date. Reload the app to try again.": "Les casse-têtes quotidiens sont générés à partir de la date actuelle. Recharge l'app pour réessayer.",
             "Lock icons on": "Tuiles avec cadenas activées",
             "Lock icons off": "Tuiles avec cadenas désactivées",
+            "Empty hole": "Trou vide",
             "Empty holes on": "Trous vides activés",
             "Empty holes off": "Trous vides désactivés",
             "Not played today": "Pas joué aujourd'hui",
@@ -682,6 +755,16 @@
         }
     };
     var FREE_PATTERNS = ["cross", "diagonal", "square", "horizontal", "vertical", "knight", "randomMixed"];
+    var PLAYGROUND_PATTERNS = ["cross", "diagonal", "square", "horizontal", "vertical", "self", "knight"];
+    var PLAYGROUND_TOOL_TAP = "tap";
+    var PLAYGROUND_TOOL_LOCK = "lock";
+    var PLAYGROUND_TOOL_HOLE = "hole";
+    var PLAYGROUND_SEED_PREFIX = "ITM1";
+    var PLAYGROUND_COMPACT_PREFIX = "ITM2";
+    var PLAYGROUND_LEGACY_COMPACT_PREFIX = "P";
+    var PLAYGROUND_COMPACT_VERSION = 1;
+    var PLAYGROUND_COMPACT_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+    var PLAYGROUND_COMPACT_MAX_CODE_LENGTH = 96;
     var DAILY_TIERS = [
         { key: "easy", label: "Easy", width: 4, height: 4, states: 2, pattern: "cross", difficulty: "Easy", locked: false, irregular: false, unique: true },
         { key: "medium", label: "Medium", width: 5, height: 5, states: 2, pattern: "cross", difficulty: "Medium", locked: true, irregular: true, unique: true },
@@ -709,7 +792,13 @@
         "Five-State Start", "Five-State Lock-Icon Tiles", "Five-State Empty Holes", "Five-State Patterns", "Dense Dimensions",
         "Prime Pressure", "Modular Maze", "Wide Matrix", "Endgame Circuit", "Final Inversion"
     ];
-    var CAMPAIGN_VERSION = 4;
+    var CAMPAIGN_MAP_SIZE = 5;
+    var CAMPAIGN_GROUP_COUNT = CAMPAIGN_MAP_SIZE * CAMPAIGN_MAP_SIZE;
+    var CAMPAIGN_LEVELS_PER_GROUP = 9;
+    var CAMPAIGN_LEVEL_COUNT = CAMPAIGN_GROUP_COUNT * CAMPAIGN_LEVELS_PER_GROUP;
+    var CAMPAIGN_GROUP_STAR_TARGET = 15;
+    var CAMPAIGN_GROUP_STAR_MAX = CAMPAIGN_LEVELS_PER_GROUP * 3;
+    var CAMPAIGN_VERSION = 5;
     var EXACT_BFS_STATE_LIMIT = 500000;
     var EXACT_NULLSPACE_LIMIT = 500000;
     var HINT_COOLDOWN_MS = 500;
@@ -737,6 +826,16 @@
             locked: false,
             irregular: false,
             unique: true
+        },
+        playgroundPrefs: {
+            width: 5,
+            height: 5,
+            states: 3,
+            pattern: "cross",
+            tool: "tap",
+            board: [],
+            locked: [],
+            disabled: []
         }
     };
     var app = {
@@ -753,6 +852,7 @@
         pressTimer: null,
         pressInfo: null,
         lastCampaignIndex: 0,
+        selectedCampaignGroup: 0,
         audio: null,
         hintMarkTimer: null,
         hintCooldownUntil: 0,
@@ -771,6 +871,7 @@
         cacheGuideScreenHtml();
         bindEvents();
         renderFreeplayControls();
+        renderPlaygroundControls();
         renderDaily();
         renderAbout();
         syncSettingsUI();
@@ -794,6 +895,18 @@
         els.patternOptions = document.getElementById("pattern-options");
         els.lockedToggle = document.getElementById("locked-toggle");
         els.irregularToggle = document.getElementById("irregular-toggle");
+        els.playgroundWidth = document.getElementById("playground-width");
+        els.playgroundHeight = document.getElementById("playground-height");
+        els.playgroundStateSummary = document.getElementById("playground-state-summary");
+        els.playgroundPatternSummary = document.getElementById("playground-pattern-summary");
+        els.playgroundSizeSummary = document.getElementById("playground-size-summary");
+        els.playgroundCodeSummary = document.getElementById("playground-code-summary");
+        els.playgroundStateOptions = document.getElementById("playground-state-options");
+        els.playgroundPatternOptions = document.getElementById("playground-pattern-options");
+        els.playgroundToolOptions = document.getElementById("playground-tool-options");
+        els.playgroundEditorBoard = document.getElementById("playground-editor-board");
+        els.playgroundSeed = document.getElementById("playground-seed");
+        els.playgroundSeedStatus = document.getElementById("playground-seed-status");
         els.board = document.getElementById("board");
         els.moveCounter = document.getElementById("move-counter");
         els.starRanking = document.getElementById("star-ranking");
@@ -830,6 +943,13 @@
             handleAction(action, actionButton);
         });
         els.campaignList.addEventListener("click", function (event) {
+            var group = event.target.closest("[data-campaign-group]");
+            if (group && !group.disabled) {
+                app.selectedCampaignGroup = Number(group.getAttribute("data-campaign-group")) || 0;
+                playSound("ui");
+                renderCampaign();
+                return;
+            }
             var node = event.target.closest("[data-level-id]");
             if (!node || node.disabled)
                 return;
@@ -885,6 +1005,49 @@
                 saveProgress();
             });
         });
+        [els.playgroundWidth, els.playgroundHeight].forEach(function (input) {
+            input.addEventListener("change", updatePlaygroundSize);
+            input.addEventListener("input", updatePlaygroundSize);
+        });
+        els.playgroundStateOptions.addEventListener("click", function (event) {
+            var chip = event.target.closest("[data-playground-states]");
+            if (!chip)
+                return;
+            playSound("ui");
+            var prefs = normalizePlaygroundPrefs();
+            prefs.states = Number(chip.getAttribute("data-playground-states"));
+            prefs.board = prefs.board.map(function (value) {
+                return mod(value, prefs.states);
+            });
+            saveProgress();
+            renderPlaygroundControls();
+        });
+        els.playgroundPatternOptions.addEventListener("click", function (event) {
+            var chip = event.target.closest("[data-playground-pattern]");
+            if (!chip)
+                return;
+            playSound("ui");
+            var prefs = normalizePlaygroundPrefs();
+            prefs.pattern = chip.getAttribute("data-playground-pattern");
+            saveProgress();
+            renderPlaygroundControls();
+        });
+        els.playgroundToolOptions.addEventListener("click", function (event) {
+            var chip = event.target.closest("[data-playground-tool]");
+            if (!chip)
+                return;
+            playSound("ui");
+            var prefs = normalizePlaygroundPrefs();
+            prefs.tool = chip.getAttribute("data-playground-tool");
+            saveProgress();
+            renderPlaygroundControls();
+        });
+        els.playgroundEditorBoard.addEventListener("click", function (event) {
+            var tile = event.target.closest("[data-playground-index]");
+            if (!tile)
+                return;
+            editPlaygroundTile(Number(tile.getAttribute("data-playground-index")));
+        });
         [els.settingSound, els.settingNumbers, els.settingLanguage].forEach(function (input) {
             if (!input)
                 return;
@@ -920,6 +1083,12 @@
             renderFreeplayControls();
             showScreen("freeplay");
         }
+        if (action === "show-playground") {
+            normalizePlaygroundPrefs().tool = PLAYGROUND_TOOL_TAP;
+            saveProgress();
+            renderPlaygroundControls();
+            showScreen("playground");
+        }
         if (action === "show-daily") {
             renderDaily();
             showScreen("daily");
@@ -948,6 +1117,14 @@
             closePatternInfo();
         if (action === "generate-freeplay")
             startFreeplay();
+        if (action === "start-playground")
+            startPlayground();
+        if (action === "clear-playground")
+            clearPlaygroundBoard();
+        if (action === "copy-playground-seed")
+            copyPlaygroundSeed();
+        if (action === "load-playground-seed")
+            loadPlaygroundSeedFromInput();
         if (action === "start-daily")
             startDaily(button.getAttribute("data-daily-tier"));
         if (action === "exit-game")
@@ -1050,6 +1227,7 @@
         if (storedCampaignVersion !== CAMPAIGN_VERSION)
             resetCampaignProgress(progress);
         progress.freePrefs.unique = true;
+        normalizePlaygroundPrefs(progress);
         return progress;
     }
     function saveProgress() {
@@ -1138,6 +1316,7 @@
         document.documentElement.lang = language;
         translateStaticDom();
         renderFreeplayControls();
+        renderPlaygroundControls();
         renderDaily();
         renderAbout();
         if (app.activeScreen === "campaign")
@@ -1384,6 +1563,573 @@
         els.lockedToggle.checked = prefs.locked;
         els.irregularToggle.checked = prefs.irregular;
     }
+    function normalizePlaygroundPrefs(progress) {
+        var root = progress || app.progress;
+        if (!root.playgroundPrefs)
+            root.playgroundPrefs = clone(DEFAULT_PROGRESS.playgroundPrefs);
+        var prefs = root.playgroundPrefs;
+        prefs.width = clamp(Number(prefs.width) || 5, 3, 9);
+        prefs.height = clamp(Number(prefs.height) || 5, 3, 9);
+        prefs.states = STATE_OPTIONS.indexOf(Number(prefs.states)) === -1 ? 3 : Number(prefs.states);
+        if (PLAYGROUND_PATTERNS.indexOf(prefs.pattern) === -1)
+            prefs.pattern = "cross";
+        if (!isValidPlaygroundTool(prefs.tool, prefs.states))
+            prefs.tool = PLAYGROUND_TOOL_TAP;
+        var total = prefs.width * prefs.height;
+        var board = Array.isArray(prefs.board) ? prefs.board.slice(0, total) : [];
+        while (board.length < total)
+            board.push(0);
+        prefs.board = board.map(function (value) {
+            return mod(Number(value) || 0, prefs.states);
+        });
+        prefs.disabled = cleanPlaygroundIndexes(prefs.disabled, total);
+        prefs.locked = cleanPlaygroundIndexes(prefs.locked, total).filter(function (idx) {
+            return prefs.disabled.indexOf(idx) === -1;
+        });
+        prefs.disabled.forEach(function (idx) {
+            prefs.board[idx] = 0;
+        });
+        if (prefs.disabled.length >= total) {
+            prefs.disabled = prefs.disabled.slice(0, Math.max(0, total - 1));
+        }
+        return prefs;
+    }
+    function playgroundPaintTool(state) {
+        return "paint-" + state;
+    }
+    function playgroundPaintState(tool) {
+        var match = String(tool || "").match(/^paint-([0-4])$/);
+        return match ? Number(match[1]) : null;
+    }
+    function isValidPlaygroundTool(tool, states) {
+        if (tool === PLAYGROUND_TOOL_TAP || tool === PLAYGROUND_TOOL_LOCK || tool === PLAYGROUND_TOOL_HOLE)
+            return true;
+        var paintState = playgroundPaintState(tool);
+        return paintState !== null && paintState >= 0 && paintState < states;
+    }
+    function cleanPlaygroundIndexes(items, total) {
+        var seen = new Set();
+        var cleaned = [];
+        (Array.isArray(items) ? items : []).forEach(function (item) {
+            var idx = Number(item);
+            if (!Number.isFinite(idx) || idx < 0 || idx >= total || seen.has(idx))
+                return;
+            seen.add(idx);
+            cleaned.push(idx);
+        });
+        return cleaned.sort(function (a, b) {
+            return a - b;
+        });
+    }
+    function renderPlaygroundControls() {
+        if (!els.playgroundEditorBoard)
+            return;
+        var prefs = normalizePlaygroundPrefs();
+        els.playgroundWidth.value = prefs.width;
+        els.playgroundHeight.value = prefs.height;
+        if (els.playgroundStateSummary)
+            els.playgroundStateSummary.textContent = prefs.states + " " + t("states");
+        if (els.playgroundPatternSummary)
+            els.playgroundPatternSummary.textContent = patternDisplayName(prefs.pattern);
+        if (els.playgroundSizeSummary)
+            els.playgroundSizeSummary.textContent = prefs.width + "x" + prefs.height;
+        if (els.playgroundCodeSummary)
+            els.playgroundCodeSummary.textContent = t("Share");
+        els.playgroundStateOptions.innerHTML = STATE_OPTIONS.map(function (stateCount) {
+            return chipHtml(stateCount + " " + t("states"), "data-playground-states", stateCount, prefs.states === stateCount);
+        }).join("");
+        els.playgroundPatternOptions.innerHTML = PLAYGROUND_PATTERNS.map(function (key) {
+            return playgroundPatternChipHtml(key, prefs.pattern === key);
+        }).join("");
+        els.playgroundToolOptions.innerHTML = playgroundToolButtonsHtml(prefs);
+        renderPlaygroundEditorBoard();
+        if (els.playgroundSeed && document.activeElement !== els.playgroundSeed) {
+            els.playgroundSeed.value = encodePlaygroundSeed(prefs);
+        }
+    }
+    function playgroundToolButtonsHtml(prefs) {
+        var buttons = [
+            playgroundToolButtonHtml(PLAYGROUND_TOOL_TAP, prefs.tool, t("Tap Tiles"), '<svg class="playground-tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v11l3-2 2.4 5.3 2.7-1.2-2.4-5.3 3.3-.5Z"></path></svg>', "")
+        ];
+        for (var state = 0; state < prefs.states; state += 1) {
+            var label = state === 0 ? t("Paint White") : t("Paint Color") + " " + state;
+            buttons.push(playgroundToolButtonHtml(playgroundPaintTool(state), prefs.tool, label, '<span class="playground-swatch state-' + state + '" aria-hidden="true"></span>', " swatch-tool"));
+        }
+        buttons.push(playgroundToolButtonHtml(PLAYGROUND_TOOL_LOCK, prefs.tool, t("Lock Tiles"), '<svg class="playground-tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.25 10.25V8.1a4.75 4.75 0 0 1 9.5 0v2.15"></path><rect x="5.25" y="10.25" width="13.5" height="10" rx="2.6"></rect><path d="M12 14.2v2.45"></path></svg>', ""));
+        buttons.push(playgroundToolButtonHtml(PLAYGROUND_TOOL_HOLE, prefs.tool, t("Place Holes"), '<svg class="playground-tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14"></path><path d="M19 5L5 19"></path></svg>', ""));
+        return buttons.join("");
+    }
+    function playgroundToolButtonHtml(tool, selectedTool, label, icon, extraClass) {
+        return '<button class="playground-tool-button' + (extraClass || "") + (selectedTool === tool ? " is-selected" : "") + '" data-playground-tool="' + tool + '" role="radio" aria-checked="' + (selectedTool === tool ? "true" : "false") + '" aria-label="' + escapeAttribute(label) + '" title="' + escapeAttribute(label) + '">' + icon + '</button>';
+    }
+    function playgroundPatternChipHtml(key, selected) {
+        var label = patternDisplayName(key);
+        return '<button class="chip pattern-chip' + (selected ? " is-selected" : "") + '" data-playground-pattern="' + key + '" role="radio" aria-checked="' + (selected ? "true" : "false") + '" aria-label="' + escapeAttribute(label) + '">' +
+            renderPatternChoiceIcon(key) +
+            '<span class="pattern-chip-label">' + escapeAttribute(label) + '</span>' +
+            '</button>';
+    }
+    function renderPlaygroundEditorBoard(pulsedIndexes) {
+        var prefs = normalizePlaygroundPrefs();
+        var locked = new Set(prefs.locked);
+        var disabled = new Set(prefs.disabled);
+        var pulseSet = new Set(pulsedIndexes || []);
+        els.playgroundEditorBoard.style.gridTemplateColumns = "repeat(" + prefs.width + ", minmax(0, 1fr))";
+        els.playgroundEditorBoard.style.setProperty("--board-ratio", prefs.width + " / " + prefs.height);
+        els.playgroundEditorBoard.style.setProperty("--board-ratio-number", String(prefs.width / prefs.height));
+        var html = [];
+        for (var y = 0; y < prefs.height; y += 1) {
+            for (var x = 0; x < prefs.width; x += 1) {
+                var idx = indexFor(x, y, prefs.width);
+                if (disabled.has(idx)) {
+                    html.push('<button class="hole playground-hole' + (pulseSet.has(idx) ? " pulsed" : "") + '" data-playground-index="' + idx + '" aria-label="' + escapeAttribute(t("Row") + " " + (y + 1) + ", " + t("column") + " " + (x + 1) + ", " + t("Empty hole")) + '"></button>');
+                    continue;
+                }
+                var state = prefs.board[idx] || 0;
+                var classes = ["tile", "playground-tile", "state-" + state];
+                if (locked.has(idx))
+                    classes.push("locked");
+                if (pulseSet.has(idx))
+                    classes.push("pulsed");
+                var lockMark = locked.has(idx) ? '<span class="lock-badge" aria-hidden="true"><svg class="lock-mark" viewBox="0 0 24 24"><path class="lock-shackle" d="M7.25 10.25V8.1a4.75 4.75 0 0 1 9.5 0v2.15"></path><rect class="lock-body" x="5.25" y="10.25" width="13.5" height="10" rx="2.6"></rect><path class="lock-key" d="M12 14.2v2.45"></path></svg></span>' : "";
+                html.push('<button class="' + classes.join(" ") + '" data-playground-index="' + idx + '" data-number="' + STATE_NUMBERS[state] + '" aria-label="' + escapeAttribute(t("Row") + " " + (y + 1) + ", " + t("column") + " " + (x + 1) + ", " + t("state") + " " + state + (locked.has(idx) ? ", " + t("locked") : "")) + '">' +
+                    lockMark +
+                    '</button>');
+            }
+        }
+        els.playgroundEditorBoard.innerHTML = html.join("");
+    }
+    function editPlaygroundTile(index) {
+        var prefs = normalizePlaygroundPrefs();
+        var total = prefs.width * prefs.height;
+        if (index < 0 || index >= total)
+            return;
+        var locked = new Set(prefs.locked);
+        var disabled = new Set(prefs.disabled);
+        if (prefs.tool === PLAYGROUND_TOOL_TAP) {
+            tapPlaygroundTile(index);
+            return;
+        }
+        var paintState = playgroundPaintState(prefs.tool);
+        if (prefs.tool === PLAYGROUND_TOOL_HOLE) {
+            if (disabled.has(index)) {
+                disabled.delete(index);
+            }
+            else if (disabled.size >= total - 1) {
+                setPlaygroundStatus("Keep at least one tile.");
+                playSound("invalid");
+                return;
+            }
+            else {
+                disabled.add(index);
+                locked.delete(index);
+                prefs.board[index] = 0;
+            }
+        }
+        else if (prefs.tool === PLAYGROUND_TOOL_LOCK) {
+            if (disabled.has(index))
+                disabled.delete(index);
+            if (locked.has(index))
+                locked.delete(index);
+            else
+                locked.add(index);
+        }
+        else if (paintState !== null) {
+            if (disabled.has(index)) {
+                disabled.delete(index);
+            }
+            prefs.board[index] = mod(paintState, prefs.states);
+        }
+        prefs.locked = Array.from(locked).filter(function (idx) {
+            return !disabled.has(idx);
+        }).sort(function (a, b) {
+            return a - b;
+        });
+        prefs.disabled = Array.from(disabled).sort(function (a, b) {
+            return a - b;
+        });
+        saveProgress();
+        setPlaygroundStatus("");
+        renderPlaygroundControls();
+        playSound("ui");
+    }
+    function playgroundGameFromPrefs(prefs) {
+        return {
+            width: prefs.width,
+            height: prefs.height,
+            states: prefs.states,
+            defaultPattern: prefs.pattern,
+            locked: new Set(prefs.locked),
+            disabled: new Set(prefs.disabled),
+            tilePatterns: {}
+        };
+    }
+    function tapPlaygroundTile(index) {
+        var prefs = normalizePlaygroundPrefs();
+        var game = playgroundGameFromPrefs(prefs);
+        if (!isTappable(game, index)) {
+            playSound("invalid");
+            return;
+        }
+        var affected = getAffectedIndexes(game, index);
+        applyPulse(game, prefs.board, index);
+        saveProgress();
+        setPlaygroundStatus("");
+        renderPlaygroundControls();
+        renderPlaygroundEditorBoard(affected);
+        playSound("pulse", { state: prefs.board[index] || 0, states: prefs.states, affected: affected.length });
+    }
+    function updatePlaygroundSize() {
+        var prefs = normalizePlaygroundPrefs();
+        var oldWidth = prefs.width;
+        var oldHeight = prefs.height;
+        var oldBoard = prefs.board.slice();
+        var oldLocked = new Set(prefs.locked);
+        var oldDisabled = new Set(prefs.disabled);
+        prefs.width = clamp(Number(els.playgroundWidth.value) || 5, 3, 9);
+        prefs.height = clamp(Number(els.playgroundHeight.value) || 5, 3, 9);
+        var total = prefs.width * prefs.height;
+        var nextBoard = new Array(total).fill(0);
+        var nextLocked = [];
+        var nextDisabled = [];
+        for (var y = 0; y < Math.min(oldHeight, prefs.height); y += 1) {
+            for (var x = 0; x < Math.min(oldWidth, prefs.width); x += 1) {
+                var oldIdx = indexFor(x, y, oldWidth);
+                var nextIdx = indexFor(x, y, prefs.width);
+                nextBoard[nextIdx] = oldBoard[oldIdx] || 0;
+                if (oldLocked.has(oldIdx))
+                    nextLocked.push(nextIdx);
+                if (oldDisabled.has(oldIdx))
+                    nextDisabled.push(nextIdx);
+            }
+        }
+        prefs.board = nextBoard;
+        prefs.locked = nextLocked;
+        prefs.disabled = nextDisabled;
+        normalizePlaygroundPrefs();
+        saveProgress();
+        renderPlaygroundControls();
+    }
+    function clearPlaygroundBoard() {
+        var prefs = normalizePlaygroundPrefs();
+        prefs.board = new Array(prefs.width * prefs.height).fill(0);
+        prefs.locked = [];
+        prefs.disabled = [];
+        saveProgress();
+        setPlaygroundStatus("");
+        renderPlaygroundControls();
+    }
+    function setPlaygroundStatus(message) {
+        if (els.playgroundSeedStatus)
+            els.playgroundSeedStatus.textContent = message ? t(message) : "";
+    }
+    function encodePlaygroundSeed(prefs) {
+        return encodePlaygroundCompactSeed(prefs);
+    }
+    function normalizedPlaygroundSeedPrefs(prefs) {
+        prefs = prefs || normalizePlaygroundPrefs();
+        var width = clamp(Number(prefs.width) || 5, 3, 9);
+        var height = clamp(Number(prefs.height) || 5, 3, 9);
+        var states = STATE_OPTIONS.indexOf(Number(prefs.states)) === -1 ? 3 : Number(prefs.states);
+        var pattern = PLAYGROUND_PATTERNS.indexOf(prefs.pattern) === -1 ? "cross" : prefs.pattern;
+        var total = width * height;
+        var board = Array.isArray(prefs.board) ? prefs.board.slice(0, total) : [];
+        while (board.length < total)
+            board.push(0);
+        board = board.map(function (value) {
+            return mod(Number(value) || 0, states);
+        });
+        var disabled = cleanPlaygroundIndexes(prefs.disabled, total);
+        if (disabled.length >= total)
+            disabled = disabled.slice(0, Math.max(0, total - 1));
+        var disabledSet = new Set(disabled);
+        var locked = cleanPlaygroundIndexes(prefs.locked, total).filter(function (idx) {
+            return !disabledSet.has(idx);
+        });
+        disabled.forEach(function (idx) {
+            board[idx] = 0;
+        });
+        return {
+            width: width,
+            height: height,
+            states: states,
+            pattern: pattern,
+            board: board,
+            locked: locked,
+            disabled: disabled
+        };
+    }
+    function compactBitsForStates(states) {
+        var bits = 1;
+        var capacity = 2;
+        while (capacity < states) {
+            bits += 1;
+            capacity *= 2;
+        }
+        return bits;
+    }
+    function writeCompactBits(bits, value, count) {
+        for (var shift = count - 1; shift >= 0; shift -= 1) {
+            bits.push((value >> shift) & 1);
+        }
+    }
+    function compactCodeChecksum(body) {
+        var hash = 913;
+        for (var i = 0; i < body.length; i += 1) {
+            hash = ((hash * 33) ^ body.charCodeAt(i)) & 1023;
+        }
+        return hash;
+    }
+    function compactChecksumText(body) {
+        var checksum = compactCodeChecksum(body);
+        return PLAYGROUND_COMPACT_ALPHABET[Math.floor(checksum / 32)] + PLAYGROUND_COMPACT_ALPHABET[checksum % 32];
+    }
+    function encodePlaygroundCompactSeed(prefs) {
+        var config = normalizedPlaygroundSeedPrefs(prefs);
+        var total = config.width * config.height;
+        var lockedSet = new Set(config.locked);
+        var disabledSet = new Set(config.disabled);
+        var stateBits = compactBitsForStates(config.states);
+        var bits = [];
+        writeCompactBits(bits, PLAYGROUND_COMPACT_VERSION, 4);
+        writeCompactBits(bits, config.width - 3, 3);
+        writeCompactBits(bits, config.height - 3, 3);
+        writeCompactBits(bits, STATE_OPTIONS.indexOf(config.states), 2);
+        writeCompactBits(bits, PLAYGROUND_PATTERNS.indexOf(config.pattern), 3);
+        for (var idx = 0; idx < total; idx += 1) {
+            var disabled = disabledSet.has(idx);
+            writeCompactBits(bits, disabled ? 1 : 0, 1);
+            if (!disabled) {
+                writeCompactBits(bits, lockedSet.has(idx) ? 1 : 0, 1);
+                writeCompactBits(bits, mod(config.board[idx], config.states), stateBits);
+            }
+        }
+        var body = "";
+        for (var bit = 0; bit < bits.length; bit += 5) {
+            var value = 0;
+            for (var offset = 0; offset < 5; offset += 1) {
+                value = (value << 1) | (bits[bit + offset] || 0);
+            }
+            body += PLAYGROUND_COMPACT_ALPHABET[value];
+        }
+        return PLAYGROUND_COMPACT_PREFIX + body + compactChecksumText(body);
+    }
+    function decodePlaygroundSeed(seed) {
+        return decodePlaygroundCompactSeed(seed) || decodePlaygroundLegacySeed(seed);
+    }
+    function compactAlphabetIndex(ch) {
+        return PLAYGROUND_COMPACT_ALPHABET.indexOf(ch);
+    }
+    function decodePlaygroundCompactSeed(seed) {
+        var code = String(seed || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+        var prefixes = [PLAYGROUND_COMPACT_PREFIX, PLAYGROUND_LEGACY_COMPACT_PREFIX];
+        for (var prefixIndex = 0; prefixIndex < prefixes.length; prefixIndex += 1) {
+            var prefix = prefixes[prefixIndex];
+            for (var start = 0; start <= code.length - prefix.length - 3; start += 1) {
+                if (code.slice(start, start + prefix.length) !== prefix)
+                    continue;
+                var maxEnd = Math.min(code.length, start + PLAYGROUND_COMPACT_MAX_CODE_LENGTH);
+                for (var end = start + prefix.length + 3; end <= maxEnd; end += 1) {
+                    var decoded = decodePlaygroundCompactCode(code.slice(start, end), prefix);
+                    if (decoded)
+                        return decoded;
+                }
+            }
+        }
+        return null;
+    }
+    function decodePlaygroundCompactCode(code, prefix) {
+        if (!code || code.slice(0, prefix.length) !== prefix || code.length < prefix.length + 3)
+            return null;
+        var body = code.slice(prefix.length, -2);
+        var checksum = code.slice(-2);
+        if (!body || checksum.length !== 2 || compactChecksumText(body) !== checksum)
+            return null;
+        var bits = [];
+        for (var i = 0; i < body.length; i += 1) {
+            var value = compactAlphabetIndex(body[i]);
+            if (value < 0)
+                return null;
+            writeCompactBits(bits, value, 5);
+        }
+        if (compactAlphabetIndex(checksum[0]) < 0 || compactAlphabetIndex(checksum[1]) < 0)
+            return null;
+        var position = 0;
+        var failed = false;
+        function readBits(count) {
+            if (position + count > bits.length) {
+                failed = true;
+                return 0;
+            }
+            var value = 0;
+            for (var offset = 0; offset < count; offset += 1) {
+                value = (value << 1) | bits[position + offset];
+            }
+            position += count;
+            return value;
+        }
+        var version = readBits(4);
+        var width = readBits(3) + 3;
+        var height = readBits(3) + 3;
+        var stateIndex = readBits(2);
+        var patternIndex = readBits(3);
+        if (failed || version !== PLAYGROUND_COMPACT_VERSION)
+            return null;
+        var states = STATE_OPTIONS[stateIndex];
+        var pattern = PLAYGROUND_PATTERNS[patternIndex];
+        if (!states || !pattern)
+            return null;
+        var total = width * height;
+        var stateBits = compactBitsForStates(states);
+        var board = [];
+        var locked = [];
+        var disabled = [];
+        for (var idx = 0; idx < total; idx += 1) {
+            var isDisabled = readBits(1) === 1;
+            if (isDisabled) {
+                disabled.push(idx);
+                board.push(0);
+            }
+            else {
+                var isLocked = readBits(1) === 1;
+                var state = readBits(stateBits);
+                if (state >= states)
+                    return null;
+                board.push(state);
+                if (isLocked)
+                    locked.push(idx);
+            }
+        }
+        if (failed || disabled.length >= total)
+            return null;
+        if (Math.ceil(position / 5) !== body.length)
+            return null;
+        for (; position < bits.length; position += 1) {
+            if (bits[position])
+                return null;
+        }
+        return {
+            width: width,
+            height: height,
+            states: states,
+            pattern: pattern,
+            tool: PLAYGROUND_TOOL_TAP,
+            board: board,
+            locked: locked,
+            disabled: disabled
+        };
+    }
+    function decodePlaygroundLegacySeed(seed) {
+        var text = String(seed || "").trim();
+        var match = text.match(/ITM1:[^\s]+/);
+        if (match)
+            text = match[0];
+        var parts = text.split(":");
+        if (parts.length < 7 || parts[0] !== PLAYGROUND_SEED_PREFIX)
+            return null;
+        var dims = parts[1].split("x").map(Number);
+        var width = clamp(dims[0] || 0, 3, 9);
+        var height = clamp(dims[1] || 0, 3, 9);
+        if (!dims[0] || !dims[1])
+            return null;
+        var states = Number(parts[2]);
+        if (STATE_OPTIONS.indexOf(states) === -1)
+            return null;
+        var pattern = parts[3];
+        if (PLAYGROUND_PATTERNS.indexOf(pattern) === -1)
+            return null;
+        var total = width * height;
+        var boardText = parts[4] || "";
+        if (boardText.length !== total || /[^0-4]/.test(boardText))
+            return null;
+        var board = boardText.split("").map(function (digit) {
+            return mod(Number(digit) || 0, states);
+        });
+        var disabled = decodePlaygroundIndexList(parts[6], total);
+        if (!disabled || disabled.length >= total)
+            return null;
+        var disabledSet = new Set(disabled);
+        var locked = decodePlaygroundIndexList(parts[5], total);
+        if (!locked)
+            return null;
+        locked = locked.filter(function (idx) {
+            return !disabledSet.has(idx);
+        });
+        disabled.forEach(function (idx) {
+            board[idx] = 0;
+        });
+        return {
+            width: width,
+            height: height,
+            states: states,
+            pattern: pattern,
+            tool: PLAYGROUND_TOOL_TAP,
+            board: board,
+            locked: locked,
+            disabled: disabled
+        };
+    }
+    function decodePlaygroundIndexList(text, total) {
+        if (!text)
+            return [];
+        var seen = new Set();
+        var out = [];
+        var parts = String(text).split(".");
+        for (var i = 0; i < parts.length; i += 1) {
+            if (!parts[i])
+                continue;
+            if (!/^[0-9a-z]+$/i.test(parts[i]))
+                return null;
+            var idx = parseInt(parts[i], 36);
+            if (!Number.isFinite(idx) || idx < 0 || idx >= total)
+                return null;
+            if (!seen.has(idx)) {
+                seen.add(idx);
+                out.push(idx);
+            }
+        }
+        return out.sort(function (a, b) {
+            return a - b;
+        });
+    }
+    function loadPlaygroundSeedFromInput() {
+        var decoded = decodePlaygroundSeed(els.playgroundSeed.value);
+        if (!decoded) {
+            setPlaygroundStatus("Puzzle code not recognized.");
+            playSound("invalid");
+            return;
+        }
+        app.progress.playgroundPrefs = decoded;
+        saveProgress();
+        renderPlaygroundControls();
+        setPlaygroundStatus("Puzzle code loaded.");
+        playSound("ui");
+    }
+    function copyPlaygroundSeed() {
+        var seed = encodePlaygroundSeed(normalizePlaygroundPrefs());
+        if (els.playgroundSeed)
+            els.playgroundSeed.value = seed;
+        var copied = false;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(seed).then(function () {
+                setPlaygroundStatus("Puzzle code copied.");
+            }).catch(function () {
+                setPlaygroundStatus("Puzzle code copied.");
+            });
+            copied = true;
+        }
+        else if (els.playgroundSeed) {
+            els.playgroundSeed.focus();
+            els.playgroundSeed.select();
+            try {
+                copied = document.execCommand("copy");
+            }
+            catch (error) {
+                copied = false;
+            }
+        }
+        setPlaygroundStatus(copied ? "Puzzle code copied." : "Puzzle code copied.");
+    }
     function chipHtml(label, attr, value, selected) {
         return '<button class="chip' + (selected ? " is-selected" : "") + '" ' + attr + '="' + value + '" role="radio" aria-checked="' + (selected ? "true" : "false") + '">' + label + '</button>';
     }
@@ -1446,8 +2192,8 @@
         if (!game)
             return "";
         if (game.mode === "campaign" && game.campaignIndex >= 0) {
-            var chapter = Math.floor(game.campaignIndex / 10) + 1;
-            var level = game.campaignIndex % 10 + 1;
+            var chapter = campaignGroupIndexForLevel(game.campaignIndex) + 1;
+            var level = campaignLevelNumberInGroup(game.campaignIndex);
             return chapterTitle(chapter) + " " + level;
         }
         if (game.mode === "daily" && game.dailyTier) {
@@ -1460,6 +2206,8 @@
             }) || "Medium";
             return difficultyDisplayName(difficulty) + " " + t("Custom Level");
         }
+        if (game.mode === "playground")
+            return t("Playground");
         return game.name;
     }
     function updateCustomSize() {
@@ -1508,7 +2256,7 @@
             throw new Error("Campaign data version mismatch.");
         }
         var levels = data.levels.map(campaignLevelFromData);
-        if (levels.length !== 300)
+        if (levels.length !== CAMPAIGN_LEVEL_COUNT)
             throw new Error("Campaign data is incomplete.");
         return levels;
     }
@@ -1531,7 +2279,7 @@
             tilePatterns: stringMap(raw.tilePatterns),
             levelId: String(raw.levelId || ""),
             campaignIndex: Number(raw.campaignIndex) || 0,
-            chapter: Number(raw.chapter) || 1,
+            chapter: Number(raw.chapter) || campaignGroupIndexForLevel(Number(raw.campaignIndex) || 0) + 1,
             name: String(raw.name || "Level"),
             initialState: initial.slice(0, width * height),
             knownSolution: normalizeSolution(numberMap(raw.knownSolution), states),
@@ -1620,8 +2368,8 @@
     }
     function createCampaignLevels() {
         var levels = [];
-        for (var chapter = 1; chapter <= 30; chapter += 1) {
-            for (var levelInChapter = 1; levelInChapter <= 10; levelInChapter += 1) {
+        for (var chapter = 1; chapter <= CAMPAIGN_GROUP_COUNT; chapter += 1) {
+            for (var levelInChapter = 1; levelInChapter <= CAMPAIGN_LEVELS_PER_GROUP; levelInChapter += 1) {
                 levels.push(generateCampaignLevel(chapter, levelInChapter, levels.length));
             }
         }
@@ -2027,17 +2775,16 @@
             els.campaignList.innerHTML = '<section class="empty-state"><h3>' + t("No campaign levels found") + '</h3><p>' + t("The fixed campaign data is missing. Reload the app or check the bundled asset.") + '</p></section>';
             return;
         }
-        var chapters = range(30).map(function (_, index) {
-            return campaignChapterMeta(index + 1);
-        });
-        els.campaignList.innerHTML = chapters.map(function (chapter) {
-            var levels = app.campaignLevels.filter(function (level) {
-                return level.chapter === chapter.id;
-            });
-            return '<section class="chapter"><h3>' + chapter.title + '</h3><div class="level-grid">' +
-                levels.map(renderLevelNode).join("") +
-                '</div></section>';
-        }).join("");
+        var selectedGroup = normalizeSelectedCampaignGroup();
+        els.campaignList.innerHTML =
+            '<section class="campaign-map-section">' +
+                '<div class="campaign-map-grid">' +
+                range(CAMPAIGN_GROUP_COUNT).map(function (_, groupIndex) {
+                    return renderCampaignGroupTile(groupIndex, selectedGroup);
+                }).join("") +
+                '</div>' +
+                '</section>' +
+                renderCampaignGroupDetail(selectedGroup);
     }
     function renderDaily() {
         if (!els.dailyList)
@@ -2049,7 +2796,6 @@
         var dateKey = getDailyDateKey();
         els.dailyList.innerHTML =
             '<section class="daily-section">' +
-                '<h3>' + t("Today's Puzzles") + '</h3>' +
                 '<div class="daily-challenge-list">' +
                 DAILY_TIERS.map(function (tier) {
                     return renderDailyCard(tier, dateKey);
@@ -2125,12 +2871,6 @@
             return current;
         return tierKey === "medium" ? app.progress.daily[dateKey] : null;
     }
-    function campaignChapterMeta(chapter) {
-        return {
-            id: chapter,
-            title: t("Chapter") + " " + chapter + ": " + chapterTitle(chapter)
-        };
-    }
     function renderLevelNode(level) {
         var unlocked = isCampaignLevelUnlocked(level.campaignIndex);
         var stars = app.progress.stars[level.levelId] || 0;
@@ -2140,17 +2880,120 @@
             ' aria-label="' + levelSelectAriaLabel(level, stars, completed, unlocked, hintUsed) + '">' +
             (completed ? '<span class="level-check" aria-hidden="true">' + renderCheckIcon() + '</span>' : "") +
             (completed && hintUsed ? '<span class="level-hint-eye" aria-hidden="true">' + renderEyeIcon() + '</span>' : "") +
-            '<span class="level-number">' + (level.campaignIndex + 1) + '</span>' +
+            '<span class="level-number">' + campaignLevelNumberInGroup(level.campaignIndex) + '</span>' +
             '<span class="level-stars" aria-hidden="true">' + renderStarIcons(stars) + '</span>' +
             '</button>';
     }
+    function renderCampaignGroupTile(groupIndex, selectedGroup) {
+        var unlocked = isCampaignGroupUnlocked(groupIndex);
+        var stars = campaignGroupStars(groupIndex);
+        var completed = campaignGroupCompletedCount(groupIndex);
+        var classes = ["campaign-group-tile"];
+        if (unlocked)
+            classes.push("is-unlocked");
+        else
+            classes.push("is-locked");
+        if (groupIndex === selectedGroup)
+            classes.push("is-selected");
+        if (stars >= CAMPAIGN_GROUP_STAR_TARGET)
+            classes.push("is-open");
+        return '<button class="' + classes.join(" ") + '" data-campaign-group="' + groupIndex + '"' + (unlocked ? "" : " disabled") +
+            ' aria-label="' + campaignGroupAriaLabel(groupIndex, stars, completed, unlocked) + '">' +
+            '<span class="campaign-group-number">' + (groupIndex + 1) + '</span>' +
+            '<span class="campaign-group-mini-grid" aria-hidden="true">' + renderCampaignGroupMiniGrid(groupIndex) + '</span>' +
+            '<span class="campaign-group-progress" aria-hidden="true"><strong>' + stars + '</strong><span>/' + CAMPAIGN_GROUP_STAR_MAX + '</span></span>' +
+            (unlocked ? "" : '<span class="campaign-group-lock" aria-hidden="true"><svg class="lock-mark" viewBox="0 0 24 24"><path class="lock-shackle" d="M7.25 10.25V8.1a4.75 4.75 0 0 1 9.5 0v2.15"></path><rect class="lock-body" x="5.25" y="10.25" width="13.5" height="10" rx="2.6"></rect><path class="lock-key" d="M12 14.2v2.45"></path></svg></span>') +
+            '</button>';
+    }
+    function renderCampaignGroupMiniGrid(groupIndex) {
+        return campaignLevelsForGroup(groupIndex).map(function (level) {
+            var stars = clamp(Number(app.progress.stars[level.levelId]) || 0, 0, 3);
+            var completed = isCampaignLevelCompleted(level.levelId);
+            var classes = ["campaign-mini-level", "stars-" + stars];
+            if (completed)
+                classes.push("is-complete");
+            if (isCampaignHintMarked(level.levelId))
+                classes.push("is-hinted");
+            return '<span class="' + classes.join(" ") + '"></span>';
+        }).join("");
+    }
+    function renderCampaignGroupDetail(groupIndex) {
+        var levels = campaignLevelsForGroup(groupIndex);
+        var title = t("Group") + " " + (groupIndex + 1) + ": " + chapterTitle(groupIndex + 1);
+        return '<section class="campaign-group-detail">' +
+            '<div class="campaign-group-detail-heading">' +
+            '<h3>' + escapeAttribute(title) + '</h3>' +
+            '</div>' +
+            '<div class="campaign-level-grid">' + levels.map(renderLevelNode).join("") + '</div>' +
+            '</section>';
+    }
+    function normalizeSelectedCampaignGroup() {
+        var groupIndex = clamp(Number(app.selectedCampaignGroup) || 0, 0, CAMPAIGN_GROUP_COUNT - 1);
+        if (!isCampaignGroupUnlocked(groupIndex)) {
+            var lastGroup = campaignGroupIndexForLevel(app.lastCampaignIndex || 0);
+            groupIndex = isCampaignGroupUnlocked(lastGroup) ? lastGroup : firstUnlockedCampaignGroup();
+        }
+        app.selectedCampaignGroup = groupIndex;
+        return groupIndex;
+    }
+    function firstUnlockedCampaignGroup() {
+        for (var group = 0; group < CAMPAIGN_GROUP_COUNT; group += 1) {
+            if (isCampaignGroupUnlocked(group))
+                return group;
+        }
+        return 0;
+    }
+    function campaignLevelsForGroup(groupIndex) {
+        var start = groupIndex * CAMPAIGN_LEVELS_PER_GROUP;
+        return app.campaignLevels.slice(start, start + CAMPAIGN_LEVELS_PER_GROUP);
+    }
+    function campaignGroupIndexForLevel(index) {
+        return Math.floor(clamp(Number(index) || 0, 0, CAMPAIGN_LEVEL_COUNT - 1) / CAMPAIGN_LEVELS_PER_GROUP);
+    }
+    function campaignLevelNumberInGroup(index) {
+        return (clamp(Number(index) || 0, 0, CAMPAIGN_LEVEL_COUNT - 1) % CAMPAIGN_LEVELS_PER_GROUP) + 1;
+    }
+    function campaignAdjacentGroups(groupIndex) {
+        var x = groupIndex % CAMPAIGN_MAP_SIZE;
+        var y = Math.floor(groupIndex / CAMPAIGN_MAP_SIZE);
+        var groups = [];
+        if (x > 0)
+            groups.push(groupIndex - 1);
+        if (x < CAMPAIGN_MAP_SIZE - 1)
+            groups.push(groupIndex + 1);
+        if (y > 0)
+            groups.push(groupIndex - CAMPAIGN_MAP_SIZE);
+        if (y < CAMPAIGN_MAP_SIZE - 1)
+            groups.push(groupIndex + CAMPAIGN_MAP_SIZE);
+        return groups;
+    }
+    function campaignGroupStars(groupIndex) {
+        return campaignLevelsForGroup(groupIndex).reduce(function (total, level) {
+            return total + clamp(Number(app.progress.stars[level.levelId]) || 0, 0, 3);
+        }, 0);
+    }
+    function campaignGroupCompletedCount(groupIndex) {
+        return campaignLevelsForGroup(groupIndex).filter(function (level) {
+            return isCampaignLevelCompleted(level.levelId);
+        }).length;
+    }
+    function isCampaignGroupUnlocked(groupIndex) {
+        if (groupIndex === 0)
+            return true;
+        if (campaignGroupStars(groupIndex) > 0)
+            return true;
+        return campaignAdjacentGroups(groupIndex).some(function (neighbor) {
+            return campaignGroupStars(neighbor) >= CAMPAIGN_GROUP_STAR_TARGET;
+        });
+    }
+    function campaignGroupAriaLabel(groupIndex, stars, completed, unlocked) {
+        var label = t("Group") + " " + (groupIndex + 1) + ", " + chapterTitle(groupIndex + 1) + ", " + stars + " " + t("stars") + ", " + completed + "/" + CAMPAIGN_LEVELS_PER_GROUP + " " + t("complete");
+        if (!unlocked)
+            label += ", " + t("locked") + ", " + t("Earn 15 stars in a nearby group.");
+        return escapeAttribute(label);
+    }
     function isCampaignLevelUnlocked(index) {
-        if (index === 0)
-            return true;
-        var level = app.campaignLevels[index];
-        if (level && isCampaignLevelCompleted(level.levelId))
-            return true;
-        return Boolean(app.campaignLevels[index - 1] && isCampaignLevelCompleted(app.campaignLevels[index - 1].levelId));
+        return isCampaignGroupUnlocked(campaignGroupIndexForLevel(index));
     }
     function isCampaignLevelCompleted(levelId) {
         return Boolean((app.progress.completed && app.progress.completed[levelId]) || (app.progress.stars && app.progress.stars[levelId] > 0));
@@ -2164,7 +3007,10 @@
         });
         if (!level)
             return;
+        if (!isCampaignLevelUnlocked(level.campaignIndex))
+            return;
         app.lastCampaignIndex = level.campaignIndex;
+        app.selectedCampaignGroup = campaignGroupIndexForLevel(level.campaignIndex);
         startGame(levelToGame(level, "campaign"));
     }
     function levelToGame(level, mode) {
@@ -2217,6 +3063,41 @@
             name: prefs.difficulty + " Custom Level"
         });
         startGame(levelToGeneratedGame(level, "freeplay"));
+    }
+    function startPlayground() {
+        var prefs = normalizePlaygroundPrefs();
+        playSound("start");
+        var seed = encodePlaygroundSeed(prefs);
+        var game = {
+            mode: "playground",
+            levelId: "playground-" + hashString(seed),
+            name: "Playground",
+            width: prefs.width,
+            height: prefs.height,
+            states: prefs.states,
+            defaultPattern: prefs.pattern,
+            locked: new Set(prefs.locked),
+            disabled: new Set(prefs.disabled),
+            tilePatterns: {},
+            initialState: prefs.board.slice(),
+            board: prefs.board.slice(),
+            knownSolution: {},
+            remainingSolution: {},
+            minimumMoves: 0,
+            targetMoves: 0,
+            difficultyRating: "Playground",
+            moves: 0,
+            history: [],
+            hintLevel: 0,
+            hint: null,
+            usedHint: false,
+            completed: false,
+            hintCompletionPending: false,
+            startedAt: Date.now(),
+            elapsedSeconds: 0,
+            playgroundSeed: seed
+        };
+        startGame(game);
     }
     function startDaily(tierKey) {
         playSound("start");
@@ -2429,6 +3310,8 @@
             return t("Campaign");
         if (mode === "daily")
             return t("Daily");
+        if (mode === "playground")
+            return t("Playground");
         return t("Custom Level");
     }
     function startTimer() {
@@ -2466,7 +3349,7 @@
             resetButton.disabled = hintCompletionPending || app.currentGame.completed;
         var hintButton = document.querySelector('[data-action="hint"]');
         if (hintButton)
-            hintButton.disabled = hintCompletionPending || app.currentGame.completed || Date.now() < app.hintCooldownUntil;
+            hintButton.disabled = app.currentGame.mode === "playground" || hintCompletionPending || app.currentGame.completed || Date.now() < app.hintCooldownUntil;
     }
     function renderPatternIndicator(game) {
         if (!els.patternLabel || !els.patternMini)
@@ -2676,7 +3559,7 @@
         renderBoard(affected);
         updateCounters();
         playSound("pulse", { state: game.board[index] || 0, states: game.states, affected: affected.length });
-        if (isSolved(game, game.board)) {
+        if (game.mode !== "playground" && isSolved(game, game.board)) {
             window.setTimeout(completeGame, 360);
         }
     }
@@ -2722,6 +3605,11 @@
         var game = app.currentGame;
         if (!game || game.completed || game.hintCompletionPending)
             return;
+        if (game.mode === "playground") {
+            playSound("invalid");
+            els.hintLine.textContent = t("Hints are off in Playground.");
+            return;
+        }
         if (Date.now() < app.hintCooldownUntil)
             return;
         beginHintCooldown();
@@ -2880,6 +3768,8 @@
         var game = app.currentGame;
         if (!game || game.completed)
             return;
+        if (game.mode === "playground")
+            return;
         game.hintCompletionPending = false;
         game.completed = true;
         game.elapsedSeconds = Math.floor((Date.now() - game.startedAt) / 1000);
@@ -2955,6 +3845,10 @@
     function completionPrimaryActionLabel(game) {
         if (!game || game.mode === "daily")
             return "";
+        if (game.mode === "campaign") {
+            var next = app.campaignLevels[game.campaignIndex + 1];
+            return next && isCampaignLevelUnlocked(next.campaignIndex) ? t("Next Level") : t("Campaign");
+        }
         return game.mode === "freeplay" ? t("New Puzzle") : t("Next Level");
     }
     function calculateStars(game) {
@@ -3382,6 +4276,9 @@
         }).join("");
     }
     function renderStatusStarRanking(item) {
+        if (item && item.mode === "playground") {
+            return '<span class="star-ranking-row playground-ranking-row"><strong>' + t("Sandbox") + '</strong><em>' + t("No goal") + '</em></span>';
+        }
         var highlightedStars = storedStarsForGame(item);
         return starThresholds(item).map(function (threshold) {
             var label = threshold.stars + " " + (threshold.stars === 1 ? t("star") : t("stars")) + ": " + formatMoveRange(threshold.min, threshold.max, false);
@@ -3395,6 +4292,8 @@
     function personalBestText(game) {
         if (!game)
             return "-";
+        if (game.mode === "playground")
+            return t("No goal");
         if (game.mode === "daily") {
             var daily = app.progress.daily && app.progress.daily[game.dailyKey];
             return daily && daily.completed && daily.moves !== undefined ? String(daily.moves) : "-";
@@ -3428,7 +4327,7 @@
         return '<svg class="eye-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-5.5 9.5-5.5S21.5 12 21.5 12s-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z"></path><circle cx="12" cy="12" r="2.8"></circle></svg>';
     }
     function levelSelectAriaLabel(level, stars, completed, unlocked, hintUsed) {
-        var label = t("Level") + " " + (level.campaignIndex + 1);
+        var label = t("Group") + " " + (campaignGroupIndexForLevel(level.campaignIndex) + 1) + ", " + t("Level") + " " + campaignLevelNumberInGroup(level.campaignIndex);
         if (!unlocked)
             label += ", " + t("locked");
         if (completed) {

@@ -25,40 +25,74 @@
         </section>
 
         <nav class="menu-stack" aria-label="Main menu">
-          <button class="menu-action" data-action="show-campaign">Campaign</button>
-          <button class="menu-action" data-action="show-freeplay">Custom Level</button>
-          <button class="menu-action" data-action="show-daily">Daily Challenge</button>
-          <button class="menu-action" data-action="show-howto">How to Play</button>
-          <button class="menu-action" data-action="show-math">The Math</button>
-          <button class="menu-action" data-action="show-settings">Settings</button>
+          <button class="menu-action" data-action="show-campaign">
+            <span>Campaign</span>
+            <img class="menu-icon" src="assets/menu-icons/campaign.png" alt="" aria-hidden="true" draggable="false">
+          </button>
+          <button class="menu-action" data-action="show-freeplay">
+            <span>Custom Level</span>
+            <img class="menu-icon" src="assets/menu-icons/custom.png" alt="" aria-hidden="true" draggable="false">
+          </button>
+          <button class="menu-action" data-action="show-playground">
+            <span>Playground</span>
+            <img class="menu-icon" src="assets/menu-icons/playground.png" alt="" aria-hidden="true" draggable="false">
+          </button>
+          <button class="menu-action" data-action="show-daily">
+            <span>Daily Challenge</span>
+            <img class="menu-icon" src="assets/menu-icons/daily.png" alt="" aria-hidden="true" draggable="false">
+          </button>
+          <button class="menu-action" data-action="show-howto">
+            <span>How to Play</span>
+            <img class="menu-icon" src="assets/menu-icons/howto.png" alt="" aria-hidden="true" draggable="false">
+          </button>
+          <button class="menu-action" data-action="show-math">
+            <span>The Math</span>
+            <img class="menu-icon" src="assets/menu-icons/math.png" alt="" aria-hidden="true" draggable="false">
+          </button>
+          <button class="menu-action" data-action="show-settings">
+            <span>Settings</span>
+            <img class="menu-icon" src="assets/menu-icons/settings.png" alt="" aria-hidden="true" draggable="false">
+          </button>
         </nav>
       </main>
 
       <main id="screen-campaign" class="screen">
-        <header class="screen-header sticky-screen-header">
+        <header class="screen-header sticky-screen-header section-header">
           <button class="icon-button icon-only" data-action="show-main" aria-label="Back">
             <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 5l-7 7 7 7"></path>
+              <path d="M19 12H6m6-6-6 6 6 6"></path>
             </svg>
           </button>
-          <div>
+          <img class="section-header-icon" src="assets/menu-icons/campaign.png" alt="" aria-hidden="true" draggable="false">
+          <div class="section-title-block">
             <p class="kicker">Campaign</p>
             <h2>Campaign</h2>
           </div>
+          <div class="guide-size-control" role="group" aria-label="Text size">
+            <button class="guide-size-button guide-size-small" data-action="guide-size" data-guide-size="small" aria-label="Small text">A</button>
+            <button class="guide-size-button guide-size-medium" data-action="guide-size" data-guide-size="medium" aria-label="Medium text">A</button>
+            <button class="guide-size-button guide-size-large" data-action="guide-size" data-guide-size="large" aria-label="Large text">A</button>
+          </div>
         </header>
-        <section id="campaign-list" class="chapter-list" aria-label="Campaign chapters"></section>
+        <section id="campaign-list" class="campaign-list" aria-label="Campaign groups"></section>
       </main>
 
       <main id="screen-freeplay" class="screen">
-        <header class="screen-header sticky-screen-header">
+        <header class="screen-header sticky-screen-header section-header">
           <button class="icon-button icon-only" data-action="show-main" aria-label="Back">
             <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 5l-7 7 7 7"></path>
+              <path d="M19 12H6m6-6-6 6 6 6"></path>
             </svg>
           </button>
-          <div>
+          <img class="section-header-icon" src="assets/menu-icons/custom.png" alt="" aria-hidden="true" draggable="false">
+          <div class="section-title-block">
             <p class="kicker">Custom Level</p>
             <h2>Custom Level</h2>
+          </div>
+          <div class="guide-size-control" role="group" aria-label="Text size">
+            <button class="guide-size-button guide-size-small" data-action="guide-size" data-guide-size="small" aria-label="Small text">A</button>
+            <button class="guide-size-button guide-size-medium" data-action="guide-size" data-guide-size="medium" aria-label="Medium text">A</button>
+            <button class="guide-size-button guide-size-large" data-action="guide-size" data-guide-size="large" aria-label="Large text">A</button>
           </div>
         </header>
 
@@ -109,16 +143,88 @@
         </section>
       </main>
 
-      <main id="screen-daily" class="screen">
-        <header class="screen-header sticky-screen-header">
+      <main id="screen-playground" class="screen">
+        <header class="screen-header sticky-screen-header section-header">
           <button class="icon-button icon-only" data-action="show-main" aria-label="Back">
             <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 5l-7 7 7 7"></path>
+              <path d="M19 12H6m6-6-6 6 6 6"></path>
             </svg>
           </button>
-          <div>
+          <img class="section-header-icon" src="assets/menu-icons/playground.png" alt="" aria-hidden="true" draggable="false">
+          <div class="section-title-block">
+            <p class="kicker">Playground</p>
+            <h2>Playground</h2>
+          </div>
+          <div class="guide-size-control" role="group" aria-label="Text size">
+            <button class="guide-size-button guide-size-small" data-action="guide-size" data-guide-size="small" aria-label="Small text">A</button>
+            <button class="guide-size-button guide-size-medium" data-action="guide-size" data-guide-size="medium" aria-label="Medium text">A</button>
+            <button class="guide-size-button guide-size-large" data-action="guide-size" data-guide-size="large" aria-label="Large text">A</button>
+          </div>
+        </header>
+
+        <section class="playground-live-panel" aria-label="Playground controls">
+          <div id="playground-tool-options" class="playground-toolbelt" role="radiogroup" aria-label="Edit tool"></div>
+
+          <div class="playground-foldouts">
+            <details class="playground-foldout">
+              <summary><span>States</span><strong id="playground-state-summary">3 states</strong></summary>
+              <div id="playground-state-options" class="chip-row" role="radiogroup" aria-label="Number of states"></div>
+            </details>
+
+            <details class="playground-foldout">
+              <summary><span>Tap Pattern</span><strong id="playground-pattern-summary">Cross</strong></summary>
+              <div id="playground-pattern-options" class="chip-row pattern-chip-row" role="radiogroup" aria-label="Tap pattern"></div>
+            </details>
+
+            <details class="playground-foldout">
+              <summary><span>Grid Size</span><strong id="playground-size-summary">5x5</strong></summary>
+              <div class="custom-size playground-size-controls">
+                <label>Width
+                  <input id="playground-width" type="number" min="3" max="9" value="5" inputmode="numeric">
+                </label>
+                <label>Height
+                  <input id="playground-height" type="number" min="3" max="9" value="5" inputmode="numeric">
+                </label>
+              </div>
+            </details>
+
+            <details class="playground-foldout playground-code-foldout">
+              <summary><span>Puzzle Code</span><strong id="playground-code-summary">Share</strong></summary>
+              <div class="playground-code-row">
+                <input id="playground-seed" class="select-field playground-code-input" type="text" spellcheck="false" autocomplete="off" aria-label="Puzzle code">
+                <button class="menu-action" data-action="load-playground-seed">Load Code</button>
+                <button class="menu-action" data-action="copy-playground-seed">Copy Code</button>
+              </div>
+              <p id="playground-seed-status" class="hint-line playground-seed-status" aria-live="polite"></p>
+            </details>
+          </div>
+        </section>
+
+        <section class="board-wrap playground-board-wrap" aria-label="Playground board">
+          <div id="playground-editor-board" class="board playground-editor-board" aria-label="Playground board"></div>
+        </section>
+
+        <div class="playground-actions">
+          <button class="menu-action" data-action="clear-playground">Clear Board</button>
+        </div>
+      </main>
+
+      <main id="screen-daily" class="screen">
+        <header class="screen-header sticky-screen-header section-header">
+          <button class="icon-button icon-only" data-action="show-main" aria-label="Back">
+            <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19 12H6m6-6-6 6 6 6"></path>
+            </svg>
+          </button>
+          <img class="section-header-icon" src="assets/menu-icons/daily.png" alt="" aria-hidden="true" draggable="false">
+          <div class="section-title-block">
             <p class="kicker">Daily</p>
             <h2>Daily Challenges</h2>
+          </div>
+          <div class="guide-size-control" role="group" aria-label="Text size">
+            <button class="guide-size-button guide-size-small" data-action="guide-size" data-guide-size="small" aria-label="Small text">A</button>
+            <button class="guide-size-button guide-size-medium" data-action="guide-size" data-guide-size="medium" aria-label="Medium text">A</button>
+            <button class="guide-size-button guide-size-large" data-action="guide-size" data-guide-size="large" aria-label="Large text">A</button>
           </div>
         </header>
 
@@ -129,7 +235,7 @@
         <header class="game-header">
           <button class="icon-button icon-only" data-action="exit-game" aria-label="Back">
             <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 5l-7 7 7 7"></path>
+              <path d="M19 12H6m6-6-6 6 6 6"></path>
             </svg>
           </button>
           <div class="game-title-block">
@@ -199,20 +305,21 @@
       </main>
 
       <main id="screen-howto" class="screen">
-        <header class="screen-header guide-header">
+        <header class="screen-header sticky-screen-header section-header guide-header">
           <button class="icon-button icon-only" data-action="show-main" aria-label="Back">
             <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 5l-7 7 7 7"></path>
+              <path d="M19 12H6m6-6-6 6 6 6"></path>
             </svg>
           </button>
-          <div>
+          <img class="section-header-icon" src="assets/menu-icons/howto.png" alt="" aria-hidden="true" draggable="false">
+          <div class="section-title-block">
             <p class="kicker">Guide</p>
             <h2>How to Play</h2>
           </div>
-          <div class="guide-size-control" role="group" aria-label="Guide text size">
-            <button class="guide-size-button guide-size-small" data-action="guide-size" data-guide-size="small" aria-label="Small guide text">A</button>
-            <button class="guide-size-button guide-size-medium" data-action="guide-size" data-guide-size="medium" aria-label="Medium guide text">A</button>
-            <button class="guide-size-button guide-size-large" data-action="guide-size" data-guide-size="large" aria-label="Large guide text">A</button>
+          <div class="guide-size-control" role="group" aria-label="Text size">
+            <button class="guide-size-button guide-size-small" data-action="guide-size" data-guide-size="small" aria-label="Small text">A</button>
+            <button class="guide-size-button guide-size-medium" data-action="guide-size" data-guide-size="medium" aria-label="Medium text">A</button>
+            <button class="guide-size-button guide-size-large" data-action="guide-size" data-guide-size="large" aria-label="Large text">A</button>
           </div>
         </header>
 
@@ -300,8 +407,9 @@
             <p class="kicker">Modes</p>
             <h3>Choose your puzzle</h3>
             <ul class="guide-bullets guide-bullets-spaced">
-              <li><strong>Campaign:</strong> Solve fixed levels in order. Each solve opens the next level.</li>
+              <li><strong>Campaign:</strong> Pick groups on a 5x5 map. Earn 15 stars in a group to open adjacent groups.</li>
               <li><strong>Custom Level:</strong> Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.</li>
+              <li><strong>Playground:</strong> Build a board by hand, share its puzzle code, and play without a completion modal.</li>
               <li><strong>Daily Challenge:</strong> Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.</li>
             </ul>
           </div>
@@ -345,20 +453,21 @@
       </main>
 
       <main id="screen-math" class="screen">
-        <header class="screen-header guide-header">
+        <header class="screen-header sticky-screen-header section-header guide-header">
           <button class="icon-button icon-only" data-action="show-main" aria-label="Back">
             <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 5l-7 7 7 7"></path>
+              <path d="M19 12H6m6-6-6 6 6 6"></path>
             </svg>
           </button>
-          <div>
+          <img class="section-header-icon" src="assets/menu-icons/math.png" alt="" aria-hidden="true" draggable="false">
+          <div class="section-title-block">
             <p class="kicker">Guide</p>
             <h2>The Math</h2>
           </div>
-          <div class="guide-size-control" role="group" aria-label="Guide text size">
-            <button class="guide-size-button guide-size-small" data-action="guide-size" data-guide-size="small" aria-label="Small guide text">A</button>
-            <button class="guide-size-button guide-size-medium" data-action="guide-size" data-guide-size="medium" aria-label="Medium guide text">A</button>
-            <button class="guide-size-button guide-size-large" data-action="guide-size" data-guide-size="large" aria-label="Large guide text">A</button>
+          <div class="guide-size-control" role="group" aria-label="Text size">
+            <button class="guide-size-button guide-size-small" data-action="guide-size" data-guide-size="small" aria-label="Small text">A</button>
+            <button class="guide-size-button guide-size-medium" data-action="guide-size" data-guide-size="medium" aria-label="Medium text">A</button>
+            <button class="guide-size-button guide-size-large" data-action="guide-size" data-guide-size="large" aria-label="Large text">A</button>
           </div>
         </header>
 
@@ -561,15 +670,21 @@
       </main>
 
       <main id="screen-settings" class="screen">
-        <header class="screen-header sticky-screen-header">
+        <header class="screen-header sticky-screen-header section-header">
           <button class="icon-button icon-only" data-action="close-settings" aria-label="Back">
             <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 5l-7 7 7 7"></path>
+              <path d="M19 12H6m6-6-6 6 6 6"></path>
             </svg>
           </button>
-          <div>
+          <img class="section-header-icon" src="assets/menu-icons/settings.png" alt="" aria-hidden="true" draggable="false">
+          <div class="section-title-block">
             <p class="kicker">Options</p>
             <h2>Settings</h2>
+          </div>
+          <div class="guide-size-control" role="group" aria-label="Text size">
+            <button class="guide-size-button guide-size-small" data-action="guide-size" data-guide-size="small" aria-label="Small text">A</button>
+            <button class="guide-size-button guide-size-medium" data-action="guide-size" data-guide-size="medium" aria-label="Medium text">A</button>
+            <button class="guide-size-button guide-size-large" data-action="guide-size" data-guide-size="large" aria-label="Large text">A</button>
           </div>
         </header>
 
@@ -596,21 +711,27 @@
       </main>
 
       <main id="screen-about" class="screen">
-        <header class="screen-header sticky-screen-header">
+        <header class="screen-header sticky-screen-header section-header">
           <button class="icon-button icon-only" data-action="close-about" aria-label="Back">
             <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 5l-7 7 7 7"></path>
+              <path d="M19 12H6m6-6-6 6 6 6"></path>
             </svg>
           </button>
-          <div>
+          <img class="section-header-icon" src="assets/menu-icons/settings.png" alt="" aria-hidden="true" draggable="false">
+          <div class="section-title-block">
             <p class="kicker">About</p>
             <h2>About</h2>
+          </div>
+          <div class="guide-size-control" role="group" aria-label="Text size">
+            <button class="guide-size-button guide-size-small" data-action="guide-size" data-guide-size="small" aria-label="Small text">A</button>
+            <button class="guide-size-button guide-size-medium" data-action="guide-size" data-guide-size="medium" aria-label="Medium text">A</button>
+            <button class="guide-size-button guide-size-large" data-action="guide-size" data-guide-size="large" aria-label="Large text">A</button>
           </div>
         </header>
 
         <section class="about-panel" aria-label="About Invert the Matrix">
           <div class="about-version-card">
-            <strong id="about-version">Version 1.0.8</strong>
+            <strong id="about-version">Version 1.0.9</strong>
           </div>
 
           <div class="about-changelog-card">
@@ -664,7 +785,7 @@
       <div class="modal-sheet pattern-info-sheet" role="dialog" aria-modal="true" aria-labelledby="pattern-info-title">
         <button class="icon-button icon-only modal-back-button" type="button" data-action="close-pattern-info" aria-label="Back">
           <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M15 5l-7 7 7 7"></path>
+            <path d="M19 12H6m6-6-6 6 6 6"></path>
           </svg>
         </button>
         <p class="kicker">Tap Pattern</p>

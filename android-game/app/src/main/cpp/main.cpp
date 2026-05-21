@@ -56,6 +56,7 @@
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -133,7 +134,7 @@ constexpr int64_t HINT_COOLDOWN_MS = 500;
 constexpr int64_t HINT_COMPLETION_DELAY_MS = 500;
 constexpr int EXACT_BFS_STATE_LIMIT = 500000;
 constexpr int EXACT_NULLSPACE_LIMIT = 500000;
-constexpr const char *APP_VERSION_NAME = "1.0.8";
+constexpr const char *APP_VERSION_NAME = "1.0.9";
 constexpr const char *GITHUB_PROFILE_URL = "https://github.com/pportilla";
 constexpr const char *GITHUB_MARK_SVG_PATH =
         "M8 0 C3.58 0 0 3.58 0 8 "
@@ -1149,6 +1150,7 @@ Pattern patternFor(const std::string &key) {
     if (key == "square") return {"square", "Square", "S", {{-1, -1}, {0, -1}, {1, -1}, {-1, 0}, {0, 0}, {1, 0}, {-1, 1}, {0, 1}, {1, 1}}};
     if (key == "horizontal") return {"horizontal", "Horizontal line", "H", {{-1, 0}, {0, 0}, {1, 0}}};
     if (key == "vertical") return {"vertical", "Vertical line", "V", {{0, -1}, {0, 0}, {0, 1}}};
+    if (key == "self") return {"self", "Self only", "1", {{0, 0}}};
     if (key == "knight") return {"knight", "Knight", "K", {{0, 0}, {1, 2}, {2, 1}, {2, -1}, {1, -2}, {-1, -2}, {-2, -1}, {-2, 1}, {-1, 2}}};
     return {"cross", "Cross", "+", {{0, 0}, {0, -1}, {1, 0}, {0, 1}, {-1, 0}}};
 }
@@ -1192,9 +1194,360 @@ struct Config {
     int preferredKnownMoves = 3;
 };
 
+struct PlaygroundConfig {
+    int width = 5;
+    int height = 5;
+    int states = 3;
+    std::string pattern = "cross";
+    std::vector<int> board;
+    std::set<int> locked;
+    std::set<int> disabled;
+};
+
+const std::string PLAYGROUND_SEED_PREFIX = "ITM1";
+const std::string PLAYGROUND_COMPACT_PREFIX = "ITM2";
+const std::string PLAYGROUND_LEGACY_COMPACT_PREFIX = "P";
+const std::string PLAYGROUND_COMPACT_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+constexpr int PLAYGROUND_COMPACT_VERSION = 1;
+constexpr int PLAYGROUND_COMPACT_MAX_CODE_LENGTH = 96;
+const std::vector<std::string> PLAYGROUND_PATTERNS = {"cross", "diagonal", "square", "horizontal", "vertical", "self", "knight"};
+const std::vector<int> PLAYGROUND_STATE_OPTIONS = {2, 3, 4, 5};
+constexpr int PLAYGROUND_TOOL_TAP = 0;
+constexpr int PLAYGROUND_TOOL_PAINT_BASE = 1;
+constexpr int PLAYGROUND_TOOL_LOCK = 6;
+constexpr int PLAYGROUND_TOOL_HOLE = 7;
+
 int indexFor(int x, int y, int w) { return y * w + x; }
 int xFor(int i, int w) { return i % w; }
 int yFor(int i, int w) { return i / w; }
+
+std::vector<std::string> splitKeepingEmpty(const std::string &text, char delimiter) {
+    std::vector<std::string> parts;
+    std::string current;
+    for (char ch : text) {
+        if (ch == delimiter) {
+            parts.push_back(current);
+            current.clear();
+        } else {
+            current.push_back(ch);
+        }
+    }
+    parts.push_back(current);
+    return parts;
+}
+
+std::string trimText(const std::string &text) {
+    size_t start = 0;
+    while (start < text.size() && std::isspace(static_cast<unsigned char>(text[start]))) ++start;
+    size_t end = text.size();
+    while (end > start && std::isspace(static_cast<unsigned char>(text[end - 1]))) --end;
+    return text.substr(start, end - start);
+}
+
+bool playgroundPatternAllowed(const std::string &pattern) {
+    return std::find(PLAYGROUND_PATTERNS.begin(), PLAYGROUND_PATTERNS.end(), pattern) != PLAYGROUND_PATTERNS.end();
+}
+
+bool playgroundStatesAllowed(int states) {
+    return std::find(PLAYGROUND_STATE_OPTIONS.begin(), PLAYGROUND_STATE_OPTIONS.end(), states) != PLAYGROUND_STATE_OPTIONS.end();
+}
+
+int playgroundPaintTool(int state) {
+    return PLAYGROUND_TOOL_PAINT_BASE + state;
+}
+
+int playgroundPaintStateForTool(int tool) {
+    int state = tool - PLAYGROUND_TOOL_PAINT_BASE;
+    return state >= 0 && state <= 4 ? state : -1;
+}
+
+bool playgroundToolAllowed(int tool, int states) {
+    if (tool == PLAYGROUND_TOOL_TAP || tool == PLAYGROUND_TOOL_LOCK || tool == PLAYGROUND_TOOL_HOLE) return true;
+    int paintState = playgroundPaintStateForTool(tool);
+    return paintState >= 0 && paintState < states;
+}
+
+int playgroundStateOptionIndex(int states) {
+    for (int i = 0; i < static_cast<int>(PLAYGROUND_STATE_OPTIONS.size()); ++i) {
+        if (PLAYGROUND_STATE_OPTIONS[static_cast<size_t>(i)] == states) return i;
+    }
+    return -1;
+}
+
+int playgroundPatternIndex(const std::string &pattern) {
+    for (int i = 0; i < static_cast<int>(PLAYGROUND_PATTERNS.size()); ++i) {
+        if (PLAYGROUND_PATTERNS[static_cast<size_t>(i)] == pattern) return i;
+    }
+    return -1;
+}
+
+int compactBitsForStates(int states) {
+    int bits = 1;
+    int capacity = 2;
+    while (capacity < states) {
+        bits += 1;
+        capacity *= 2;
+    }
+    return bits;
+}
+
+void writeCompactBits(std::vector<int> *bits, int value, int count) {
+    if (!bits) return;
+    for (int shift = count - 1; shift >= 0; --shift) {
+        bits->push_back((value >> shift) & 1);
+    }
+}
+
+int compactAlphabetIndex(char ch) {
+    size_t found = PLAYGROUND_COMPACT_ALPHABET.find(ch);
+    return found == std::string::npos ? -1 : static_cast<int>(found);
+}
+
+int compactCodeChecksum(const std::string &body) {
+    int hash = 913;
+    for (unsigned char ch : body) {
+        hash = ((hash * 33) ^ static_cast<int>(ch)) & 1023;
+    }
+    return hash;
+}
+
+std::string compactChecksumText(const std::string &body) {
+    int checksum = compactCodeChecksum(body);
+    std::string out;
+    out.push_back(PLAYGROUND_COMPACT_ALPHABET[static_cast<size_t>(checksum / 32)]);
+    out.push_back(PLAYGROUND_COMPACT_ALPHABET[static_cast<size_t>(checksum % 32)]);
+    return out;
+}
+
+struct CompactBitReader {
+    const std::vector<int> &bits;
+    size_t position = 0;
+    bool failed = false;
+
+    explicit CompactBitReader(const std::vector<int> &input) : bits(input) {}
+
+    int read(int count) {
+        if (position + static_cast<size_t>(count) > bits.size()) {
+            failed = true;
+            return 0;
+        }
+        int value = 0;
+        for (int i = 0; i < count; ++i) {
+            value = (value << 1) | bits[position + static_cast<size_t>(i)];
+        }
+        position += static_cast<size_t>(count);
+        return value;
+    }
+};
+
+bool parseBase36(const std::string &text, int *out) {
+    if (text.empty()) return false;
+    int value = 0;
+    for (char ch : text) {
+        int digit = -1;
+        if (ch >= '0' && ch <= '9') digit = ch - '0';
+        else if (ch >= 'a' && ch <= 'z') digit = ch - 'a' + 10;
+        else if (ch >= 'A' && ch <= 'Z') digit = ch - 'A' + 10;
+        else return false;
+        value = value * 36 + digit;
+    }
+    if (out) *out = value;
+    return true;
+}
+
+bool decodePlaygroundIndexList(const std::string &text, int total, std::set<int> *out) {
+    if (!out) return false;
+    out->clear();
+    if (text.empty()) return true;
+    std::vector<std::string> parts = splitKeepingEmpty(text, '.');
+    for (const std::string &part : parts) {
+        if (part.empty()) continue;
+        int idx = -1;
+        if (!parseBase36(part, &idx) || idx < 0 || idx >= total) return false;
+        out->insert(idx);
+    }
+    return true;
+}
+
+void normalizePlaygroundConfig(PlaygroundConfig *config) {
+    if (!config) return;
+    config->width = clampInt(config->width, 3, 9);
+    config->height = clampInt(config->height, 3, 9);
+    if (!playgroundStatesAllowed(config->states)) config->states = 3;
+    if (!playgroundPatternAllowed(config->pattern)) config->pattern = "cross";
+    int total = config->width * config->height;
+    config->board.resize(static_cast<size_t>(total), 0);
+    for (int &value : config->board) value = mod(value, config->states);
+    for (auto it = config->disabled.begin(); it != config->disabled.end();) {
+        if (*it < 0 || *it >= total) it = config->disabled.erase(it);
+        else ++it;
+    }
+    if (static_cast<int>(config->disabled.size()) >= total) {
+        auto it = config->disabled.end();
+        if (it != config->disabled.begin()) {
+            --it;
+            config->disabled.erase(it);
+        }
+    }
+    for (auto it = config->locked.begin(); it != config->locked.end();) {
+        if (*it < 0 || *it >= total || config->disabled.count(*it)) it = config->locked.erase(it);
+        else ++it;
+    }
+    for (int idx : config->disabled) config->board[static_cast<size_t>(idx)] = 0;
+}
+
+std::string encodePlaygroundCompactSeed(PlaygroundConfig config) {
+    normalizePlaygroundConfig(&config);
+    int total = config.width * config.height;
+    int stateBits = compactBitsForStates(config.states);
+    std::vector<int> bits;
+    writeCompactBits(&bits, PLAYGROUND_COMPACT_VERSION, 4);
+    writeCompactBits(&bits, config.width - 3, 3);
+    writeCompactBits(&bits, config.height - 3, 3);
+    writeCompactBits(&bits, playgroundStateOptionIndex(config.states), 2);
+    writeCompactBits(&bits, playgroundPatternIndex(config.pattern), 3);
+    for (int idx = 0; idx < total; ++idx) {
+        bool disabled = config.disabled.count(idx) > 0;
+        writeCompactBits(&bits, disabled ? 1 : 0, 1);
+        if (!disabled) {
+            writeCompactBits(&bits, config.locked.count(idx) ? 1 : 0, 1);
+            writeCompactBits(&bits, mod(config.board[static_cast<size_t>(idx)], config.states), stateBits);
+        }
+    }
+    std::string body;
+    for (size_t bit = 0; bit < bits.size(); bit += 5) {
+        int value = 0;
+        for (size_t offset = 0; offset < 5; ++offset) {
+            value = (value << 1) | (bit + offset < bits.size() ? bits[bit + offset] : 0);
+        }
+        body.push_back(PLAYGROUND_COMPACT_ALPHABET[static_cast<size_t>(value)]);
+    }
+    return PLAYGROUND_COMPACT_PREFIX + body + compactChecksumText(body);
+}
+
+std::string encodePlaygroundSeed(PlaygroundConfig config) {
+    return encodePlaygroundCompactSeed(config);
+}
+
+bool decodePlaygroundCompactCode(const std::string &code, const std::string &prefix, PlaygroundConfig *out) {
+    if (code.size() < prefix.size() + 3 || code.substr(0, prefix.size()) != prefix) return false;
+    std::string body = code.substr(prefix.size(), code.size() - prefix.size() - 2);
+    std::string checksum = code.substr(code.size() - 2);
+    if (body.empty() || checksum.size() != 2 || compactChecksumText(body) != checksum) return false;
+    if (compactAlphabetIndex(checksum[0]) < 0 || compactAlphabetIndex(checksum[1]) < 0) return false;
+    std::vector<int> bits;
+    for (char ch : body) {
+        int value = compactAlphabetIndex(ch);
+        if (value < 0) return false;
+        writeCompactBits(&bits, value, 5);
+    }
+
+    CompactBitReader reader(bits);
+    int version = reader.read(4);
+    int width = reader.read(3) + 3;
+    int height = reader.read(3) + 3;
+    int stateIndex = reader.read(2);
+    int patternIndex = reader.read(3);
+    if (reader.failed || version != PLAYGROUND_COMPACT_VERSION) return false;
+    if (stateIndex < 0 || stateIndex >= static_cast<int>(PLAYGROUND_STATE_OPTIONS.size())) return false;
+    if (patternIndex < 0 || patternIndex >= static_cast<int>(PLAYGROUND_PATTERNS.size())) return false;
+
+    PlaygroundConfig config;
+    config.width = width;
+    config.height = height;
+    config.states = PLAYGROUND_STATE_OPTIONS[static_cast<size_t>(stateIndex)];
+    config.pattern = PLAYGROUND_PATTERNS[static_cast<size_t>(patternIndex)];
+    int total = width * height;
+    int stateBits = compactBitsForStates(config.states);
+    config.board.reserve(static_cast<size_t>(total));
+    for (int idx = 0; idx < total; ++idx) {
+        bool disabled = reader.read(1) == 1;
+        if (disabled) {
+            config.disabled.insert(idx);
+            config.board.push_back(0);
+        } else {
+            bool locked = reader.read(1) == 1;
+            int state = reader.read(stateBits);
+            if (state >= config.states) return false;
+            config.board.push_back(state);
+            if (locked) config.locked.insert(idx);
+        }
+    }
+    if (reader.failed || static_cast<int>(config.disabled.size()) >= total) return false;
+    if ((reader.position + 4) / 5 != body.size()) return false;
+    for (; reader.position < bits.size(); ++reader.position) {
+        if (bits[reader.position]) return false;
+    }
+    normalizePlaygroundConfig(&config);
+    if (out) *out = config;
+    return true;
+}
+
+bool decodePlaygroundCompactSeed(const std::string &seed, PlaygroundConfig *out) {
+    std::string code;
+    for (char raw : seed) {
+        unsigned char ch = static_cast<unsigned char>(raw);
+        if (std::isalnum(ch)) code.push_back(static_cast<char>(std::toupper(ch)));
+    }
+    const std::vector<std::string> prefixes = {PLAYGROUND_COMPACT_PREFIX, PLAYGROUND_LEGACY_COMPACT_PREFIX};
+    for (const std::string &prefix : prefixes) {
+        if (code.size() < prefix.size() + 3) continue;
+        for (size_t start = 0; start + prefix.size() + 3 <= code.size(); ++start) {
+            if (code.compare(start, prefix.size(), prefix) != 0) continue;
+            size_t maxEnd = std::min(code.size(), start + static_cast<size_t>(PLAYGROUND_COMPACT_MAX_CODE_LENGTH));
+            for (size_t end = start + prefix.size() + 3; end <= maxEnd; ++end) {
+                PlaygroundConfig config;
+                if (decodePlaygroundCompactCode(code.substr(start, end - start), prefix, &config)) {
+                    if (out) *out = config;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool decodePlaygroundLegacySeed(const std::string &seed, PlaygroundConfig *out) {
+    std::string text = trimText(seed);
+    size_t start = text.find(PLAYGROUND_SEED_PREFIX + ":");
+    if (start != std::string::npos) {
+        text = text.substr(start);
+        size_t end = text.find_first_of(" \t\r\n");
+        if (end != std::string::npos) text = text.substr(0, end);
+    }
+    std::vector<std::string> parts = splitKeepingEmpty(text, ':');
+    if (parts.size() < 7 || parts[0] != PLAYGROUND_SEED_PREFIX) return false;
+    std::vector<std::string> dims = splitKeepingEmpty(parts[1], 'x');
+    if (dims.size() != 2) return false;
+    int width = std::atoi(dims[0].c_str());
+    int height = std::atoi(dims[1].c_str());
+    if (width < 3 || width > 9 || height < 3 || height > 9) return false;
+    int states = std::atoi(parts[2].c_str());
+    if (!playgroundStatesAllowed(states) || !playgroundPatternAllowed(parts[3])) return false;
+    int total = width * height;
+    if (static_cast<int>(parts[4].size()) != total) return false;
+    PlaygroundConfig config;
+    config.width = width;
+    config.height = height;
+    config.states = states;
+    config.pattern = parts[3];
+    config.board.assign(static_cast<size_t>(total), 0);
+    for (int i = 0; i < total; ++i) {
+        char ch = parts[4][static_cast<size_t>(i)];
+        if (ch < '0' || ch > '4') return false;
+        config.board[static_cast<size_t>(i)] = mod(ch - '0', states);
+    }
+    if (!decodePlaygroundIndexList(parts[5], total, &config.locked)) return false;
+    if (!decodePlaygroundIndexList(parts[6], total, &config.disabled)) return false;
+    if (static_cast<int>(config.disabled.size()) >= total) return false;
+    normalizePlaygroundConfig(&config);
+    if (out) *out = config;
+    return true;
+}
+
+bool decodePlaygroundSeed(const std::string &seed, PlaygroundConfig *out) {
+    return decodePlaygroundCompactSeed(seed, out) || decodePlaygroundLegacySeed(seed, out);
+}
 
 std::vector<int> activeIndexes(const Puzzle &p) {
     std::vector<int> out;
@@ -1651,6 +2004,36 @@ std::array<std::string, 30> chapterTitles = {
         "Prime Pressure", "Modular Maze", "Wide Matrix", "Endgame Circuit", "Final Inversion"
 };
 
+constexpr int CAMPAIGN_MAP_SIZE = 5;
+constexpr int CAMPAIGN_GROUP_COUNT = CAMPAIGN_MAP_SIZE * CAMPAIGN_MAP_SIZE;
+constexpr int CAMPAIGN_LEVELS_PER_GROUP = 9;
+constexpr int CAMPAIGN_LEVEL_COUNT = CAMPAIGN_GROUP_COUNT * CAMPAIGN_LEVELS_PER_GROUP;
+constexpr int CAMPAIGN_GROUP_STAR_TARGET = 15;
+constexpr int CAMPAIGN_GROUP_STAR_MAX = CAMPAIGN_LEVELS_PER_GROUP * 3;
+
+int campaignGroupForLevel(int campaignIndex) {
+    return clampInt(campaignIndex, 0, CAMPAIGN_LEVEL_COUNT - 1) / CAMPAIGN_LEVELS_PER_GROUP;
+}
+
+int campaignLevelNumberInGroup(int campaignIndex) {
+    return clampInt(campaignIndex, 0, CAMPAIGN_LEVEL_COUNT - 1) % CAMPAIGN_LEVELS_PER_GROUP + 1;
+}
+
+std::string campaignLevelIdFor(int group, int levelInGroup) {
+    return "c" + std::to_string(group + 1) + "-" + std::to_string(levelInGroup + 1);
+}
+
+std::vector<int> campaignAdjacentGroups(int group) {
+    int x = group % CAMPAIGN_MAP_SIZE;
+    int y = group / CAMPAIGN_MAP_SIZE;
+    std::vector<int> out;
+    if (x > 0) out.push_back(group - 1);
+    if (x < CAMPAIGN_MAP_SIZE - 1) out.push_back(group + 1);
+    if (y > 0) out.push_back(group - CAMPAIGN_MAP_SIZE);
+    if (y < CAMPAIGN_MAP_SIZE - 1) out.push_back(group + CAMPAIGN_MAP_SIZE);
+    return out;
+}
+
 std::string dailyTierKey(int tier);
 std::string dailyTierLabel(int tier);
 
@@ -1806,15 +2189,38 @@ struct Progress {
         return getBool("hint_" + id, false);
     }
 
+    int groupStars(int group) {
+        int total = 0;
+        for (int level = 0; level < CAMPAIGN_LEVELS_PER_GROUP; ++level) {
+            total += clampInt(stars(campaignLevelIdFor(group, level)), 0, 3);
+        }
+        return total;
+    }
+
+    int groupCompleted(int group) {
+        int total = 0;
+        for (int level = 0; level < CAMPAIGN_LEVELS_PER_GROUP; ++level) {
+            if (completed(campaignLevelIdFor(group, level))) ++total;
+        }
+        return total;
+    }
+
+    bool groupUnlocked(int group) {
+        group = clampInt(group, 0, CAMPAIGN_GROUP_COUNT - 1);
+        if (group == 0) return true;
+        if (groupStars(group) > 0) return true;
+        for (int neighbor : campaignAdjacentGroups(group)) {
+            if (groupStars(neighbor) >= CAMPAIGN_GROUP_STAR_TARGET) return true;
+        }
+        return false;
+    }
+
     bool unlocked(int campaignIndex) {
-        if (campaignIndex == 0) return true;
-        if (completed("c" + std::to_string(campaignIndex / 10 + 1) + "-" + std::to_string(campaignIndex % 10 + 1))) return true;
-        int prev = campaignIndex - 1;
-        return completed("c" + std::to_string(prev / 10 + 1) + "-" + std::to_string(prev % 10 + 1));
+        return groupUnlocked(campaignGroupForLevel(campaignIndex));
     }
 };
 
-constexpr int CAMPAIGN_PROGRESS_VERSION = 4;
+constexpr int CAMPAIGN_PROGRESS_VERSION = 5;
 
 void migrateCampaignProgress(Progress &progress) {
     if (progress.getInt("campaign_version", 0) == CAMPAIGN_PROGRESS_VERSION) return;
@@ -1822,11 +2228,13 @@ void migrateCampaignProgress(Progress &progress) {
     progress.setInt("campaign_version", CAMPAIGN_PROGRESS_VERSION);
 }
 
-enum class Screen { Main, Campaign, Freeplay, Daily, HowTo, Math, Settings, About, Game };
+enum class Screen { Main, Campaign, Freeplay, Playground, Daily, HowTo, Math, Settings, About, Game };
 enum class Action {
-    Main, BackReturn, CloseAbout, Campaign, Freeplay, Daily, HowTo, Math, Settings, About, OpenGithub, StartCampaign, Generate,
+    Main, BackReturn, CloseAbout, Campaign, Freeplay, Playground, Daily, HowTo, Math, Settings, About, OpenGithub, CampaignGroup, StartCampaign, Generate,
     DailyChallenge, Leaderboard,
     Size, States, Pattern, PatternInfo, ClosePatternInfo, PatternInfoBlocker, Difficulty, ToggleLocked, ToggleIrregular, ToggleUnique,
+    PlaygroundStates, PlaygroundPattern, PlaygroundTool, PlaygroundTile, PlaygroundSection, PlaygroundWidthMinus, PlaygroundWidthPlus,
+    PlaygroundHeightMinus, PlaygroundHeightPlus, PlaygroundClear, PlaygroundCopy, PlaygroundPaste, PlaygroundPlay,
     WidthMinus, WidthPlus, HeightMinus, HeightPlus, ExitGame, Undo, Reset, Hint,
     ConfirmDailyExit, CancelDailyExit, GuideSize, ToggleSetting, Language, Next, Replay, Dismiss
 };
@@ -2046,6 +2454,7 @@ struct AppState {
     Screen returnScreen = Screen::Main;
     std::vector<Button> buttons;
     std::map<std::string, MathImageAsset> mathImages;
+    std::map<std::string, MathImageAsset> menuImages;
     Session session;
     bool hasSession = false;
     bool completion = false;
@@ -2054,6 +2463,7 @@ struct AppState {
     bool dailyExitConfirm = false;
     bool patternInfoOpen = false;
     int lastCampaign = 0;
+    int selectedCampaignGroup = 0;
     float density = 1.0f;
     float scroll = 0.0f;
     float contentHeight = 0.0f;
@@ -2081,6 +2491,20 @@ struct AppState {
     bool freeLocked = false;
     bool freeIrregular = false;
     bool freeUnique = true;
+    int playgroundW = 5;
+    int playgroundH = 5;
+    int playgroundStates = 3;
+    std::string playgroundPattern = "cross";
+    int playgroundTool = 0;
+    std::vector<int> playgroundBoard;
+    std::set<int> playgroundLocked;
+    std::set<int> playgroundDisabled;
+    std::string playgroundStatus;
+    int64_t playgroundStatusUntil = 0;
+    bool playgroundStatesOpen = false;
+    bool playgroundPatternOpen = false;
+    bool playgroundSizeOpen = false;
+    bool playgroundCodeOpen = false;
     bool sound = true;
     bool vibration = true;
     bool hideNumbers = true;
@@ -2113,13 +2537,19 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Campaign", "Campaña"},
             {"Custom Level", "Nivel personalizado"},
             {"Custom Puzzle", "Rompecabezas personalizado"},
+            {"Playground", "Zona de pruebas"},
+            {"Playground setup", "Configuración de zona de pruebas"},
+            {"Playground controls", "Controles de zona de pruebas"},
+            {"Playground board", "Tablero de zona de pruebas"},
             {"Daily Challenge", "Reto diario"},
             {"Daily Challenges", "Retos diarios"},
-            {"Today's Puzzles", "Rompecabezas de hoy"},
             {"How to Play", "Cómo jugar"},
             {"The Math", "Las matemáticas"},
             {"Settings", "Ajustes"},
             {"Chapter", "Capítulo"},
+            {"Campaign groups", "Grupos de campaña"},
+            {"Group", "Grupo"},
+            {"Earn 15 stars in a nearby group.", "Gana 15 estrellas en un grupo adyacente."},
             {"Campaign data unavailable", "Datos de campaña no disponibles"},
             {"The bundled campaign asset could not be loaded. Reload the app or check that campaign-levels.json is included.", "No se pudo cargar el recurso incluido de la campaña. Recarga la app o comprueba que campaign-levels.json esté incluido."},
             {"Daily", "Diario"},
@@ -2144,9 +2574,33 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Square", "Cuadrado"},
             {"Horizontal line", "Línea horizontal"},
             {"Vertical line", "Línea vertical"},
+            {"Self only", "Solo propia"},
             {"Knight", "Caballo"},
             {"Random mixed", "Mixto aleatorio"},
             {"Mixed patterns", "Patrones mixtos"},
+            {"Edit Tool", "Herramienta de edición"},
+            {"Tap Tiles", "Tocar casillas"},
+            {"Paint White", "Pintar blanco"},
+            {"Paint Color", "Pintar color"},
+            {"Paint States", "Pintar estados"},
+            {"Lock Tiles", "Poner candados"},
+            {"Place Holes", "Poner huecos"},
+            {"Starting Board", "Tablero inicial"},
+            {"Puzzle Code", "Código de rompecabezas"},
+            {"Share", "Compartir"},
+            {"Load Code", "Cargar código"},
+            {"Copy Code", "Copiar código"},
+            {"Paste Code", "Pegar código"},
+            {"Clear Board", "Borrar tablero"},
+            {"Play", "Jugar"},
+            {"Sandbox", "Zona libre"},
+            {"No goal", "Sin objetivo"},
+            {"Puzzle code copied.", "Código copiado."},
+            {"Puzzle code loaded.", "Código cargado."},
+            {"Puzzle code not recognized.", "Código no reconocido."},
+            {"Clipboard has no puzzle code.", "El portapapeles no tiene código de rompecabezas."},
+            {"Keep at least one tile.", "Mantén al menos una casilla."},
+            {"Hints are off in Playground.", "Las pistas están desactivadas en Zona de pruebas."},
             {"Tiles with lock icons", "Casillas con candado"},
             {"Irregular board", "Tablero irregular"},
             {"Extras", "Extras"},
@@ -2251,7 +2705,9 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"An empty hole is outside the board. Tap patterns skip empty holes.", "Un hueco vacío está fuera del tablero. Los patrones de toque saltan los huecos vacíos."},
             {"Modes: Choose your puzzle", "Modos: elige partida"},
             {"Campaign: Solve fixed levels in order. Each solve opens the next level.", "Campaña: resuelve niveles fijos en orden. Cada victoria abre el siguiente nivel."},
+            {"Campaign: Pick groups on a 5x5 map. Earn 15 stars in a group to open adjacent groups.", "Campaña: elige grupos en un mapa 5x5. Gana 15 estrellas en un grupo para abrir grupos adyacentes."},
             {"Custom Level: Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.", "Nivel personalizado: elige tamaño, estados, patrón, dificultad, casillas con candado y huecos vacíos. El generador siempre intenta crear una solución única."},
+            {"Playground: Build a board by hand, share its puzzle code, and play without a completion modal.", "Zona de pruebas: crea un tablero a mano, comparte su código de rompecabezas y juega sin pantalla de finalización."},
             {"Daily Challenge: Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.", "Reto diario: juega los mismos tres niveles generados que el resto para la fecha de hoy. Cada uno guarda su mejor resultado."},
             {"Taps, stars, and hints", "Toques, estrellas y pistas"},
             {"The tap counter counts every tap you commit.", "El contador suma cada toque que haces."},
@@ -2386,6 +2842,7 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"solution exists iff", "hay solución sii"},
             {"solutions", "soluciones"},
             {"is a field", "es un cuerpo"},
+            {"Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and menu headers, locks, logos, and text-size controls were polished across web and Android.", "Zona de pruebas añade códigos de rompecabezas para compartir, la campaña usa un mapa de grupos 5x5, y las cabeceras de menú, candados, logos y controles de tamaño de texto se pulieron en web y Android."},
             {"Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.", "Los retos diarios ahora separan las tarjetas de rompecabezas de las clasificaciones, la configuración personalizada usa opciones visuales de patrón con generación única siempre activa y las pantallas de juego y resultado son más claras."},
             {"Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.", "Los ajustes ahora ocultan controles específicos de plataforma, se eliminaron los interruptores de animación y símbolos daltónicos, y Acerca de muestra el historial de versiones con el enlace de GitHub."},
             {"Release builds keep native debug symbols for Play Console crash reports.", "Las compilaciones de lanzamiento conservan símbolos nativos de depuración para los informes de fallos de Play Console."},
@@ -2396,13 +2853,19 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Campaign", "Campagne"},
             {"Custom Level", "Niveau personnalisé"},
             {"Custom Puzzle", "Casse-tête personnalisé"},
+            {"Playground", "Bac à sable"},
+            {"Playground setup", "Configuration du bac à sable"},
+            {"Playground controls", "Commandes du bac à sable"},
+            {"Playground board", "Plateau du bac à sable"},
             {"Daily Challenge", "Défi quotidien"},
             {"Daily Challenges", "Défis quotidiens"},
-            {"Today's Puzzles", "Casse-têtes du jour"},
             {"How to Play", "Comment jouer"},
             {"The Math", "Les maths"},
             {"Settings", "Paramètres"},
             {"Chapter", "Chapitre"},
+            {"Campaign groups", "Groupes de campagne"},
+            {"Group", "Groupe"},
+            {"Earn 15 stars in a nearby group.", "Gagne 15 étoiles dans un groupe adjacent."},
             {"Campaign data unavailable", "Données de campagne indisponibles"},
             {"The bundled campaign asset could not be loaded. Reload the app or check that campaign-levels.json is included.", "La ressource de campagne incluse n'a pas pu être chargée. Recharge l'app ou vérifie que campaign-levels.json est inclus."},
             {"Daily", "Quotidien"},
@@ -2427,9 +2890,33 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Square", "Carré"},
             {"Horizontal line", "Ligne horizontale"},
             {"Vertical line", "Ligne verticale"},
+            {"Self only", "Soi seulement"},
             {"Knight", "Cavalier"},
             {"Random mixed", "Mélange aléatoire"},
             {"Mixed patterns", "Motifs mixtes"},
+            {"Edit Tool", "Outil d'édition"},
+            {"Tap Tiles", "Toucher les tuiles"},
+            {"Paint White", "Peindre en blanc"},
+            {"Paint Color", "Peindre une couleur"},
+            {"Paint States", "Peindre les états"},
+            {"Lock Tiles", "Verrouiller les tuiles"},
+            {"Place Holes", "Placer des trous"},
+            {"Starting Board", "Plateau initial"},
+            {"Puzzle Code", "Code de casse-tête"},
+            {"Share", "Partager"},
+            {"Load Code", "Charger le code"},
+            {"Copy Code", "Copier le code"},
+            {"Paste Code", "Coller le code"},
+            {"Clear Board", "Effacer le plateau"},
+            {"Play", "Jouer"},
+            {"Sandbox", "Bac libre"},
+            {"No goal", "Sans objectif"},
+            {"Puzzle code copied.", "Code copié."},
+            {"Puzzle code loaded.", "Code chargé."},
+            {"Puzzle code not recognized.", "Code non reconnu."},
+            {"Clipboard has no puzzle code.", "Le presse-papiers n'a pas de code de casse-tête."},
+            {"Keep at least one tile.", "Garde au moins une tuile."},
+            {"Hints are off in Playground.", "Les indices sont désactivés dans le bac à sable."},
             {"Tiles with lock icons", "Tuiles avec cadenas"},
             {"Irregular board", "Grille irrégulière"},
             {"Extras", "Extras"},
@@ -2534,7 +3021,9 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"An empty hole is outside the board. Tap patterns skip empty holes.", "Un trou vide est hors du plateau. Les motifs de toucher ignorent les trous vides."},
             {"Modes: Choose your puzzle", "Modes : choisis ton casse-tête"},
             {"Campaign: Solve fixed levels in order. Each solve opens the next level.", "Campagne : résous les niveaux fixes dans l'ordre. Chaque résolution ouvre le suivant."},
+            {"Campaign: Pick groups on a 5x5 map. Earn 15 stars in a group to open adjacent groups.", "Campagne : choisis des groupes sur une carte 5x5. Gagne 15 étoiles dans un groupe pour ouvrir les groupes adjacents."},
             {"Custom Level: Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.", "Niveau personnalisé : choisis taille, états, motif, difficulté, tuiles avec cadenas et trous vides. Le générateur préfère toujours une solution unique."},
+            {"Playground: Build a board by hand, share its puzzle code, and play without a completion modal.", "Bac à sable : crée un plateau à la main, partage son code de casse-tête et joue sans écran de fin."},
             {"Daily Challenge: Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.", "Défi quotidien : joue les mêmes trois casse-têtes générés que tout le monde pour la date. Chacun garde son meilleur score."},
             {"Taps, stars, and hints", "Touchers, étoiles et indices"},
             {"The tap counter counts every tap you commit.", "Le compteur de touchers compte chaque toucher que tu valides."},
@@ -2669,6 +3158,7 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"solution exists iff", "solution existe ssi"},
             {"solutions", "solutions"},
             {"is a field", "est un corps"},
+            {"Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and menu headers, locks, logos, and text-size controls were polished across web and Android.", "Le bac à sable ajoute des codes de casse-tête à partager, la campagne utilise une carte de groupes 5x5, et les en-têtes de menu, cadenas, logos et contrôles de taille du texte ont été améliorés sur web et Android."},
             {"Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.", "Les défis quotidiens séparent désormais les cartes de casse-têtes des classements, la configuration personnalisée utilise des puces visuelles de motif avec génération unique toujours active, et les écrans de jeu et de résultat sont plus clairs."},
             {"Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.", "Les paramètres masquent désormais les contrôles propres à chaque plateforme, les options d'animation et de symboles daltoniens ont été retirées, et À propos affiche l'historique avec le lien GitHub."},
             {"Release builds keep native debug symbols for Play Console crash reports.", "Les builds de publication conservent les symboles de débogage natifs pour les rapports de plantage Play Console."},
@@ -2724,6 +3214,7 @@ float safeBottom(AppState *s) { return dp(s, 30); }
 
 bool scrollable(Screen screen) {
     return screen == Screen::Main || screen == Screen::Campaign || screen == Screen::Freeplay ||
+           screen == Screen::Playground ||
            screen == Screen::HowTo || screen == Screen::Daily || screen == Screen::Math ||
            screen == Screen::Settings || screen == Screen::About;
 }
@@ -3009,7 +3500,7 @@ Puzzle campaignLevelFromJson(const JsonValue &level) {
     p.levelId = jsonStringField(level, "levelId");
     p.name = jsonStringField(level, "name", "Level");
     p.campaignIndex = jsonIntField(level, "campaignIndex", 0);
-    p.chapter = jsonIntField(level, "chapter", p.campaignIndex / 10 + 1);
+    p.chapter = jsonIntField(level, "chapter", campaignGroupForLevel(p.campaignIndex) + 1);
     p.width = jsonIntField(level, "width", 5);
     p.height = jsonIntField(level, "height", 5);
     p.states = jsonIntField(level, "states", 2);
@@ -3050,7 +3541,7 @@ bool loadCampaignLevels(AppState *s) {
             throw std::runtime_error("Campaign version mismatch");
         }
         const JsonValue *levels = jsonField(root, "levels");
-        if (!levels || levels->type != JsonValue::Type::Array || levels->array.size() != 300) {
+        if (!levels || levels->type != JsonValue::Type::Array || levels->array.size() != CAMPAIGN_LEVEL_COUNT) {
             throw std::runtime_error("Campaign level count mismatch");
         }
         std::vector<Puzzle> parsed;
@@ -3069,11 +3560,11 @@ bool loadCampaignLevels(AppState *s) {
 }
 
 bool campaignLevelsReady(const AppState *s) {
-    return s && s->campaignLevelsLoaded && s->campaignLevels.size() == 300;
+    return s && s->campaignLevelsLoaded && s->campaignLevels.size() == CAMPAIGN_LEVEL_COUNT;
 }
 
 Puzzle campaignLevel(AppState *s, int index) {
-    int clamped = clampInt(index, 0, 299);
+    int clamped = clampInt(index, 0, CAMPAIGN_LEVEL_COUNT - 1);
     if (campaignLevelsReady(s) && clamped < static_cast<int>(s->campaignLevels.size())) {
         return s->campaignLevels[static_cast<size_t>(clamped)];
     }
@@ -3129,6 +3620,40 @@ void saveFreePrefs(AppState *s) {
     s->progress.setInt("free_unique", 1);
 }
 
+PlaygroundConfig playgroundConfigFromState(AppState *s) {
+    PlaygroundConfig config;
+    config.width = s->playgroundW;
+    config.height = s->playgroundH;
+    config.states = s->playgroundStates;
+    config.pattern = s->playgroundPattern;
+    config.board = s->playgroundBoard;
+    config.locked = s->playgroundLocked;
+    config.disabled = s->playgroundDisabled;
+    normalizePlaygroundConfig(&config);
+    return config;
+}
+
+void applyPlaygroundConfig(AppState *s, PlaygroundConfig config) {
+    normalizePlaygroundConfig(&config);
+    s->playgroundW = config.width;
+    s->playgroundH = config.height;
+    s->playgroundStates = config.states;
+    s->playgroundPattern = config.pattern;
+    s->playgroundBoard = config.board;
+    s->playgroundLocked = config.locked;
+    s->playgroundDisabled = config.disabled;
+    if (!playgroundToolAllowed(s->playgroundTool, s->playgroundStates)) s->playgroundTool = PLAYGROUND_TOOL_TAP;
+}
+
+void savePlaygroundPrefs(AppState *s) {
+    s->progress.setString("playground_seed", encodePlaygroundSeed(playgroundConfigFromState(s)));
+}
+
+void setPlaygroundStatus(AppState *s, const std::string &message) {
+    s->playgroundStatus = message;
+    s->playgroundStatusUntil = message.empty() ? 0 : nowMs() + 3200;
+}
+
 void loadPrefs(AppState *s) {
     s->freeSize = s->progress.getString("free_size", "5x5");
     s->customW = s->progress.getInt("free_custom_width", 5);
@@ -3139,6 +3664,10 @@ void loadPrefs(AppState *s) {
     s->freeLocked = s->progress.getBool("free_locked", false);
     s->freeIrregular = s->progress.getBool("free_irregular", false);
     s->freeUnique = true;
+    PlaygroundConfig playground;
+    std::string playgroundSeed = s->progress.getString("playground_seed", "");
+    if (!decodePlaygroundSeed(playgroundSeed, &playground)) normalizePlaygroundConfig(&playground);
+    applyPlaygroundConfig(s, playground);
     s->sound = s->progress.getBool("setting_sound", true);
     s->vibration = s->progress.getBool("setting_vibration", true);
     s->hideNumbers = s->progress.getBool("setting_hide_numbers", true);
@@ -3242,6 +3771,10 @@ void playGamesSubmitScore(AppState *s, int leaderboard, int score) {
     callPlayGamesVoid(s, "submitScore", "(Landroid/app/Activity;IJ)V", leaderboard, score);
 }
 
+void playGamesUnlockAchievement(AppState *s, int achievement) {
+    callPlayGamesVoid(s, "unlockAchievement", "(Landroid/app/Activity;I)V", achievement);
+}
+
 void playGamesShowLeaderboard(AppState *s, int leaderboard) {
     callPlayGamesVoid(s, "showLeaderboard", "(Landroid/app/Activity;I)V", leaderboard);
 }
@@ -3286,6 +3819,120 @@ void openUrl(AppState *s, const char *url) {
     if (uriClass) env->DeleteLocalRef(uriClass);
     if (activityClass) env->DeleteLocalRef(activityClass);
     if (detach) vm->DetachCurrentThread();
+}
+
+bool setClipboardText(AppState *s, const std::string &text) {
+    if (!s || !s->native || !s->native->activity) return false;
+    JavaVM *vm = s->native->activity->vm;
+    jobject activity = s->native->activity->clazz;
+    if (!vm || !activity) return false;
+
+    JNIEnv *env = nullptr;
+    bool detach = false;
+    if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
+        if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK) return false;
+        detach = true;
+    }
+
+    bool ok = false;
+    jclass activityClass = env->GetObjectClass(activity);
+    jmethodID getSystemService = activityClass ? env->GetMethodID(activityClass, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;") : nullptr;
+    jstring serviceName = env->NewStringUTF("clipboard");
+    jobject clipboard = getSystemService && serviceName ? env->CallObjectMethod(activity, getSystemService, serviceName) : nullptr;
+    if (env->ExceptionCheck()) env->ExceptionClear();
+
+    jclass clipDataClass = env->FindClass("android/content/ClipData");
+    jmethodID newPlainText = clipDataClass ? env->GetStaticMethodID(clipDataClass, "newPlainText", "(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;") : nullptr;
+    jstring label = env->NewStringUTF("Invert the Matrix");
+    jstring value = env->NewStringUTF(text.c_str());
+    jobject clip = newPlainText && label && value ? env->CallStaticObjectMethod(clipDataClass, newPlainText, label, value) : nullptr;
+    if (env->ExceptionCheck()) env->ExceptionClear();
+
+    if (clipboard && clip) {
+        jclass clipboardClass = env->GetObjectClass(clipboard);
+        jmethodID setPrimaryClip = clipboardClass ? env->GetMethodID(clipboardClass, "setPrimaryClip", "(Landroid/content/ClipData;)V") : nullptr;
+        if (setPrimaryClip) {
+            env->CallVoidMethod(clipboard, setPrimaryClip, clip);
+            ok = !env->ExceptionCheck();
+            if (env->ExceptionCheck()) env->ExceptionClear();
+        }
+        if (clipboardClass) env->DeleteLocalRef(clipboardClass);
+    }
+
+    if (clip) env->DeleteLocalRef(clip);
+    if (value) env->DeleteLocalRef(value);
+    if (label) env->DeleteLocalRef(label);
+    if (clipDataClass) env->DeleteLocalRef(clipDataClass);
+    if (clipboard) env->DeleteLocalRef(clipboard);
+    if (serviceName) env->DeleteLocalRef(serviceName);
+    if (activityClass) env->DeleteLocalRef(activityClass);
+    if (detach) vm->DetachCurrentThread();
+    return ok;
+}
+
+std::string getClipboardText(AppState *s) {
+    if (!s || !s->native || !s->native->activity) return "";
+    JavaVM *vm = s->native->activity->vm;
+    jobject activity = s->native->activity->clazz;
+    if (!vm || !activity) return "";
+
+    JNIEnv *env = nullptr;
+    bool detach = false;
+    if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
+        if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK) return "";
+        detach = true;
+    }
+
+    std::string out;
+    jclass activityClass = env->GetObjectClass(activity);
+    jmethodID getSystemService = activityClass ? env->GetMethodID(activityClass, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;") : nullptr;
+    jstring serviceName = env->NewStringUTF("clipboard");
+    jobject clipboard = getSystemService && serviceName ? env->CallObjectMethod(activity, getSystemService, serviceName) : nullptr;
+    if (env->ExceptionCheck()) env->ExceptionClear();
+    if (clipboard) {
+        jclass clipboardClass = env->GetObjectClass(clipboard);
+        jmethodID getPrimaryClip = clipboardClass ? env->GetMethodID(clipboardClass, "getPrimaryClip", "()Landroid/content/ClipData;") : nullptr;
+        jobject clip = getPrimaryClip ? env->CallObjectMethod(clipboard, getPrimaryClip) : nullptr;
+        if (env->ExceptionCheck()) env->ExceptionClear();
+        if (clip) {
+            jclass clipDataClass = env->GetObjectClass(clip);
+            jmethodID getItemAt = clipDataClass ? env->GetMethodID(clipDataClass, "getItemAt", "(I)Landroid/content/ClipData$Item;") : nullptr;
+            jobject item = getItemAt ? env->CallObjectMethod(clip, getItemAt, 0) : nullptr;
+            if (env->ExceptionCheck()) env->ExceptionClear();
+            if (item) {
+                jclass itemClass = env->GetObjectClass(item);
+                jmethodID getText = itemClass ? env->GetMethodID(itemClass, "getText", "()Ljava/lang/CharSequence;") : nullptr;
+                jobject chars = getText ? env->CallObjectMethod(item, getText) : nullptr;
+                if (env->ExceptionCheck()) env->ExceptionClear();
+                if (chars) {
+                    jclass charsClass = env->GetObjectClass(chars);
+                    jmethodID toString = charsClass ? env->GetMethodID(charsClass, "toString", "()Ljava/lang/String;") : nullptr;
+                    jstring value = toString ? static_cast<jstring>(env->CallObjectMethod(chars, toString)) : nullptr;
+                    if (env->ExceptionCheck()) env->ExceptionClear();
+                    if (value) {
+                        const char *raw = env->GetStringUTFChars(value, nullptr);
+                        if (raw) {
+                            out = raw;
+                            env->ReleaseStringUTFChars(value, raw);
+                        }
+                        env->DeleteLocalRef(value);
+                    }
+                    if (charsClass) env->DeleteLocalRef(charsClass);
+                    env->DeleteLocalRef(chars);
+                }
+                if (itemClass) env->DeleteLocalRef(itemClass);
+                env->DeleteLocalRef(item);
+            }
+            if (clipDataClass) env->DeleteLocalRef(clipDataClass);
+            env->DeleteLocalRef(clip);
+        }
+        if (clipboardClass) env->DeleteLocalRef(clipboardClass);
+        env->DeleteLocalRef(clipboard);
+    }
+    if (serviceName) env->DeleteLocalRef(serviceName);
+    if (activityClass) env->DeleteLocalRef(activityClass);
+    if (detach) vm->DetachCurrentThread();
+    return out;
 }
 
 void go(AppState *s, Screen screen) {
@@ -3412,11 +4059,28 @@ void recordDailyLeaderboardAttempt(AppState *s, const std::string &key, int tier
     playGamesSubmitScore(s, 3, dailyGlobalLeaderboardMark(s, date));
 }
 
+int campaignAchievementIndex(int group, bool master) {
+    if (group < 0 || group >= CAMPAIGN_GROUP_COUNT) return -1;
+    return group * 2 + (master ? 1 : 0);
+}
+
+void syncCampaignGroupAchievements(AppState *s, int group) {
+    if (!s || group < 0 || group >= CAMPAIGN_GROUP_COUNT) return;
+    if (s->progress.groupCompleted(group) >= CAMPAIGN_LEVELS_PER_GROUP) {
+        playGamesUnlockAchievement(s, campaignAchievementIndex(group, false));
+    }
+    if (s->progress.groupStars(group) >= CAMPAIGN_GROUP_STAR_MAX) {
+        playGamesUnlockAchievement(s, campaignAchievementIndex(group, true));
+    }
+}
+
 void leaveCurrentGame(AppState *s) {
     if (s->hasSession && s->session.mode == "campaign") {
         go(s, Screen::Campaign);
     } else if (s->hasSession && s->session.mode == "daily") {
         go(s, Screen::Daily);
+    } else if (s->hasSession && s->session.mode == "playground") {
+        go(s, Screen::Playground);
     } else {
         go(s, Screen::Main);
     }
@@ -3452,6 +4116,7 @@ void confirmDailyExitForZero(AppState *s) {
 
 void completeGame(AppState *s) {
     if (!s->hasSession || s->session.completed) return;
+    if (s->session.mode == "playground") return;
     s->patternInfoOpen = false;
     s->session.completed = true;
     s->session.elapsed = static_cast<int>((nowMs() - s->session.started) / 1000);
@@ -3467,6 +4132,7 @@ void completeGame(AppState *s) {
         } else if (oldStars <= 0 && s->completionStars <= 0) {
             s->progress.setInt("hint_" + s->session.puzzle.levelId, s->session.usedHint ? 1 : 0);
         }
+        syncCampaignGroupAchievements(s, campaignGroupForLevel(s->session.puzzle.campaignIndex));
     }
     if (s->session.mode == "daily") {
         std::string key = s->session.dailyKey;
@@ -3614,6 +4280,179 @@ void drawDailyLeaderboardIcon(AppState *s, Rect iconRect, int tier, Color accent
                crownW, crownH};
     drawCrownIcon(s, crown, withAlpha(ORANGE, 0.98f));
     drawDailyGridIcon(s, boardRect, tier, accent);
+}
+
+struct MenuIconSpec {
+    Action action;
+    const char *id;
+    const char *file;
+};
+
+constexpr int MENU_ICON_SIZE = 256;
+static constexpr std::array<MenuIconSpec, 7> MAIN_MENU_ICON_SPECS = {{
+        {Action::Campaign, "campaign", "menu-icons/campaign.rgba"},
+        {Action::Freeplay, "custom", "menu-icons/custom.rgba"},
+        {Action::Playground, "playground", "menu-icons/playground.rgba"},
+        {Action::Daily, "daily", "menu-icons/daily.rgba"},
+        {Action::HowTo, "howto", "menu-icons/howto.rgba"},
+        {Action::Math, "math", "menu-icons/math.rgba"},
+        {Action::Settings, "settings", "menu-icons/settings.rgba"},
+}};
+
+const MenuIconSpec *findMainMenuIconSpec(Action action) {
+    for (const MenuIconSpec &spec : MAIN_MENU_ICON_SPECS) {
+        if (spec.action == action) return &spec;
+    }
+    return nullptr;
+}
+
+Color mainMenuIconAccent(Action action) {
+    if (action == Action::Freeplay || action == Action::Math) return BLUE;
+    if (action == Action::Playground) return PURPLE;
+    if (action == Action::Daily) return ORANGE;
+    if (action == Action::Settings) return MUTED_STRONG;
+    return GREEN;
+}
+
+void drawFallbackMainMenuIcon(AppState *s, Rect rect, Action action) {
+    Renderer &r = s->renderer;
+    float side = std::min(rect.w, rect.h);
+    float scale = side / 24.0f;
+    float ox = rect.x + rect.w * 0.5f - 12.0f * scale;
+    float oy = rect.y + rect.h * 0.5f - 12.0f * scale;
+    float stroke = std::max(dp(s, 1.15f), side * 0.072f);
+    Color base = withAlpha(MUTED_STRONG, 0.86f);
+    Color faint = withAlpha(MUTED_STRONG, 0.48f);
+    Color accent = withAlpha(mainMenuIconAccent(action), 0.98f);
+    auto x = [&](float v) { return ox + v * scale; };
+    auto y = [&](float v) { return oy + v * scale; };
+    auto line = [&](float ax, float ay, float bx, float by, Color color) {
+        r.line(x(ax), y(ay), x(bx), y(by), stroke, color);
+    };
+    auto box = [&](float px, float py, float w, float h, float radius, Color color) {
+        r.roundedStroke({x(px), y(py), w * scale, h * scale}, radius * scale, stroke, color);
+    };
+    auto dot = [&](float cx, float cy, float radius, Color color) {
+        r.circle(x(cx), y(cy), radius * scale, color, 24);
+    };
+    auto ring = [&](float cx, float cy, float radius, Color color) {
+        float outer = radius * scale;
+        r.circle(x(cx), y(cy), outer, color, 28);
+        r.circle(x(cx), y(cy), std::max(1.0f, outer - stroke), PANEL_2, 28);
+    };
+
+    if (action == Action::Campaign) {
+        box(4.5f, 4.5f, 15.0f, 15.0f, 3.0f, base);
+        line(9.0f, 4.8f, 9.0f, 19.2f, faint);
+        line(15.0f, 4.8f, 15.0f, 19.2f, faint);
+        line(4.8f, 9.0f, 19.2f, 9.0f, faint);
+        line(4.8f, 15.0f, 19.2f, 15.0f, faint);
+        line(7.5f, 16.2f, 10.2f, 12.0f, accent);
+        line(10.2f, 12.0f, 13.4f, 9.5f, accent);
+        line(13.4f, 9.5f, 16.5f, 8.0f, accent);
+    } else if (action == Action::Freeplay) {
+        box(4.5f, 4.5f, 15.0f, 15.0f, 3.0f, base);
+        line(9.0f, 4.8f, 9.0f, 19.2f, faint);
+        line(15.0f, 4.8f, 15.0f, 19.2f, faint);
+        line(4.8f, 9.0f, 19.2f, 9.0f, faint);
+        line(4.8f, 15.0f, 19.2f, 15.0f, faint);
+        line(12.0f, 8.0f, 12.0f, 16.0f, accent);
+        line(8.0f, 12.0f, 16.0f, 12.0f, accent);
+    } else if (action == Action::Playground) {
+        box(5.0f, 5.0f, 11.0f, 11.0f, 2.5f, base);
+        line(8.2f, 8.2f, 12.7f, 8.2f, faint);
+        line(8.2f, 12.0f, 12.7f, 12.0f, faint);
+        line(14.5f, 17.8f, 18.4f, 13.9f, accent);
+        line(18.4f, 13.9f, 20.1f, 15.6f, accent);
+        line(20.1f, 15.6f, 16.2f, 19.5f, accent);
+        line(16.2f, 19.5f, 13.8f, 20.2f, accent);
+        line(13.8f, 20.2f, 14.5f, 17.8f, accent);
+    } else if (action == Action::Daily) {
+        box(4.5f, 5.5f, 15.0f, 14.0f, 2.5f, base);
+        line(8.0f, 4.0f, 8.0f, 8.0f, base);
+        line(16.0f, 4.0f, 16.0f, 8.0f, base);
+        line(4.8f, 10.0f, 19.2f, 10.0f, faint);
+        dot(12.0f, 15.0f, 2.35f, accent);
+    } else if (action == Action::HowTo) {
+        line(5.0f, 6.4f, 5.0f, 17.6f, base);
+        line(5.0f, 6.4f, 8.4f, 5.7f, base);
+        line(8.4f, 5.7f, 12.0f, 7.2f, base);
+        line(12.0f, 7.2f, 12.0f, 18.4f, base);
+        line(5.0f, 17.6f, 8.4f, 16.9f, base);
+        line(8.4f, 16.9f, 12.0f, 18.4f, base);
+        line(12.0f, 7.2f, 15.6f, 5.7f, base);
+        line(15.6f, 5.7f, 19.0f, 6.4f, base);
+        line(19.0f, 6.4f, 19.0f, 17.6f, base);
+        line(12.0f, 18.4f, 15.6f, 16.9f, base);
+        line(15.6f, 16.9f, 19.0f, 17.6f, base);
+        line(11.2f, 9.2f, 11.9f, 8.7f, accent);
+        line(11.9f, 8.7f, 13.0f, 9.0f, accent);
+        line(13.0f, 9.0f, 13.3f, 10.0f, accent);
+        line(13.3f, 10.0f, 12.2f, 11.4f, accent);
+        line(12.2f, 11.4f, 12.0f, 12.8f, accent);
+        dot(12.0f, 15.8f, 0.75f, accent);
+    } else if (action == Action::Math) {
+        line(7.5f, 5.5f, 5.0f, 5.5f, base);
+        line(5.0f, 5.5f, 5.0f, 18.5f, base);
+        line(5.0f, 18.5f, 7.5f, 18.5f, base);
+        line(16.5f, 5.5f, 19.0f, 5.5f, base);
+        line(19.0f, 5.5f, 19.0f, 18.5f, base);
+        line(19.0f, 18.5f, 16.5f, 18.5f, base);
+        line(9.5f, 8.2f, 14.5f, 8.2f, faint);
+        line(9.5f, 12.0f, 14.5f, 12.0f, faint);
+        line(9.5f, 15.8f, 14.5f, 15.8f, faint);
+        line(9.0f, 16.0f, 15.0f, 8.0f, accent);
+    } else if (action == Action::Settings) {
+        for (int i = 0; i < 8; ++i) {
+            float a = static_cast<float>(i) * 0.785398163f;
+            float x1 = 12.0f + std::cos(a) * 5.2f;
+            float y1 = 12.0f + std::sin(a) * 5.2f;
+            float x2 = 12.0f + std::cos(a) * 7.7f;
+            float y2 = 12.0f + std::sin(a) * 7.7f;
+            line(x1, y1, x2, y2, base);
+        }
+        ring(12.0f, 12.0f, 4.2f, base);
+        dot(12.0f, 12.0f, 1.55f, accent);
+    }
+    if (r.skContext) r.skContext->resetContext();
+}
+
+bool drawMainMenuImageIcon(AppState *s, Rect rect, Action action) {
+    Renderer &r = s->renderer;
+    if (!r.skiaReady()) return false;
+    const MenuIconSpec *spec = findMainMenuIconSpec(action);
+    if (!spec) return false;
+
+    MathImageAsset &asset = s->menuImages[spec->id];
+    if (!asset.image && !asset.attempted) {
+        asset.attempted = true;
+        asset.width = MENU_ICON_SIZE;
+        asset.height = MENU_ICON_SIZE;
+        if (readAssetBytes(s, spec->file, asset.pixels) &&
+            asset.pixels.size() == static_cast<size_t>(MENU_ICON_SIZE * MENU_ICON_SIZE * 4)) {
+            SkImageInfo info = SkImageInfo::Make(MENU_ICON_SIZE, MENU_ICON_SIZE,
+                                                 kRGBA_8888_SkColorType, kUnpremul_SkAlphaType);
+            SkPixmap pixmap(info, asset.pixels.data(), static_cast<size_t>(MENU_ICON_SIZE * 4));
+            asset.image = SkImages::RasterFromPixmapCopy(pixmap);
+        }
+        if (!asset.image) {
+            LOGE("Unable to load generated menu icon asset %s", spec->file);
+            asset.pixels.clear();
+        }
+    }
+    if (!asset.image) return false;
+
+    SkRect dst = SkRect::MakeXYWH(rect.x, rect.y, rect.w, rect.h);
+    SkPaint paint;
+    paint.setAntiAlias(true);
+    r.skCanvas->drawImageRect(asset.image, dst, SkSamplingOptions(SkFilterMode::kLinear), &paint);
+    if (r.skContext) r.skContext->resetContext();
+    return true;
+}
+
+void drawMainMenuIcon(AppState *s, Rect rect, Action action) {
+    if (drawMainMenuImageIcon(s, rect, action)) return;
+    drawFallbackMainMenuIcon(s, rect, action);
 }
 
 void addButton(AppState *s, Rect r, Action action, int value, bool enabled = true) {
@@ -3944,6 +4783,20 @@ void drawMaterialChevronLeftIcon(AppState *s, Rect rect, Color color) {
     if (r.skContext) r.skContext->resetContext();
 }
 
+void drawMaterialArrowBackIcon(AppState *s, Rect rect, Color color) {
+    Renderer &r = s->renderer;
+    float cx = rect.x + rect.w * 0.5f;
+    float cy = rect.y + rect.h * 0.5f;
+    float side = std::min(rect.w, rect.h);
+    float stroke = std::max(1.0f, dp(s, 2.05f));
+    float left = cx - side * 0.31f;
+    float right = cx + side * 0.32f;
+    float head = side * 0.26f;
+    r.line(right, cy, left, cy, stroke, color);
+    r.line(left, cy, left + head, cy - head, stroke, color);
+    r.line(left, cy, left + head, cy + head, stroke, color);
+}
+
 void drawMaterialUndoIcon(AppState *s, Rect rect, Color color) {
     Renderer &r = s->renderer;
     if (!r.skiaReady()) {
@@ -4049,6 +4902,17 @@ void drawBackIcon(AppState *s, Rect rect, Action action) {
     drawMaterialChevronLeftIcon(s, rect, TEXT);
 }
 
+void drawHeaderBackIcon(AppState *s, Rect rect, Action action) {
+    float radius = std::min(rect.h * 0.22f, dp(s, 8));
+    if (isPressedButton(s, rect, action, 0)) {
+        drawPressedButtonFeedback(s, rect, radius);
+    }
+    float side = std::min(rect.w, rect.h) * 0.76f;
+    Rect mark{rect.x + (rect.w - side) * 0.5f, rect.y + (rect.h - side) * 0.5f, side, side};
+    drawMaterialArrowBackIcon(s, mark, withAlpha(TEXT, 0.64f));
+    addButton(s, rect, action, 0, true);
+}
+
 void drawGearIcon(AppState *s, Rect rect, Action action) {
     drawIconShell(s, rect, action);
     Renderer &r = s->renderer;
@@ -4082,12 +4946,48 @@ void drawBackground(AppState *s) {
     }
 }
 
+float guideSizeControlWidth(AppState *s);
+void drawGuideSizeControl(AppState *s);
+
+float sectionContentTop(AppState *s) {
+    return safeTop(s) + dp(s, 102);
+}
+
+Action sectionHeaderIconAction(const std::string &title) {
+    if (title == "Campaign") return Action::Campaign;
+    if (title == "Custom Level") return Action::Freeplay;
+    if (title == "Playground") return Action::Playground;
+    if (title == "Daily Challenges") return Action::Daily;
+    if (title == "How to Play") return Action::HowTo;
+    if (title == "The Math") return Action::Math;
+    if (title == "Settings" || title == "About") return Action::Settings;
+    return Action::Campaign;
+}
+
+float menuTextScale(AppState *s) {
+    if (s->guideTextSize == 1) return 1.12f;
+    if (s->guideTextSize == 2) return 1.24f;
+    return 1.0f;
+}
+
+float menuHeaderTextScale(AppState *s) {
+    return 1.0f + (menuTextScale(s) - 1.0f) * 0.66f;
+}
+
 void drawHeader(AppState *s, const std::string &, const std::string &title, Action backAction = Action::Main) {
     Renderer &r = s->renderer;
     float top = safeTop(s) + dp(s, 8);
-    drawFittedText(s, tr(s, title), dp(s, 84), top + dp(s, 15),
-                   r.width - dp(s, 102), dp(s, 3.55f), TEXT, 0, false, 2.2f);
-    drawBackIcon(s, {dp(s, 18), top, dp(s, 50), dp(s, 44)}, backAction);
+    float controlW = guideSizeControlWidth(s);
+    Rect back{dp(s, 18), top + dp(s, 9), dp(s, 38), dp(s, 36)};
+    Rect icon{dp(s, 74), top + dp(s, 3), dp(s, 52), dp(s, 52)};
+    float titleX = icon.x + icon.w + dp(s, 12);
+    float titleRight = r.width - dp(s, 18) - controlW - dp(s, 12);
+    float titleW = std::max(dp(s, 72), titleRight - titleX);
+    drawHeaderBackIcon(s, back, backAction);
+    drawMainMenuIcon(s, icon, sectionHeaderIconAction(title));
+    drawFittedText(s, tr(s, title), titleX, top + dp(s, 21),
+                   titleW, dp(s, 3.16f * menuHeaderTextScale(s)), TEXT, 0, false, 1.55f);
+    drawGuideSizeControl(s);
 }
 
 float guideTextScale(AppState *s) {
@@ -4097,49 +4997,46 @@ float guideTextScale(AppState *s) {
 }
 
 float guideContentTop(AppState *s) {
-    return safeTop(s) + dp(s, 64);
+    return sectionContentTop(s);
 }
 
 void drawGuideSizeControl(AppState *s) {
     Renderer &r = s->renderer;
-    float button = dp(s, 32);
-    float gap = dp(s, 4);
-    float pad = dp(s, 4);
+    float button = dp(s, 26);
+    float gap = dp(s, 3);
+    float pad = dp(s, 3);
     float w = button * 3.0f + gap * 2.0f + pad * 2.0f;
-    Rect rail{r.width - dp(s, 18) - w, safeTop(s) + dp(s, 8), w, button + pad * 2.0f};
-    drawGlassPanel(s, rail, rgba(10, 13, 19, 0.55f));
+    Rect rail{r.width - dp(s, 18) - w, safeTop(s) + dp(s, 60), w, button + pad * 2.0f};
+    drawGlassPanel(s, rail, rgba(10, 13, 19, 0.42f));
 
-    auto drawSizeGlyph = [&](Rect b, float height, Color color) {
+    auto drawSizeGlyph = [&](Rect b, float scale, Color color, bool selected) {
         float cx = b.x + b.w * 0.5f;
-        float top = b.y + (b.h - height) * 0.5f;
-        float bottom = top + height;
-        float half = height * 0.31f;
-        float stroke = std::max(dp(s, 1.55f), height * 0.11f);
-        r.line(cx - half, bottom, cx, top, stroke, color);
-        r.line(cx, top, cx + half, bottom, stroke, color);
-        r.line(cx - half * 0.52f, top + height * 0.60f,
-               cx + half * 0.52f, top + height * 0.60f, stroke, color);
-        if (r.skContext) r.skContext->resetContext();
+        float glyphY = b.y + b.h * 0.5f - scale * 4.0f - dp(s, 0.6f);
+        r.textHeavy("A", cx, glyphY, scale, color, 1, selected ? 0.98f : 0.76f);
+        float underlineW = std::min(b.w * 0.48f, std::max(dp(s, 10), r.textWidth("A", scale) * 0.78f));
+        float underlineH = std::max(1.0f, dp(s, 1.15f));
+        r.roundedRect(cx - underlineW * 0.5f, b.y + b.h - dp(s, 6), underlineW, underlineH, underlineH * 0.5f,
+                      withAlpha(color, selected ? 0.58f : 0.36f));
     };
 
-    std::array<float, 3> glyphHeight{{dp(s, 13.0f), dp(s, 18.0f), dp(s, 23.0f)}};
+    std::array<float, 3> glyphScale{{dp(s, 1.42f), dp(s, 1.82f), dp(s, 2.24f)}};
     for (int i = 0; i < 3; ++i) {
         Rect b{rail.x + pad + static_cast<float>(i) * (button + gap), rail.y + pad, button, button};
         bool selected = s->guideTextSize == i;
         float radius = dp(s, 7);
-        r.roundedRect(b.x, b.y, b.w, b.h, radius, selected ? withAlpha(BLUE, 0.68f) : LINE);
+        r.roundedRect(b.x, b.y, b.w, b.h, radius, selected ? withAlpha(BLUE, 0.42f) : withAlpha(LINE, 0.58f));
         r.roundedRect(b.x + 1.0f, b.y + 1.0f, b.w - 2.0f, b.h - 2.0f, radius - 1.0f,
-                      selected ? rgba(34, 66, 86, 0.82f) : rgba(21, 27, 36, 0.70f));
+                      selected ? rgba(26, 50, 66, 0.72f) : rgba(21, 27, 36, 0.56f));
         if (isPressedButton(s, b, Action::GuideSize, i)) drawPressedButtonFeedback(s, b, radius);
-        drawSizeGlyph(b, glyphHeight[static_cast<size_t>(i)], selected ? TEXT : MUTED);
+        drawSizeGlyph(b, glyphScale[static_cast<size_t>(i)], selected ? withAlpha(TEXT, 0.88f) : withAlpha(MUTED, 0.72f), selected);
         addButton(s, b, Action::GuideSize, i, true);
     }
 }
 
 float guideSizeControlWidth(AppState *s) {
-    float button = dp(s, 32);
-    float gap = dp(s, 4);
-    float pad = dp(s, 4);
+    float button = dp(s, 26);
+    float gap = dp(s, 3);
+    float pad = dp(s, 3);
     return button * 3.0f + gap * 2.0f + pad * 2.0f;
 }
 
@@ -4179,13 +5076,7 @@ void drawStickyScreenHeader(AppState *s, const std::string &kicker, const std::s
 
 void drawGuideHeader(AppState *s, const std::string &title) {
     drawGuideHeaderChrome(s);
-    Renderer &r = s->renderer;
-    float top = safeTop(s) + dp(s, 8);
-    float controlW = guideSizeControlWidth(s);
-    drawFittedText(s, tr(s, title), dp(s, 84), top + dp(s, 13),
-                   r.width - dp(s, 120) - controlW, dp(s, 3.20f), TEXT, 0, false, 1.85f);
-    drawBackIcon(s, {dp(s, 18), top, dp(s, 42), dp(s, 38)}, Action::Main);
-    drawGuideSizeControl(s);
+    drawHeader(s, "", title, Action::Main);
 }
 
 std::vector<int> splashAffected(int tapIndex) {
@@ -4306,16 +5197,17 @@ void finishScrollContent(AppState *s, float y) {
 void drawMain(AppState *s) {
     Renderer &r = s->renderer;
     float w = r.width;
+    float textScale = menuTextScale(s);
     float availableH = std::max(dp(s, 180), r.height - safeTop(s) - safeBottom(s) - dp(s, 24));
     float logoLimit = std::max(dp(s, 64), w - dp(s, 96));
     float baseLogoSize = std::min(dp(s, 142), logoLimit);
     float baseBrandPad = std::min(r.height * 0.042f, dp(s, 36));
-    float baseButtonH = dp(s, 48);
+    float baseButtonH = dp(s, 48.0f + (textScale - 1.0f) * 12.0f);
     float baseButtonGap = dp(s, 9);
     float baseTitleScale = dp(s, 5.85f);
     bool baseTwoLineTitle = w < dp(s, 560) || r.textWidth("Invert the Matrix", baseTitleScale) > w - dp(s, 70);
     float baseTitleBlockH = baseTwoLineTitle ? dp(s, 82) : dp(s, 46);
-    float baseMenuStackH = baseButtonH * 6.0f + baseButtonGap * 5.0f;
+    float baseMenuStackH = baseButtonH * 7.0f + baseButtonGap * 6.0f;
     float baseContentH = baseBrandPad + baseLogoSize + dp(s, 48) + baseTitleBlockH + dp(s, 28) + baseMenuStackH;
     float fit = clampFloat(availableH / std::max(1.0f, baseContentH), 0.72f, 1.0f);
 
@@ -4330,7 +5222,7 @@ void drawMain(AppState *s) {
     float titleLineGap = std::max(dp(s, 30), dp(s, 40) * fit);
     bool twoLineTitle = w < dp(s, 560) || r.textWidth("Invert the Matrix", titleScale) > w - dp(s, 70);
     float titleBlockH = twoLineTitle ? std::max(dp(s, 60), dp(s, 82) * fit) : std::max(dp(s, 38), dp(s, 46) * fit);
-    float menuStackH = buttonH * 6.0f + buttonGap * 5.0f;
+    float menuStackH = buttonH * 7.0f + buttonGap * 6.0f;
     float contentH = brandPad + logoSize + titleOffset + titleBlockH + titleMenuGap + menuStackH;
     float containerTop = (r.height - contentH - safeBottom(s) * 0.5f) * 0.5f + safeTop(s) * 0.35f;
     float minTop = safeTop(s) + dp(s, 2);
@@ -4353,6 +5245,7 @@ void drawMain(AppState *s) {
     float bw = std::min(w - dp(s, 36), dp(s, 420));
     float x = (w - bw) * 0.5f;
     float y = titleY + titleBlockH + titleMenuGap;
+    std::vector<std::pair<Rect, std::string>> menuLabels;
     auto drawMenuButton = [&](const std::string &label, Action action) {
         Rect rect{x, y, bw, buttonH};
         float radius = dp(s, 8);
@@ -4360,28 +5253,34 @@ void drawMain(AppState *s) {
         r.roundedRect(rect.x + 1.2f, rect.y + 1.2f, rect.w - 2.4f, rect.h - 2.4f,
                       std::max(1.0f, radius - 1.2f), PANEL_2);
         if (isPressedButton(s, rect, action, 0)) drawPressedButtonFeedback(s, rect, radius);
-        float scale = dp(s, 2.90f);
-        drawFittedText(s, label, rect.x + dp(s, 16), rect.y + rect.h * 0.5f - scale * 4.0f,
-                       rect.w - dp(s, 58), scale, TEXT, 0, true, 1.5f);
-        float cx = rect.x + rect.w - dp(s, 22);
-        float cy = rect.y + rect.h * 0.5f;
-        float chevron = dp(s, 6.2f);
-        r.line(cx - chevron * 0.35f, cy - chevron, cx + chevron * 0.45f, cy, dp(s, 1.7f), MUTED_STRONG);
-        r.line(cx + chevron * 0.45f, cy, cx - chevron * 0.35f, cy + chevron, dp(s, 1.7f), MUTED_STRONG);
+        float iconSize = std::min(dp(s, 27), rect.h * 0.62f);
+        Rect icon{rect.x + rect.w - dp(s, 18) - iconSize, rect.y + (rect.h - iconSize) * 0.5f, iconSize, iconSize};
+        drawMainMenuIcon(s, icon, action);
+        menuLabels.push_back({rect, label});
         addButton(s, rect, action, 0, true);
         y += buttonH + buttonGap;
     };
     drawMenuButton(tr(s, "Campaign"), Action::Campaign);
     drawMenuButton(tr(s, "Custom Level"), Action::Freeplay);
+    drawMenuButton(tr(s, "Playground"), Action::Playground);
     drawMenuButton(tr(s, "Daily Challenge"), Action::Daily);
     drawMenuButton(tr(s, "How to Play"), Action::HowTo);
     drawMenuButton(tr(s, "The Math"), Action::Math);
     drawMenuButton(tr(s, "Settings"), Action::Settings);
+    for (const auto &item : menuLabels) {
+        Rect rect = item.first;
+        float scale = dp(s, 2.90f * textScale);
+        drawFittedText(s, item.second, rect.x + dp(s, 16), rect.y + rect.h * 0.5f - scale * 4.0f,
+                       rect.w - dp(s, 72), scale, TEXT, 0, true, 1.5f);
+    }
     finishScrollContent(s, y - buttonGap + dp(s, 18));
 }
 
-void drawLevelNode(AppState *s, Rect rect, int index, int stars, bool completed, bool hintUsed, bool enabled) {
+void drawWebPadlockMark(AppState *s, Rect icon, Color shackleColor, Color bodyColor, Color keyColor);
+
+void drawLevelNode(AppState *s, Rect rect, int index, int displayNumber, int stars, bool completed, bool hintUsed, bool enabled) {
     Renderer &r = s->renderer;
+    float textScale = menuTextScale(s);
     float radius = dp(s, 8);
     Color border = completed ? rgba(99, 212, 157, enabled ? 0.34f : 0.16f) : (enabled ? LINE : rgba(190, 203, 220, 0.08f));
     Color fill = completed ? rgba(21, 35, 31, enabled ? 0.96f : 0.42f) : rgba(27, 35, 48, enabled ? 0.96f : 0.36f);
@@ -4390,7 +5289,8 @@ void drawLevelNode(AppState *s, Rect rect, int index, int stars, bool completed,
     if (enabled && isPressedButton(s, rect, Action::StartCampaign, index)) drawPressedButtonFeedback(s, rect, radius);
 
     Color numberColor = enabled ? TEXT : rgba(210, 218, 230, 0.88f);
-    r.textHeavy(std::to_string(index + 1), rect.x + rect.w * 0.5f, rect.y + rect.h * 0.24f, dp(s, 3.35f), numberColor, 1, 0.82f);
+    r.textHeavy(std::to_string(displayNumber), rect.x + rect.w * 0.5f, rect.y + rect.h * 0.24f,
+                dp(s, 3.35f * textScale), numberColor, 1, 0.82f);
     drawStars(s, rect.x + rect.w * 0.5f, rect.y + rect.h * 0.62f, dp(s, 10.5f), enabled ? stars : 0, 3, 1, enabled ? 1.0f : 0.62f);
 
     if (completed) {
@@ -4402,77 +5302,225 @@ void drawLevelNode(AppState *s, Rect rect, int index, int stars, bool completed,
             drawHintEye(s, rect.x + dp(s, 13), rect.y + dp(s, 13), dp(s, 12), withAlpha(DANGER, enabled ? 0.98f : 0.42f));
         }
     } else if (!enabled) {
-        float cx = rect.x + rect.w - dp(s, 12);
-        float cy = rect.y + dp(s, 12);
-        float lock = dp(s, 10);
-        r.line(cx - lock * 0.34f, cy, cx - lock * 0.34f, cy - lock * 0.28f, dp(s, 1.4f), withAlpha(TEXT, 0.28f));
-        r.line(cx + lock * 0.34f, cy, cx + lock * 0.34f, cy - lock * 0.28f, dp(s, 1.4f), withAlpha(TEXT, 0.28f));
-        r.line(cx - lock * 0.34f, cy - lock * 0.28f, cx, cy - lock * 0.52f, dp(s, 1.4f), withAlpha(TEXT, 0.28f));
-        r.line(cx, cy - lock * 0.52f, cx + lock * 0.34f, cy - lock * 0.28f, dp(s, 1.4f), withAlpha(TEXT, 0.28f));
-        r.roundedRect(cx - lock * 0.48f, cy - lock * 0.04f, lock * 0.96f, lock * 0.64f, lock * 0.14f, withAlpha(TEXT, 0.26f));
+        Color lockColor = rgba(210, 218, 230, 0.46f);
+        float lock = dp(s, 15);
+        Rect icon{rect.x + rect.w - lock - dp(s, 5), rect.y + dp(s, 5), lock, lock};
+        drawWebPadlockMark(s, icon, lockColor, withAlpha(lockColor, lockColor.a * 0.72f), lockColor);
     }
 
     if (enabled) addButton(s, rect, Action::StartCampaign, index, true);
 }
 
+int firstUnlockedCampaignGroup(AppState *s) {
+    for (int group = 0; group < CAMPAIGN_GROUP_COUNT; ++group) {
+        if (s->progress.groupUnlocked(group)) return group;
+    }
+    return 0;
+}
+
+int normalizeSelectedCampaignGroup(AppState *s) {
+    int group = clampInt(s->selectedCampaignGroup, 0, CAMPAIGN_GROUP_COUNT - 1);
+    if (!s->progress.groupUnlocked(group)) {
+        int lastGroup = campaignGroupForLevel(s->lastCampaign);
+        group = s->progress.groupUnlocked(lastGroup) ? lastGroup : firstUnlockedCampaignGroup(s);
+    }
+    s->selectedCampaignGroup = group;
+    return group;
+}
+
+Color campaignMiniLevelColor(int stars, bool enabled) {
+    if (!enabled) return rgba(244, 247, 251, 0.07f);
+    if (stars >= 3) return rgba(99, 212, 157, 0.80f);
+    if (stars == 2) return rgba(220, 164, 88, 0.76f);
+    if (stars == 1) return rgba(88, 184, 232, 0.68f);
+    return rgba(244, 247, 251, 0.10f);
+}
+
+void drawWebPadlockMark(AppState *s, Rect icon, Color shackleColor, Color bodyColor, Color keyColor) {
+    Renderer &r = s->renderer;
+    float side = std::min(icon.w, icon.h);
+    float scale = side / 24.0f;
+    float ox = icon.x + icon.w * 0.5f - 12.0f * scale;
+    float oy = icon.y + icon.h * 0.5f - 12.0f * scale;
+    auto sx = [&](float v) { return ox + v * scale; };
+    auto sy = [&](float v) { return oy + v * scale; };
+
+    if (r.skiaReady()) {
+        SkPaint paint;
+        paint.setAntiAlias(true);
+        paint.setStrokeCap(SkPaint::kRound_Cap);
+        paint.setStrokeJoin(SkPaint::kRound_Join);
+
+        SkPathBuilder shackle;
+        shackle.moveTo(sx(7.25f), sy(10.25f));
+        shackle.lineTo(sx(7.25f), sy(8.10f));
+        shackle.cubicTo(sx(7.25f), sy(5.48f), sx(9.38f), sy(3.35f), sx(12.0f), sy(3.35f));
+        shackle.cubicTo(sx(14.62f), sy(3.35f), sx(16.75f), sy(5.48f), sx(16.75f), sy(8.10f));
+        shackle.lineTo(sx(16.75f), sy(10.25f));
+        paint.setStyle(SkPaint::kStroke_Style);
+        paint.setStrokeWidth(std::max(1.0f, 2.15f * scale));
+        paint.setColor(Renderer::skColor(shackleColor));
+        r.skCanvas->drawPath(shackle.detach(), paint);
+
+        paint.setStyle(SkPaint::kFill_Style);
+        paint.setColor(Renderer::skColor(bodyColor));
+        r.skCanvas->drawRoundRect(SkRect::MakeXYWH(sx(5.25f), sy(10.25f), 13.5f * scale, 10.0f * scale),
+                                  2.6f * scale, 2.6f * scale, paint);
+
+        paint.setStyle(SkPaint::kStroke_Style);
+        paint.setStrokeWidth(std::max(1.0f, 2.15f * scale));
+        paint.setColor(Renderer::skColor(keyColor));
+        r.skCanvas->drawLine(sx(12.0f), sy(14.20f), sx(12.0f), sy(16.65f), paint);
+        if (r.skContext) r.skContext->resetContext();
+        return;
+    }
+
+    float stroke = std::max(1.0f, 2.15f * scale);
+    float cx = sx(12.0f);
+    float rx = 4.75f * scale;
+    float ry = 4.75f * scale;
+    float arcCy = sy(8.10f);
+    r.line(sx(7.25f), sy(10.25f), sx(7.25f), sy(8.10f), stroke, shackleColor);
+    float prevX = sx(7.25f);
+    float prevY = sy(8.10f);
+    for (int i = 1; i <= 12; ++i) {
+        float a = 3.14159265f - static_cast<float>(i) / 12.0f * 3.14159265f;
+        float x = cx + std::cos(a) * rx;
+        float y = arcCy - std::sin(a) * ry;
+        r.line(prevX, prevY, x, y, stroke, shackleColor);
+        prevX = x;
+        prevY = y;
+    }
+    r.line(sx(16.75f), sy(8.10f), sx(16.75f), sy(10.25f), stroke, shackleColor);
+    r.roundedRect(sx(5.25f), sy(10.25f), 13.5f * scale, 10.0f * scale, 2.6f * scale, bodyColor);
+    r.line(sx(12.0f), sy(14.20f), sx(12.0f), sy(16.65f), stroke, keyColor);
+}
+
+void drawCampaignGroupTile(AppState *s, Rect rect, int group, bool selected) {
+    Renderer &r = s->renderer;
+    float textScale = menuTextScale(s);
+    bool enabled = s->progress.groupUnlocked(group);
+    int stars = s->progress.groupStars(group);
+    bool completed = stars >= CAMPAIGN_GROUP_STAR_TARGET;
+    float radius = dp(s, 8);
+    float borderInset = std::max(1.0f, dp(s, 1.15f));
+    Color border = enabled ? rgba(244, 247, 251, selected ? 0.94f : 0.86f) : rgba(190, 203, 220, 0.08f);
+    Color fill = enabled ? rgba(27, 35, 48, 0.96f) : rgba(21, 27, 36, 0.56f);
+    if (enabled && selected) r.glow(rect, dp(s, 6), rgba(139, 212, 255, 0.10f), 3);
+    r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, border);
+    r.roundedRect(rect.x + borderInset, rect.y + borderInset, rect.w - borderInset * 2.0f, rect.h - borderInset * 2.0f,
+                  std::max(1.0f, radius - borderInset), fill);
+    if (enabled && completed) {
+        r.roundedStroke({rect.x + borderInset, rect.y + borderInset, rect.w - borderInset * 2.0f, rect.h - borderInset * 2.0f},
+                        std::max(1.0f, radius - borderInset), std::max(1.0f, dp(s, 1.0f)), rgba(99, 212, 157, 0.28f));
+    }
+    if (enabled && selected) {
+        r.roundedStroke({rect.x + borderInset, rect.y + borderInset, rect.w - borderInset * 2.0f, rect.h - borderInset * 2.0f},
+                        std::max(1.0f, radius - borderInset), std::max(1.0f, dp(s, 1.05f)), rgba(139, 212, 255, 0.32f));
+    }
+    if (enabled && isPressedButton(s, rect, Action::CampaignGroup, group)) drawPressedButtonFeedback(s, rect, radius);
+
+    float badge = std::min(dp(s, 22), rect.w * 0.34f);
+    r.roundedRect(rect.x + dp(s, 6), rect.y + dp(s, 6), badge, badge, badge * 0.5f, rgba(190, 203, 220, enabled ? 0.22f : 0.10f));
+    r.textHeavy(std::to_string(group + 1), rect.x + dp(s, 6) + badge * 0.5f, rect.y + dp(s, 6) + badge * 0.27f,
+                std::min(dp(s, 2.05f * textScale), badge * 0.16f), enabled ? MUTED_STRONG : rgba(210, 218, 230, 0.48f), 1, 0.78f);
+
+    float mini = std::min(rect.w - dp(s, 16), rect.h * 0.43f);
+    float gap = std::max(dp(s, 1.5f), mini * 0.055f);
+    float cell = (mini - gap * 2.0f) / 3.0f;
+    float gridX = rect.x + (rect.w - mini) * 0.5f;
+    float gridY = rect.y + rect.h * 0.37f - mini * 0.5f;
+    for (int level = 0; level < CAMPAIGN_LEVELS_PER_GROUP; ++level) {
+        int col = level % 3;
+        int row = level / 3;
+        std::string id = campaignLevelIdFor(group, level);
+        int levelStars = clampInt(s->progress.stars(id), 0, 3);
+        Rect cellRect{gridX + col * (cell + gap), gridY + row * (cell + gap), cell, cell};
+        r.roundedRect(cellRect.x, cellRect.y, cellRect.w, cellRect.h, dp(s, 2.5f), rgba(190, 203, 220, enabled ? 0.16f : 0.06f));
+        r.roundedRect(cellRect.x + 1.0f, cellRect.y + 1.0f, cellRect.w - 2.0f, cellRect.h - 2.0f, dp(s, 2.0f), campaignMiniLevelColor(levelStars, enabled));
+        if (s->progress.hintUsed(id)) {
+            r.roundedRect(cellRect.x + 1.5f, cellRect.y + 1.5f, cellRect.w - 3.0f, cellRect.h - 3.0f, dp(s, 2.0f), rgba(229, 111, 126, 0.42f));
+        }
+    }
+
+    drawFittedText(s, std::to_string(stars) + "/" + std::to_string(CAMPAIGN_GROUP_STAR_MAX),
+                   rect.x + rect.w * 0.5f, rect.y + rect.h - dp(s, 18), rect.w - dp(s, 10), dp(s, 1.86f * textScale),
+                   enabled ? TEXT : rgba(210, 218, 230, 0.52f), 1, true, 1.05f);
+
+    if (!enabled) {
+        Color lockColor = rgba(210, 218, 230, 0.52f);
+        float lock = dp(s, 18);
+        Rect icon{rect.x + rect.w - lock - dp(s, 6), rect.y + dp(s, 5), lock, lock};
+        drawWebPadlockMark(s, icon, lockColor, withAlpha(lockColor, lockColor.a * 0.72f), lockColor);
+    }
+
+    if (enabled) addButton(s, rect, Action::CampaignGroup, group, true);
+}
+
 void drawCampaign(AppState *s) {
     Renderer &r = s->renderer;
-    float contentTop = safeTop(s) + dp(s, 88);
+    float textScale = menuTextScale(s);
+    float contentTop = sectionContentTop(s);
     float y = beginScrollContent(s, contentTop);
     float margin = dp(s, 18);
-    float chapterGap = dp(s, 20);
-    float panelPad = dp(s, 16);
-    float gridGap = dp(s, 10);
-    float cellH = dp(s, 74);
     float panelW = r.width - margin * 2.0f;
-    float cell = (panelW - panelPad * 2.0f - gridGap * 3.0f) / 4.0f;
-    float titleH = dp(s, 28);
-    float panelH = panelPad + titleH + dp(s, 14) + cellH * 3.0f + gridGap * 2.0f + panelPad;
     if (!campaignLevelsReady(s)) {
         Rect panel{margin, y, panelW, dp(s, 156)};
         drawGlassPanel(s, panel, PANEL);
         float pad = dp(s, 16);
-        float titleScale = dp(s, 2.65f);
-        float bodyScale = dp(s, 1.86f);
+        float titleScale = dp(s, 2.65f * textScale);
+        float bodyScale = dp(s, 1.86f * textScale);
         r.textHeavy(tr(s, "Campaign data unavailable"), panel.x + pad, panel.y + pad + dp(s, 8), titleScale, TEXT);
         std::vector<std::string> lines = wrapTextLines(s,
                                                        tr(s, "The bundled campaign asset could not be loaded. Reload the app or check that campaign-levels.json is included."),
                                                        bodyScale,
                                                        panel.w - pad * 2.0f);
-        float ly = panel.y + pad + dp(s, 46);
+        float ly = panel.y + pad + std::max(dp(s, 46), titleScale * 12.0f);
         for (const std::string &line : lines) {
             drawFittedText(s, line, panel.x + pad, ly, panel.w - pad * 2.0f, bodyScale, MUTED);
-            ly += dp(s, 23);
+            ly += std::max(dp(s, 23), bodyScale * 12.0f);
         }
         y += panel.h + dp(s, 24);
         finishScrollContent(s, y);
         drawStickyScreenHeader(s, "Campaign", "Campaign", Action::Main, contentTop);
         return;
     }
-    for (int chapter = 1; chapter <= 30; ++chapter) {
-        Rect panel{margin, y, panelW, panelH};
-        bool visible = panel.y < r.height + dp(s, 48) && panel.y + panel.h > -dp(s, 48);
-        if (visible) {
-            r.roundedRect(panel.x, panel.y, panel.w, panel.h, dp(s, 8), LINE);
-            r.roundedRect(panel.x + 1.0f, panel.y + 1.0f, panel.w - 2.0f, panel.h - 2.0f, dp(s, 7), PANEL);
-            r.text(tr(s, "Chapter") + " " + std::to_string(chapter) + ": " + tr(s, chapterTitles[chapter - 1]),
-                   panel.x + panelPad, panel.y + panelPad * 0.85f, dp(s, 2.55f), TEXT);
-            float gridY = panel.y + panelPad + titleH + dp(s, 14);
-            for (int level = 0; level < 10; ++level) {
-                int index = (chapter - 1) * 10 + level;
-                int col = level % 4;
-                int row = level / 4;
-                Rect rect{panel.x + panelPad + col * (cell + gridGap), gridY + row * (cellH + gridGap), cell, cellH};
-                std::string id = "c" + std::to_string(chapter) + "-" + std::to_string(level + 1);
-                int stars = s->progress.stars(id);
-                bool completed = s->progress.completed(id);
-                bool hintUsed = s->progress.hintUsed(id);
-                bool enabled = s->progress.unlocked(index);
-                drawLevelNode(s, rect, index, stars, completed, hintUsed, enabled);
-            }
-        }
-        y += panelH + chapterGap;
+
+    int selectedGroup = normalizeSelectedCampaignGroup(s);
+
+    float mapGap = dp(s, 8);
+    float mapCell = (panelW - mapGap * (CAMPAIGN_MAP_SIZE - 1)) / CAMPAIGN_MAP_SIZE;
+    float mapH = mapCell * CAMPAIGN_MAP_SIZE + mapGap * (CAMPAIGN_MAP_SIZE - 1);
+    for (int group = 0; group < CAMPAIGN_GROUP_COUNT; ++group) {
+        int col = group % CAMPAIGN_MAP_SIZE;
+        int row = group / CAMPAIGN_MAP_SIZE;
+        Rect rect{margin + col * (mapCell + mapGap), y + row * (mapCell + mapGap), mapCell, mapCell};
+        bool visible = rect.y < r.height + dp(s, 48) && rect.y + rect.h > -dp(s, 48);
+        if (visible) drawCampaignGroupTile(s, rect, group, group == selectedGroup);
     }
+    y += mapH + dp(s, 24);
+
+    std::string groupTitle = tr(s, "Group") + " " + std::to_string(selectedGroup + 1) + ": " + tr(s, chapterTitles[static_cast<size_t>(selectedGroup)]);
+    float groupTitleScale = dp(s, 2.45f * textScale);
+    drawFittedText(s, groupTitle, margin, y, panelW, groupTitleScale, TEXT);
+    y += std::max(dp(s, 42), groupTitleScale * 12.0f);
+
+    float gridGap = dp(s, 10);
+    float levelH = dp(s, 74.0f + (textScale - 1.0f) * 16.0f);
+    float levelCell = (panelW - gridGap * 2.0f) / 3.0f;
+    for (int level = 0; level < CAMPAIGN_LEVELS_PER_GROUP; ++level) {
+        int index = selectedGroup * CAMPAIGN_LEVELS_PER_GROUP + level;
+        int col = level % 3;
+        int row = level / 3;
+        Rect rect{margin + col * (levelCell + gridGap), y + row * (levelH + gridGap), levelCell, levelH};
+        std::string id = campaignLevelIdFor(selectedGroup, level);
+        int stars = s->progress.stars(id);
+        bool completed = s->progress.completed(id);
+        bool hintUsed = s->progress.hintUsed(id);
+        bool enabled = s->progress.unlocked(index);
+        drawLevelNode(s, rect, index, level + 1, stars, completed, hintUsed, enabled);
+    }
+    y += levelH * 3.0f + gridGap * 2.0f + dp(s, 18);
     finishScrollContent(s, y);
     drawStickyScreenHeader(s, "Campaign", "Campaign", Action::Main, contentTop);
 }
@@ -4568,18 +5616,16 @@ void drawVectorFittedText(AppState *s, const std::string &text, float x, float c
 
 void drawDaily(AppState *s) {
     Renderer &r = s->renderer;
-    float contentTop = safeTop(s) + dp(s, 90);
+    float textScale = menuTextScale(s);
+    float contentTop = sectionContentTop(s);
     float y = beginScrollContent(s, contentTop);
     float margin = dp(s, 18);
     float gap = dp(s, 12);
     float cardW = r.width - margin * 2.0f;
     std::string date = dailyKey();
 
-    r.text(tr(s, "Today's Puzzles"), margin, y, dp(s, 2.55f), TEXT);
-    y += dp(s, 32);
-
     for (int tier = 0; tier < 3; ++tier) {
-        Rect card{margin, y, cardW, dp(s, 78)};
+        Rect card{margin, y, cardW, dp(s, 78.0f + (textScale - 1.0f) * 16.0f)};
         Color accent = dailyTierAccent(tier);
         drawGlassPanel(s, card, PANEL);
         float radius = std::min(dp(s, 8), card.h * 0.18f);
@@ -4594,24 +5640,26 @@ void drawDaily(AppState *s) {
         float textX = iconX + iconSize + dp(s, 14);
         float textW = std::max(dp(s, 96), recordX - textX - dp(s, 12));
         bool hasPlayedToday = s->progress.getInt("daily_moves_" + dailyChallengeKey(date, tier), -1) >= 0;
+        float tierTextScale = dp(s, 3.18f * textScale);
         drawFittedText(s, localizedDailyTierLabel(s, tier),
-                       textX, card.y + card.h * 0.5f - dp(s, 13),
-                       textW, dp(s, 3.18f), accent, 0, true, 2.05f);
+                       textX, card.y + card.h * 0.5f - tierTextScale * 4.0f,
+                       textW, tierTextScale, accent, 0, true, 2.05f);
+        float recordTextScale = dp(s, (hasPlayedToday ? 1.88f : 1.72f) * textScale);
         drawFittedText(s, dailyChallengeBestText(s, tier, date),
-                       recordX + recordW, card.y + card.h * 0.5f - dp(s, 8),
-                       recordW, hasPlayedToday ? dp(s, 1.88f) : dp(s, 1.72f),
+                       recordX + recordW, card.y + card.h * 0.5f - recordTextScale * 4.0f,
+                       recordW, recordTextScale,
                        hasPlayedToday ? TEXT : MUTED, 2, hasPlayedToday, 1.20f);
         addButton(s, card, Action::DailyChallenge, tier, true);
         y += card.h + gap;
     }
 
     y += dp(s, 14);
-    r.text(tr(s, "Leaderboards"), margin, y, dp(s, 2.55f), TEXT);
-    y += dp(s, 32);
+    r.text(tr(s, "Leaderboards"), margin, y, dp(s, 2.55f * textScale), TEXT);
+    y += dp(s, 32.0f + (textScale - 1.0f) * 12.0f);
 
     float leaderboardGap = dp(s, 8);
     float leaderboardSmallW = (cardW - leaderboardGap * 2.0f) / 3.0f;
-    float leaderboardSmallH = dp(s, 76);
+    float leaderboardSmallH = dp(s, 76.0f + (textScale - 1.0f) * 12.0f);
     for (int i = 0; i < 3; ++i) {
         Rect row{margin + static_cast<float>(i) * (leaderboardSmallW + leaderboardGap), y,
                  leaderboardSmallW, leaderboardSmallH};
@@ -4628,13 +5676,13 @@ void drawDaily(AppState *s) {
         float labelW = std::max(dp(s, 24), row.x + row.w - dp(s, 7) - labelX);
         drawVectorFittedText(s, dailyLeaderboardName(s, i),
                              labelX, row.y + row.h * 0.5f,
-                             labelW, dp(s, 1.94f), TEXT, 0);
+                             labelW, dp(s, 1.94f * textScale), TEXT, 0);
         addButton(s, row, Action::Leaderboard, i, true);
     }
 
     y += leaderboardSmallH + dp(s, 28);
     float globalW = std::min(cardW * 0.72f, dp(s, 300));
-    Rect global{margin + (cardW - globalW) * 0.5f, y, globalW, dp(s, 82)};
+    Rect global{margin + (cardW - globalW) * 0.5f, y, globalW, dp(s, 82.0f + (textScale - 1.0f) * 14.0f)};
     drawGlassPanel(s, global, PANEL_2);
     float globalRadius = std::min(dp(s, 8), global.h * 0.18f);
     if (isPressedButton(s, global, Action::Leaderboard, 3)) drawPressedButtonFeedback(s, global, globalRadius);
@@ -4646,7 +5694,7 @@ void drawDaily(AppState *s) {
     float globalLabelX = globalIcon.x + globalIcon.w + dp(s, 12);
     drawVectorFittedText(s, dailyLeaderboardName(s, 3),
                          globalLabelX, global.y + global.h * 0.5f,
-                         global.x + global.w - dp(s, 16) - globalLabelX, dp(s, 2.60f), TEXT, 0);
+                         global.x + global.w - dp(s, 16) - globalLabelX, dp(s, 2.60f * textScale), TEXT, 0);
     addButton(s, global, Action::Leaderboard, 3, true);
     y += global.h;
 
@@ -4658,15 +5706,17 @@ void drawDaily(AppState *s) {
 void drawChips(AppState *s, float &y, const std::vector<std::string> &labels, const std::string &selected,
                Action action, int columns = 3, int selectedIndex = -1, float textScaleBoost = 1.0f) {
     float margin = dp(s, 18), gap = dp(s, 8);
+    float textScale = menuTextScale(s);
+    float chipH = dp(s, 46.0f + (textScale - 1.0f) * 10.0f);
     float cell = (s->renderer.width - margin * 2 - gap * (columns - 1)) / columns;
     for (int i = 0; i < static_cast<int>(labels.size()); ++i) {
         int col = i % columns;
         int row = i / columns;
-        Rect rect{margin + col * (cell + gap), y + row * (dp(s, 46) + gap), cell, dp(s, 46)};
+        Rect rect{margin + col * (cell + gap), y + row * (chipH + gap), cell, chipH};
         bool isSelected = selectedIndex >= 0 ? i == selectedIndex : labels[i] == selected;
-        drawButton(s, rect, labels[i], action, i, false, isSelected, true, textScaleBoost);
+        drawButton(s, rect, labels[i], action, i, false, isSelected, true, textScaleBoost * textScale);
     }
-    y += (static_cast<int>((labels.size() + columns - 1) / columns)) * (dp(s, 46) + gap) + dp(s, 10);
+    y += (static_cast<int>((labels.size() + columns - 1) / columns)) * (chipH + gap) + dp(s, 10);
 }
 
 std::set<std::pair<int, int>> patternChoiceCells(const std::string &key) {
@@ -4722,13 +5772,14 @@ void drawPatternChoiceIcon(AppState *s, Rect rect, const std::string &key) {
     }
 }
 
-void drawPatternChips(AppState *s, float &y, const std::vector<std::string> &patternKeys, int selectedIndex) {
+void drawPatternChips(AppState *s, float &y, const std::vector<std::string> &patternKeys, int selectedIndex, Action action = Action::Pattern) {
     Renderer &r = s->renderer;
+    float textScale = menuTextScale(s);
     float margin = dp(s, 18);
     float gap = dp(s, 8);
     int columns = 2;
     float cellW = (r.width - margin * 2 - gap * static_cast<float>(columns - 1)) / static_cast<float>(columns);
-    float cellH = dp(s, 62);
+    float cellH = dp(s, 62.0f + (textScale - 1.0f) * 12.0f);
     for (int i = 0; i < static_cast<int>(patternKeys.size()); ++i) {
         int col = i % columns;
         int row = i / columns;
@@ -4740,16 +5791,17 @@ void drawPatternChips(AppState *s, float &y, const std::vector<std::string> &pat
         r.roundedRect(card.x, card.y, card.w, card.h, radius, border);
         r.roundedRect(card.x + 1.5f, card.y + 1.5f, card.w - 3.0f, card.h - 3.0f,
                       std::max(0.0f, radius - 1.5f), fill);
-        if (isPressedButton(s, card, Action::Pattern, i)) drawPressedButtonFeedback(s, card, radius);
+        if (isPressedButton(s, card, action, i)) drawPressedButtonFeedback(s, card, radius);
 
         Rect icon{card.x + dp(s, 8), card.y + (card.h - dp(s, 42)) * 0.5f, dp(s, 42), dp(s, 42)};
         drawPatternChoiceIcon(s, icon, patternKeys[static_cast<size_t>(i)]);
         float textX = icon.x + icon.w + dp(s, 8);
+        float labelScale = dp(s, 2.34f * textScale);
         drawFittedText(s, localizedPatternLabel(s, patternKeys[static_cast<size_t>(i)]),
-                       textX, card.y + card.h * 0.5f - dp(s, 8.5f),
-                       card.x + card.w - textX - dp(s, 8), dp(s, 2.34f),
+                       textX, card.y + card.h * 0.5f - labelScale * 4.0f,
+                       card.x + card.w - textX - dp(s, 8), labelScale,
                        selected ? TEXT : MUTED_STRONG, 0, true, 1.18f);
-        addButton(s, card, Action::Pattern, i, true);
+        addButton(s, card, action, i, true);
     }
     int rows = static_cast<int>((patternKeys.size() + columns - 1) / columns);
     y += rows * (cellH + gap) + dp(s, 10);
@@ -4757,32 +5809,37 @@ void drawPatternChips(AppState *s, float &y, const std::vector<std::string> &pat
 
 void drawFreeplay(AppState *s) {
     Renderer &r = s->renderer;
-    float contentTop = safeTop(s) + dp(s, 90);
+    float textScale = menuTextScale(s);
+    float headingScale = dp(s, 3.28f * textScale);
+    float headingH = dp(s, 31.0f + (textScale - 1.0f) * 13.0f);
+    float contentTop = sectionContentTop(s);
     float y = beginScrollContent(s, contentTop);
     std::vector<std::string> sizes = {"3x3", "4x4", "5x5", "6x6", "7x7", tr(s, "Custom")};
     int sizeIndex = s->freeSize == "Custom" ? 5 : s->freeSize == "7x7" ? 4 : s->freeSize == "6x6" ? 3 : s->freeSize == "5x5" ? 2 : s->freeSize == "4x4" ? 1 : 0;
-    r.text(tr(s, "Grid Size"), dp(s, 18), y, dp(s, 3.28f), TEXT); y += dp(s, 31);
+    r.text(tr(s, "Grid Size"), dp(s, 18), y, headingScale, TEXT); y += headingH;
     drawChips(s, y, sizes, "", Action::Size, 3, sizeIndex, 1.10f);
     if (s->freeSize == "Custom") {
-        drawButton(s, {dp(s, 18), y, dp(s, 70), dp(s, 44)}, "W-", Action::WidthMinus);
-        r.text(tr(s, "Width") + " " + std::to_string(s->customW), r.width * 0.5f, y + dp(s, 11), dp(s, 3.05f), TEXT, 1);
-        drawButton(s, {r.width - dp(s, 88), y, dp(s, 70), dp(s, 44)}, "W+", Action::WidthPlus);
-        y += dp(s, 54);
-        drawButton(s, {dp(s, 18), y, dp(s, 70), dp(s, 44)}, "H-", Action::HeightMinus);
-        r.text(tr(s, "Height") + " " + std::to_string(s->customH), r.width * 0.5f, y + dp(s, 11), dp(s, 3.05f), TEXT, 1);
-        drawButton(s, {r.width - dp(s, 88), y, dp(s, 70), dp(s, 44)}, "H+", Action::HeightPlus);
-        y += dp(s, 62);
+        float controlH = dp(s, 44.0f + (textScale - 1.0f) * 8.0f);
+        float labelScale = dp(s, 3.05f * textScale);
+        drawButton(s, {dp(s, 18), y, dp(s, 70), controlH}, "W-", Action::WidthMinus, 0, false, false, true, textScale);
+        r.text(tr(s, "Width") + " " + std::to_string(s->customW), r.width * 0.5f, y + controlH * 0.5f - labelScale * 4.0f, labelScale, TEXT, 1);
+        drawButton(s, {r.width - dp(s, 88), y, dp(s, 70), controlH}, "W+", Action::WidthPlus, 0, false, false, true, textScale);
+        y += controlH + dp(s, 10);
+        drawButton(s, {dp(s, 18), y, dp(s, 70), controlH}, "H-", Action::HeightMinus, 0, false, false, true, textScale);
+        r.text(tr(s, "Height") + " " + std::to_string(s->customH), r.width * 0.5f, y + controlH * 0.5f - labelScale * 4.0f, labelScale, TEXT, 1);
+        drawButton(s, {r.width - dp(s, 88), y, dp(s, 70), controlH}, "H+", Action::HeightPlus, 0, false, false, true, textScale);
+        y += controlH + dp(s, 18);
     }
-    r.text(tr(s, "States"), dp(s, 18), y, dp(s, 3.28f), TEXT); y += dp(s, 31);
+    r.text(tr(s, "States"), dp(s, 18), y, headingScale, TEXT); y += headingH;
     drawChips(s, y, {"2", "3", "4", "5"}, std::to_string(s->freeStates), Action::States, 4, -1, 1.10f);
-    r.text(tr(s, "Tap Pattern"), dp(s, 18), y, dp(s, 3.28f), TEXT); y += dp(s, 31);
+    r.text(tr(s, "Tap Pattern"), dp(s, 18), y, headingScale, TEXT); y += headingH;
     std::vector<std::string> patternKeys = {"cross", "diagonal", "square", "horizontal", "vertical", "knight", "randomMixed"};
     int patternIndex = 0;
     for (int i = 0; i < static_cast<int>(patternKeys.size()); ++i) {
         if (patternKeys[static_cast<size_t>(i)] == s->freePattern) patternIndex = i;
     }
     drawPatternChips(s, y, patternKeys, patternIndex);
-    r.text(tr(s, "Difficulty"), dp(s, 18), y, dp(s, 3.28f), TEXT); y += dp(s, 31);
+    r.text(tr(s, "Difficulty"), dp(s, 18), y, headingScale, TEXT); y += headingH;
     std::vector<std::string> difficulties = {"Easy", "Medium", "Hard", "Expert"};
     std::vector<std::string> difficultyLabels;
     int difficultyIndex = 1;
@@ -4791,14 +5848,301 @@ void drawFreeplay(AppState *s) {
         difficultyLabels.push_back(localizedDifficulty(s, difficulties[static_cast<size_t>(i)]));
     }
     drawChips(s, y, difficultyLabels, "", Action::Difficulty, 2, difficultyIndex, 1.10f);
-    r.text(tr(s, "Extras"), dp(s, 18), y, dp(s, 3.28f), TEXT); y += dp(s, 31);
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 46)}, tr(s, "Tiles with lock icons") + " " + onOff(s, s->freeLocked), Action::ToggleLocked, 0, false, s->freeLocked, true, 1.10f); y += dp(s, 56);
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 46)}, tr(s, "Irregular board") + " " + onOff(s, s->freeIrregular), Action::ToggleIrregular, 0, false, s->freeIrregular, true, 1.10f); y += dp(s, 56);
+    r.text(tr(s, "Extras"), dp(s, 18), y, headingScale, TEXT); y += headingH;
+    float toggleH = dp(s, 46.0f + (textScale - 1.0f) * 10.0f);
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), toggleH}, tr(s, "Tiles with lock icons") + " " + onOff(s, s->freeLocked), Action::ToggleLocked, 0, false, s->freeLocked, true, 1.10f * textScale); y += toggleH + dp(s, 10);
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), toggleH}, tr(s, "Irregular board") + " " + onOff(s, s->freeIrregular), Action::ToggleIrregular, 0, false, s->freeIrregular, true, 1.10f * textScale); y += toggleH + dp(s, 10);
     s->freeUnique = true;
     y += dp(s, 10);
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), dp(s, 56)}, tr(s, "Create Puzzle"), Action::Generate, 0, true); y += dp(s, 80);
+    float createH = dp(s, 56.0f + (textScale - 1.0f) * 10.0f);
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), createH}, tr(s, "Create Puzzle"), Action::Generate, 0, true, false, true, textScale); y += createH + dp(s, 24);
     finishScrollContent(s, y);
     drawStickyScreenHeader(s, "Custom Level", "Custom Level", Action::Main, contentTop);
+}
+
+void drawPadlockBadge(AppState *s, Rect badge);
+
+Rect drawPlaygroundEditorBoard(AppState *s, float &y) {
+    Renderer &r = s->renderer;
+    PlaygroundConfig config = playgroundConfigFromState(s);
+    float margin = dp(s, 18);
+    float maxW = r.width - margin * 2.0f;
+    float maxH = dp(s, 330);
+    float cell = std::min(maxW / static_cast<float>(config.width), maxH / static_cast<float>(config.height));
+    float boardW = cell * static_cast<float>(config.width);
+    float boardH = cell * static_cast<float>(config.height);
+    Rect board{(r.width - boardW) * 0.5f, y, boardW, boardH};
+    float framePad = std::max(dp(s, 7), std::min(dp(s, 10), cell * 0.12f));
+    Rect frame{board.x - framePad, board.y - framePad, board.w + framePad * 2.0f, board.h + framePad * 2.0f};
+    r.roundedRect(frame.x, frame.y, frame.w, frame.h, dp(s, 8), LINE_STRONG);
+    r.roundedRect(frame.x + 1.0f, frame.y + 1.0f, frame.w - 2.0f, frame.h - 2.0f, dp(s, 7), rgba(10, 13, 19, 0.84f));
+    float gap = std::max(dp(s, 4), std::min(dp(s, 7), cell * 0.075f));
+    for (int row = 0; row < config.height; ++row) {
+        for (int col = 0; col < config.width; ++col) {
+            int idx = indexFor(col, row, config.width);
+            Rect tile{board.x + col * cell + gap * 0.5f, board.y + row * cell + gap * 0.5f, cell - gap, cell - gap};
+            if (config.disabled.count(idx)) {
+                float radius = std::min(dp(s, 9), tile.w * 0.10f);
+                r.roundedRect(tile.x, tile.y, tile.w, tile.h, radius, rgba(190, 203, 220, 0.12f));
+                r.roundedRect(tile.x + 1, tile.y + 1, tile.w - 2, tile.h - 2, std::max(1.0f, radius - 1.0f), rgba(0, 0, 0, 0.62f));
+                r.roundedStroke(tile, radius, 1.0f, rgba(229, 236, 245, 0.16f));
+                addButton(s, tile, Action::PlaygroundTile, idx, true);
+                continue;
+            }
+            int state = config.board[static_cast<size_t>(idx)];
+            float radius = std::min(dp(s, 10), std::max(dp(s, 6), tile.w * 0.055f));
+            drawMatrixTileSurface(s, tile, state, radius, true);
+            if (config.locked.count(idx)) {
+                float badgeSize = std::max(dp(s, 16), std::min(dp(s, 25), tile.w * 0.30f));
+                drawPadlockBadge(s, {tile.x + tile.w - badgeSize - dp(s, 4), tile.y + dp(s, 4), badgeSize, badgeSize});
+            }
+            if (!s->hideNumbers || s->screen == Screen::Playground) {
+                std::string label = std::to_string(state);
+                r.text(label, tile.x + tile.w * 0.5f, tile.y + tile.h * 0.5f - tile.w * 0.13f,
+                       std::max(2.0f, tile.w / 24.0f), state ? TEXT : rgba(24, 32, 43), 1);
+            }
+            addButton(s, tile, Action::PlaygroundTile, idx, true);
+        }
+    }
+    y += boardH + framePad + dp(s, 22);
+    return board;
+}
+
+void drawPlaygroundCursorIcon(AppState *s, Rect rect, Color color, bool selected) {
+    Renderer &r = s->renderer;
+    float side = std::min(rect.w, rect.h) * 0.66f;
+    float scale = side / 24.0f;
+    float ox = rect.x + rect.w * 0.5f - 12.0f * scale;
+    float oy = rect.y + rect.h * 0.5f - 12.0f * scale;
+    auto sx = [&](float v) { return ox + v * scale; };
+    auto sy = [&](float v) { return oy + v * scale; };
+
+    if (r.skiaReady()) {
+        auto buildPath = [&](float dx, float dy) {
+            SkPathBuilder builder;
+            builder.moveTo(sx(8.0f) + dx, sy(3.0f) + dy);
+            builder.lineTo(sx(8.0f) + dx, sy(14.0f) + dy);
+            builder.lineTo(sx(11.0f) + dx, sy(12.0f) + dy);
+            builder.lineTo(sx(13.4f) + dx, sy(17.3f) + dy);
+            builder.lineTo(sx(16.1f) + dx, sy(16.1f) + dy);
+            builder.lineTo(sx(13.7f) + dx, sy(10.8f) + dy);
+            builder.lineTo(sx(17.0f) + dx, sy(10.3f) + dy);
+            return builder.close().detach();
+        };
+
+        SkPaint paint;
+        paint.setAntiAlias(true);
+        paint.setStyle(SkPaint::kFill_Style);
+        paint.setColor(Renderer::skColor(rgba(0, 0, 0, selected ? 0.24f : 0.18f)));
+        r.skCanvas->drawPath(buildPath(scale * 0.70f, scale * 0.80f), paint);
+
+        SkPath path = buildPath(0.0f, 0.0f);
+        paint.setStyle(SkPaint::kStroke_Style);
+        paint.setStrokeWidth(std::max(1.0f, scale * 1.28f));
+        paint.setStrokeJoin(SkPaint::kRound_Join);
+        paint.setStrokeCap(SkPaint::kRound_Cap);
+        paint.setColor(Renderer::skColor(rgba(7, 10, 14, selected ? 0.42f : 0.48f)));
+        r.skCanvas->drawPath(path, paint);
+
+        paint.setStyle(SkPaint::kFill_Style);
+        paint.setColor(Renderer::skColor(color));
+        r.skCanvas->drawPath(path, paint);
+        if (r.skContext) r.skContext->resetContext();
+        return;
+    }
+
+    auto px = [&](float v) { return sx(v); };
+    auto py = [&](float v) { return sy(v); };
+    auto drawCursor = [&](float dx, float dy, Color c) {
+        float x0 = px(8.0f) + dx, y0 = py(3.0f) + dy;
+        float x1 = px(8.0f) + dx, y1 = py(14.0f) + dy;
+        float x2 = px(11.0f) + dx, y2 = py(12.0f) + dy;
+        float x3 = px(13.4f) + dx, y3 = py(17.3f) + dy;
+        float x4 = px(16.1f) + dx, y4 = py(16.1f) + dy;
+        float x5 = px(13.7f) + dx, y5 = py(10.8f) + dy;
+        float x6 = px(17.0f) + dx, y6 = py(10.3f) + dy;
+        r.tri(x0, y0, x1, y1, x2, y2, c);
+        r.tri(x0, y0, x2, y2, x5, y5, c);
+        r.tri(x0, y0, x5, y5, x6, y6, c);
+        r.tri(x2, y2, x3, y3, x4, y4, c);
+        r.tri(x2, y2, x4, y4, x5, y5, c);
+    };
+    drawCursor(scale * 0.70f, scale * 0.80f, rgba(0, 0, 0, selected ? 0.24f : 0.18f));
+    drawCursor(0.0f, 0.0f, color);
+}
+
+void drawPlaygroundHoleIcon(AppState *s, Rect rect, Color color, bool selected) {
+    Renderer &r = s->renderer;
+    float cx = rect.x + rect.w * 0.5f;
+    float cy = rect.y + rect.h * 0.5f;
+    float arm = std::min(rect.w, rect.h) * 0.23f;
+    float stroke = std::max(dp(s, 3.0f), std::min(rect.w, rect.h) * 0.085f);
+    Color shadow = rgba(7, 10, 14, selected ? 0.48f : 0.34f);
+    r.line(cx - arm, cy - arm, cx + arm, cy + arm, stroke * 1.86f, shadow);
+    r.line(cx + arm, cy - arm, cx - arm, cy + arm, stroke * 1.86f, shadow);
+    r.line(cx - arm, cy - arm, cx + arm, cy + arm, stroke, color);
+    r.line(cx + arm, cy - arm, cx - arm, cy + arm, stroke, color);
+}
+
+void drawPlaygroundToolButton(AppState *s, Rect rect, int tool) {
+    Renderer &r = s->renderer;
+    bool selected = s->playgroundTool == tool;
+    float radius = std::min(dp(s, 8), rect.h * 0.22f);
+    Color border = selected ? withAlpha(BLUE, 0.72f) : LINE;
+    Color fill = selected ? rgba(42, 91, 115, 0.82f) : PANEL_2;
+    r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, border);
+    r.roundedRect(rect.x + 1.2f, rect.y + 1.2f, rect.w - 2.4f, rect.h - 2.4f,
+                  std::max(0.0f, radius - 1.2f), fill);
+    if (isPressedButton(s, rect, Action::PlaygroundTool, tool)) drawPressedButtonFeedback(s, rect, radius);
+
+    int paintState = playgroundPaintStateForTool(tool);
+    if (paintState >= 0) {
+        float swatch = std::min(rect.w, rect.h) * 0.54f;
+        Rect tile{rect.x + (rect.w - swatch) * 0.5f, rect.y + (rect.h - swatch) * 0.5f, swatch, swatch};
+        drawMatrixTileSurface(s, tile, paintState, std::min(dp(s, 7), swatch * 0.20f), true);
+        if (paintState == 0) r.roundedStroke(tile, std::min(dp(s, 7), swatch * 0.20f), dp(s, 1.2f), rgba(7, 10, 14, 0.30f));
+    } else if (tool == PLAYGROUND_TOOL_LOCK) {
+        float size = std::min(rect.w, rect.h) * 0.52f;
+        drawPadlockBadge(s, {rect.x + (rect.w - size) * 0.5f, rect.y + (rect.h - size) * 0.5f, size, size});
+    } else if (tool == PLAYGROUND_TOOL_HOLE) {
+        drawPlaygroundHoleIcon(s, rect, selected ? TEXT : MUTED_STRONG, selected);
+    } else {
+        drawPlaygroundCursorIcon(s, rect, selected ? TEXT : MUTED_STRONG, selected);
+    }
+    addButton(s, rect, Action::PlaygroundTool, tool, true);
+}
+
+void drawPlaygroundToolbelt(AppState *s, float &y) {
+    float margin = dp(s, 18);
+    float gap = dp(s, 8);
+    int columns = 4;
+    float cell = (s->renderer.width - margin * 2.0f - gap * static_cast<float>(columns - 1)) / static_cast<float>(columns);
+    std::vector<int> tools = {PLAYGROUND_TOOL_TAP};
+    for (int state = 0; state < s->playgroundStates; ++state) tools.push_back(playgroundPaintTool(state));
+    tools.push_back(PLAYGROUND_TOOL_LOCK);
+    tools.push_back(PLAYGROUND_TOOL_HOLE);
+    float h = dp(s, 46);
+    for (int i = 0; i < static_cast<int>(tools.size()); ++i) {
+        int col = i % columns;
+        int row = i / columns;
+        drawPlaygroundToolButton(s, {margin + col * (cell + gap), y + row * (h + gap), cell, h}, tools[static_cast<size_t>(i)]);
+    }
+    int rows = static_cast<int>((tools.size() + columns - 1) / columns);
+    y += rows * (h + gap) + dp(s, 10);
+}
+
+void drawPlaygroundSectionHeaderText(AppState *s, Rect rect, const std::string &label, const std::string &value) {
+    float textScale = menuTextScale(s);
+    std::string left = tr(s, label);
+    if (left.empty()) left = label;
+    std::string right = value.empty() ? "-" : value;
+    float leftScale = dp(s, 2.22f * textScale);
+    float rightScale = dp(s, 2.12f * textScale);
+    float centerY = rect.y + rect.h * 0.5f;
+    drawFittedText(s, left, rect.x + dp(s, 12), centerY - leftScale * 4.0f, rect.w * 0.48f, leftScale, MUTED_STRONG, 0, true, 1.0f);
+    drawFittedText(s, right, rect.x + rect.w * 0.52f, centerY - rightScale * 4.0f, rect.w * 0.36f, rightScale, TEXT, 0, true, 1.0f);
+}
+
+Rect drawPlaygroundSectionHeader(AppState *s, float &y, const std::string &label, const std::string &value, int section, bool open, bool drawText = true) {
+    Renderer &r = s->renderer;
+    float textScale = menuTextScale(s);
+    Rect rect{dp(s, 18), y, r.width - dp(s, 36), dp(s, 44.0f + (textScale - 1.0f) * 10.0f)};
+    float radius = std::min(dp(s, 8), rect.h * 0.22f);
+    r.roundedRect(rect.x, rect.y, rect.w, rect.h, radius, open ? withAlpha(BLUE, 0.42f) : LINE);
+    r.roundedRect(rect.x + 1.2f, rect.y + 1.2f, rect.w - 2.4f, rect.h - 2.4f,
+                  std::max(0.0f, radius - 1.2f), open ? rgba(34, 66, 86, 0.72f) : PANEL_2);
+    if (isPressedButton(s, rect, Action::PlaygroundSection, section)) drawPressedButtonFeedback(s, rect, radius);
+    if (drawText) drawPlaygroundSectionHeaderText(s, rect, label, value);
+    float cx = rect.x + rect.w - dp(s, 22);
+    float cy = rect.y + rect.h * 0.5f;
+    if (open) {
+        r.line(cx - dp(s, 6), cy + dp(s, 3), cx, cy - dp(s, 3), dp(s, 2.2f), MUTED_STRONG);
+        r.line(cx, cy - dp(s, 3), cx + dp(s, 6), cy + dp(s, 3), dp(s, 2.2f), MUTED_STRONG);
+    } else {
+        r.line(cx - dp(s, 6), cy - dp(s, 3), cx, cy + dp(s, 3), dp(s, 2.2f), MUTED_STRONG);
+        r.line(cx, cy + dp(s, 3), cx + dp(s, 6), cy - dp(s, 3), dp(s, 2.2f), MUTED_STRONG);
+    }
+    addButton(s, rect, Action::PlaygroundSection, section, true);
+    y += rect.h + dp(s, 8);
+    return rect;
+}
+
+void drawPlayground(AppState *s) {
+    Renderer &r = s->renderer;
+    float textScale = menuTextScale(s);
+    PlaygroundConfig config = playgroundConfigFromState(s);
+    float contentTop = sectionContentTop(s);
+    float y = beginScrollContent(s, contentTop);
+    drawPlaygroundToolbelt(s, y);
+    std::vector<std::tuple<Rect, std::string, std::string>> sectionLabels;
+
+    std::string statesValue = std::to_string(config.states) + " " + tr(s, "states");
+    sectionLabels.push_back({drawPlaygroundSectionHeader(s, y, "States", statesValue, 0, s->playgroundStatesOpen, false),
+                             "States", statesValue});
+    if (s->playgroundStatesOpen) {
+        drawChips(s, y, {"2", "3", "4", "5"}, std::to_string(config.states), Action::PlaygroundStates, 4, -1, 1.10f);
+    }
+
+    int patternIndex = 0;
+    for (int i = 0; i < static_cast<int>(PLAYGROUND_PATTERNS.size()); ++i) {
+        if (PLAYGROUND_PATTERNS[static_cast<size_t>(i)] == config.pattern) patternIndex = i;
+    }
+    std::string patternValue = localizedPatternLabel(s, config.pattern);
+    sectionLabels.push_back({drawPlaygroundSectionHeader(s, y, "Tap Pattern", patternValue, 1, s->playgroundPatternOpen, false),
+                             "Tap Pattern", patternValue});
+    if (s->playgroundPatternOpen) {
+        drawPatternChips(s, y, PLAYGROUND_PATTERNS, patternIndex, Action::PlaygroundPattern);
+    }
+
+    std::string sizeValue = std::to_string(config.width) + "x" + std::to_string(config.height);
+    sectionLabels.push_back({drawPlaygroundSectionHeader(s, y, "Grid Size", sizeValue, 2, s->playgroundSizeOpen, false),
+                             "Grid Size", sizeValue});
+    if (s->playgroundSizeOpen) {
+        float controlH = dp(s, 44.0f + (textScale - 1.0f) * 8.0f);
+        float labelScale = dp(s, 3.05f * textScale);
+        drawButton(s, {dp(s, 18), y, dp(s, 70), controlH}, "-", Action::PlaygroundWidthMinus, 0, false, false, true, textScale);
+        r.text(tr(s, "Width") + " " + std::to_string(config.width), r.width * 0.5f, y + controlH * 0.5f - labelScale * 4.0f, labelScale, TEXT, 1);
+        drawButton(s, {r.width - dp(s, 88), y, dp(s, 70), controlH}, "+", Action::PlaygroundWidthPlus, 0, false, false, true, textScale);
+        y += controlH + dp(s, 10);
+        drawButton(s, {dp(s, 18), y, dp(s, 70), controlH}, "-", Action::PlaygroundHeightMinus, 0, false, false, true, textScale);
+        r.text(tr(s, "Height") + " " + std::to_string(config.height), r.width * 0.5f, y + controlH * 0.5f - labelScale * 4.0f, labelScale, TEXT, 1);
+        drawButton(s, {r.width - dp(s, 88), y, dp(s, 70), controlH}, "+", Action::PlaygroundHeightPlus, 0, false, false, true, textScale);
+        y += controlH + dp(s, 18);
+    }
+
+    std::string code = encodePlaygroundSeed(config);
+    std::string codeValue = tr(s, "Share");
+    sectionLabels.push_back({drawPlaygroundSectionHeader(s, y, "Puzzle Code", codeValue, 3, s->playgroundCodeOpen, false),
+                             "Puzzle Code", codeValue});
+    if (s->playgroundCodeOpen) {
+        Rect codeCard{dp(s, 18), y, r.width - dp(s, 36), dp(s, 52.0f + (textScale - 1.0f) * 8.0f)};
+        drawGlassPanel(s, codeCard, PANEL);
+        float codeScale = dp(s, 1.80f * textScale);
+        drawFittedText(s, code, codeCard.x + dp(s, 10), codeCard.y + codeCard.h * 0.5f - codeScale * 4.0f, codeCard.w - dp(s, 20), codeScale, MUTED_STRONG, 0, false, 0.74f);
+        y += codeCard.h + dp(s, 12);
+        float gap = dp(s, 10);
+        float half = (r.width - dp(s, 36) - gap) * 0.5f;
+        float codeButtonH = dp(s, 46.0f + (textScale - 1.0f) * 8.0f);
+        drawButton(s, {dp(s, 18), y, half, codeButtonH}, tr(s, "Copy Code"), Action::PlaygroundCopy, 0, true, false, true, 0.96f * textScale);
+        drawButton(s, {dp(s, 18) + half + gap, y, half, codeButtonH}, tr(s, "Paste Code"), Action::PlaygroundPaste, 0, true, false, true, 0.96f * textScale);
+        y += codeButtonH + dp(s, 12);
+    }
+    for (const auto &label : sectionLabels) {
+        drawPlaygroundSectionHeaderText(s, std::get<0>(label), std::get<1>(label), std::get<2>(label));
+    }
+
+    drawPlaygroundEditorBoard(s, y);
+
+    float clearH = dp(s, 50.0f + (textScale - 1.0f) * 8.0f);
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), clearH}, tr(s, "Clear Board"), Action::PlaygroundClear, 0, false, false, true, 0.98f * textScale);
+    y += clearH + dp(s, 12);
+    if (!s->playgroundStatus.empty()) {
+        float statusScale = dp(s, 2.10f * textScale);
+        drawFittedText(s, tr(s, s->playgroundStatus), dp(s, 18), y, r.width - dp(s, 36), statusScale, MUTED_STRONG);
+        y += statusScale * 12.0f;
+    }
+    finishScrollContent(s, y + dp(s, 16));
+    drawStickyScreenHeader(s, "Playground", "Playground", Action::Main, contentTop);
 }
 
 enum class FormulaKind {
@@ -5278,8 +6622,8 @@ void drawGuideDiagram(AppState *s, Rect area, GuideDiagramKind kind, Color accen
                 r.roundedRect(cell.x, cell.y, cell.w, cell.h, radius, LINE_STRONG);
                 r.roundedRectGradient(cell.x + 1.0f, cell.y + 1.0f, cell.w - 2.0f, cell.h - 2.0f,
                                       std::max(1.0f, radius - 1.0f), rgba(79, 87, 99, 0.80f), rgba(35, 42, 53, 0.88f));
-                r.line(cell.x + cell.w * 0.26f, cell.y + cell.h * 0.50f,
-                       cell.x + cell.w * 0.74f, cell.y + cell.h * 0.50f, std::max(1.2f, tile * 0.08f), withAlpha(TEXT, 0.58f));
+                float badgeSize = std::max(dp(s, 12), std::min(dp(s, 19), tile * 0.42f));
+                drawPadlockBadge(s, {cell.x + cell.w - badgeSize - dp(s, 3), cell.y + dp(s, 3), badgeSize, badgeSize});
             } else {
                 drawMatrixTileSurface(s, cell, spec.state, radius, true);
             }
@@ -5434,9 +6778,10 @@ void drawHowTo(AppState *s) {
                     "- An empty hole is outside the board. Tap patterns skip empty holes."},
                    PURPLE, GuideDiagramKind::Special, &highlights);
     drawGuideBlock(s, y, "Modes: Choose your puzzle",
-                   {"- Campaign: Solve fixed levels in order. Each solve opens the next level.",
-                    "- Custom Level: Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.",
-                    "- Daily Challenge: Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score."},
+	                   {"- Campaign: Pick groups on a 5x5 map. Earn 15 stars in a group to open adjacent groups.",
+	                    "- Custom Level: Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.",
+	                    "- Playground: Build a board by hand, share its puzzle code, and play without a completion modal.",
+	                    "- Daily Challenge: Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score."},
                    GREEN, GuideDiagramKind::Modes, &highlights);
     drawGuideBlock(s, y, "Taps, stars, and hints",
                    {"- The tap counter counts every tap you commit.",
@@ -5719,26 +7064,27 @@ void drawMath(AppState *s) {
 
 void drawSettings(AppState *s) {
     Renderer &r = s->renderer;
-    float buttonH = dp(s, 52);
+    float textScale = menuTextScale(s);
+    float headerContentTop = sectionContentTop(s);
+    float buttonH = dp(s, 52.0f + (textScale - 1.0f) * 10.0f);
     float gap = dp(s, 12);
-    float labelH = dp(s, 28);
-    float languageChipsH = dp(s, 64);
+    float labelH = dp(s, 28.0f + (textScale - 1.0f) * 12.0f);
+    float languageChipsH = dp(s, 64.0f + (textScale - 1.0f) * 10.0f);
     float stackH = labelH + languageChipsH + gap + buttonH * 4.0f + gap * 4.0f;
-    float minTop = safeTop(s) + dp(s, 118);
+    float minTop = headerContentTop + dp(s, 20);
     float maxTop = std::max(minTop, static_cast<float>(r.height) - safeBottom(s) - stackH - dp(s, 18));
     // Changelog note: Android settings controls are vertically centered instead of hugging the header.
     float contentTop = std::min(std::max((static_cast<float>(r.height) - stackH) * 0.5f, minTop), maxTop);
     float y = beginScrollContent(s, contentTop);
-    r.text(tr(s, "Language"), dp(s, 18), y, dp(s, 3.0f), TEXT); y += labelH;
+    r.text(tr(s, "Language"), dp(s, 18), y, dp(s, 3.0f * textScale), TEXT); y += labelH;
     drawChips(s, y, {languageName(0), languageName(1), languageName(2)}, "", Action::Language, 3, languageIndex(s));
     y += gap;
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "Sound") + " " + onOff(s, s->sound), Action::ToggleSetting, 0, false, s->sound); y += buttonH + gap;
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "Vibration") + " " + onOff(s, s->vibration), Action::ToggleSetting, 1, false, s->vibration); y += buttonH + gap;
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "Show numbers on tiles") + " " + onOff(s, !s->hideNumbers), Action::ToggleSetting, 2, false, !s->hideNumbers); y += buttonH + gap;
-    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "About"), Action::About); y += buttonH;
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "Sound") + " " + onOff(s, s->sound), Action::ToggleSetting, 0, false, s->sound, true, textScale); y += buttonH + gap;
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "Vibration") + " " + onOff(s, s->vibration), Action::ToggleSetting, 1, false, s->vibration, true, textScale); y += buttonH + gap;
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "Show numbers on tiles") + " " + onOff(s, !s->hideNumbers), Action::ToggleSetting, 2, false, !s->hideNumbers, true, textScale); y += buttonH + gap;
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "About"), Action::About, 0, false, false, true, textScale); y += buttonH;
     finishScrollContent(s, y);
-    drawScreenHeaderChrome(s, safeTop(s) + dp(s, 64), 12.0f);
-    drawHeader(s, "Options", "Settings", Action::BackReturn);
+    drawStickyScreenHeader(s, "Options", "Settings", Action::BackReturn, headerContentTop);
 }
 
 void drawGithubLogo(AppState *s, float cx, float cy, float size, bool finishSkiaLayer = false) {
@@ -5894,15 +7240,16 @@ void drawGithubLabelSkia(AppState *s, const std::string &text, float x, float ce
 
 void drawAbout(AppState *s) {
     Renderer &r = s->renderer;
-    float contentTop = safeTop(s) + dp(s, 96);
+    float textScale = menuTextScale(s);
+    float contentTop = sectionContentTop(s);
     float y = beginScrollContent(s, contentTop);
     float x = dp(s, 18);
     float w = r.width - dp(s, 36);
     float gap = dp(s, 14);
 
-    Rect version{x, y, w, dp(s, 76)};
+    Rect version{x, y, w, dp(s, 76.0f + (textScale - 1.0f) * 14.0f)};
     drawGlassPanel(s, version, PANEL);
-    float versionScale = dp(s, 3.15f);
+    float versionScale = dp(s, 3.15f * textScale);
     drawFittedText(s, tr(s, "Version") + " " + APP_VERSION_NAME,
                    version.x + version.w * 0.5f,
                    version.y + version.h * 0.5f - versionScale * 4.0f,
@@ -5910,17 +7257,17 @@ void drawAbout(AppState *s) {
     y += version.h + gap;
 
     drawGuideBlock(s, y, "Changelog",
-                   {"- 1.0.8 - 2026-05-16: " + tr(s, "Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer."),
+                   {"- 1.0.9 - 2026-05-21: " + tr(s, "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and menu headers, locks, logos, and text-size controls were polished across web and Android."),
+                    "- 1.0.8 - 2026-05-16: " + tr(s, "Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer."),
                     "- 1.0.7 - 2026-05-14: " + tr(s, "Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link."),
                     "- 1.0.6 - 2026-05-13: " + tr(s, "Release builds keep native debug symbols for Play Console crash reports."),
                     "- 1.0.5 - 2026-05-13: " + tr(s, "The Math guide explains solution uniqueness and matrix invertibility.")},
                    BLUE);
     y += dp(s, 84);
     finishScrollContent(s, y);
-    drawScreenHeaderChrome(s, contentTop, 12.0f);
-    drawHeader(s, "About", "About", Action::CloseAbout);
+    drawStickyScreenHeader(s, "About", "About", Action::CloseAbout, contentTop);
 
-    float barH = dp(s, 54);
+    float barH = dp(s, 54.0f + (textScale - 1.0f) * 8.0f);
     float barW = std::min(r.width - dp(s, 36), dp(s, 420));
     Rect credit{(r.width - barW) * 0.5f, r.height - safeBottom(s) - dp(s, 16) - barH, barW, barH};
     drawGlassPanel(s, credit, PANEL_2);
@@ -5928,24 +7275,24 @@ void drawAbout(AppState *s) {
     const std::string githubLabel = "pportilla";
     float logo = dp(s, 24);
     float labelGap = dp(s, 10);
-    float textScale = dp(s, 2.55f);
+    float creditTextScale = dp(s, 2.55f * textScale);
     float maxGroupW = credit.w - dp(s, 36);
     auto labelWidth = [&]() {
-        return r.skiaReady() ? githubSkiaLabelWidth(r, githubLabel, textScale) : r.textWidth(githubLabel, textScale);
+        return r.skiaReady() ? githubSkiaLabelWidth(r, githubLabel, creditTextScale) : r.textWidth(githubLabel, creditTextScale);
     };
-    while (logo + labelGap + labelWidth() > maxGroupW && textScale > dp(s, 1.85f)) {
-        textScale *= 0.94f;
+    while (logo + labelGap + labelWidth() > maxGroupW && creditTextScale > dp(s, 1.85f)) {
+        creditTextScale *= 0.94f;
     }
     float textW = labelWidth();
     float groupW = logo + labelGap + textW;
     float startX = credit.x + (credit.w - groupW) * 0.5f;
     if (r.skiaReady()) {
         drawGithubLogo(s, startX + logo * 0.5f, credit.y + credit.h * 0.5f, logo);
-        drawGithubLabelSkia(s, githubLabel, startX + logo + labelGap, credit.y + credit.h * 0.5f, textScale);
+        drawGithubLabelSkia(s, githubLabel, startX + logo + labelGap, credit.y + credit.h * 0.5f, creditTextScale);
     } else {
         drawGithubLogo(s, startX + logo * 0.5f, credit.y + credit.h * 0.5f, logo);
-        r.textHeavy(githubLabel, startX + logo + labelGap, credit.y + credit.h * 0.5f - textScale * 4.0f,
-                    textScale, TEXT, 0, 0.9f);
+        r.textHeavy(githubLabel, startX + logo + labelGap, credit.y + credit.h * 0.5f - creditTextScale * 4.0f,
+                    creditTextScale, TEXT, 0, 0.9f);
     }
     addButton(s, credit, Action::OpenGithub, 0, true);
 }
@@ -6117,14 +7464,15 @@ std::string bestMovesText(AppState *s) {
         if (best < 0) return "-";
         return std::to_string(best);
     }
+    if (s->session.mode == "playground") return tr(s, "No goal");
     int best = s->progress.getInt("best_" + s->session.puzzle.levelId, -1);
     return best < 0 ? "-" : std::to_string(best);
 }
 
 std::string puzzleDisplayName(AppState *s, const Session &g) {
     if (g.mode == "campaign" && g.puzzle.campaignIndex >= 0) {
-        int chapter = g.puzzle.campaignIndex / 10 + 1;
-        int level = g.puzzle.campaignIndex % 10 + 1;
+        int chapter = campaignGroupForLevel(g.puzzle.campaignIndex) + 1;
+        int level = campaignLevelNumberInGroup(g.puzzle.campaignIndex);
         if (chapter >= 1 && chapter <= static_cast<int>(chapterTitles.size())) {
             return tr(s, chapterTitles[static_cast<size_t>(chapter - 1)]) + " " + std::to_string(level);
         }
@@ -6138,18 +7486,25 @@ std::string puzzleDisplayName(AppState *s, const Session &g) {
                                       g.puzzle.name.rfind("Expert", 0) == 0 ? "Expert" : "Medium") +
                " " + tr(s, "Custom Level");
     }
+    if (g.mode == "playground") return tr(s, "Playground");
     return tr(s, g.puzzle.name);
 }
 
 std::string sessionModeLabel(AppState *s, const Session &g) {
     if (g.mode == "campaign") return tr(s, "Campaign");
     if (g.mode == "daily") return tr(s, "Daily");
+    if (g.mode == "playground") return tr(s, "Playground");
     return tr(s, "Custom Level");
 }
 
 std::string completionPrimaryActionLabel(AppState *s, const Session &g) {
     if (g.mode == "daily") return tr(s, "Leaderboard");
     if (g.mode == "freeplay") return tr(s, "New Puzzle");
+    if (g.mode == "playground") return tr(s, "Playground");
+    if (g.mode == "campaign") {
+        int next = g.puzzle.campaignIndex + 1;
+        return next < CAMPAIGN_LEVEL_COUNT && s->progress.unlocked(next) ? tr(s, "Next Level") : tr(s, "Campaign");
+    }
     return tr(s, "Next Level");
 }
 
@@ -6159,6 +7514,7 @@ int oneStarMax(const Puzzle &p) {
 
 int storedStarsForSession(AppState *s) {
     if (!s || !s->hasSession) return -1;
+    if (s->session.mode == "playground") return -1;
     if (s->session.mode == "campaign" && s->progress.completed(s->session.puzzle.levelId)) {
         return clampInt(s->progress.stars(s->session.puzzle.levelId), 0, 3);
     }
@@ -6252,36 +7608,14 @@ void drawStarRankingCardMoveLabels(AppState *s, Rect card, const Puzzle &p, int 
 
 void drawPadlockBadge(AppState *s, Rect badge) {
     Renderer &r = s->renderer;
-    float radius = std::max(3.0f, badge.h * 0.28f);
-    r.roundedRect(badge.x, badge.y, badge.w, badge.h, radius, rgba(238, 242, 246, 0.24f));
-    r.roundedRect(badge.x + 1.0f, badge.y + 1.0f, badge.w - 2.0f, badge.h - 2.0f, std::max(1.0f, radius - 1.0f), rgba(7, 10, 14, 0.70f));
+    float radius = std::max(3.0f, badge.h / 3.0f);
+    r.roundedRect(badge.x, badge.y, badge.w, badge.h, radius, rgba(238, 240, 235, 0.22f));
+    r.roundedRect(badge.x + 1.0f, badge.y + 1.0f, badge.w - 2.0f, badge.h - 2.0f,
+                  std::max(1.0f, radius - 1.0f), rgba(7, 10, 14, 0.58f));
 
-    float cx = badge.x + badge.w * 0.5f;
-    float bodyW = badge.w * 0.48f;
-    float bodyH = badge.h * 0.36f;
-    float bodyX = cx - bodyW * 0.5f;
-    float bodyY = badge.y + badge.h * 0.52f;
-    float stroke = std::max(1.2f, badge.w * 0.07f);
-    float rx = bodyW * 0.38f;
-    float ry = badge.h * 0.20f;
-    float arcCy = bodyY + bodyH * 0.05f;
-
-    float prevX = cx - rx;
-    float prevY = arcCy;
-    for (int i = 1; i <= 8; ++i) {
-        float a = 3.14159265f - static_cast<float>(i) / 8.0f * 3.14159265f;
-        float x = cx + std::cos(a) * rx;
-        float y = arcCy - std::sin(a) * ry;
-        r.line(prevX, prevY, x, y, stroke, rgba(244, 247, 251, 0.96f));
-        prevX = x;
-        prevY = y;
-    }
-    r.line(cx - rx, arcCy, cx - rx, bodyY + bodyH * 0.22f, stroke, rgba(244, 247, 251, 0.96f));
-    r.line(cx + rx, arcCy, cx + rx, bodyY + bodyH * 0.22f, stroke, rgba(244, 247, 251, 0.96f));
-
-    r.roundedRect(bodyX, bodyY, bodyW, bodyH, bodyH * 0.24f, rgba(244, 247, 251, 0.98f));
-    r.circle(cx, bodyY + bodyH * 0.45f, std::max(1.0f, bodyW * 0.07f), rgba(7, 10, 14, 0.76f), 14);
-    r.line(cx, bodyY + bodyH * 0.48f, cx, bodyY + bodyH * 0.70f, std::max(1.0f, bodyW * 0.055f), rgba(7, 10, 14, 0.76f));
+    float iconSide = badge.h * 0.67f;
+    Rect icon{badge.x + (badge.w - iconSide) * 0.5f, badge.y + (badge.h - iconSide) * 0.5f, iconSide, iconSide};
+    drawWebPadlockMark(s, icon, rgba(255, 248, 239, 0.95f), rgba(255, 248, 239, 0.94f), rgba(7, 10, 14, 0.72f));
 }
 
 void drawBoard(AppState *s) {
@@ -6372,6 +7706,7 @@ bool hintCompletionPending(AppState *s) {
 void drawGame(AppState *s) {
     Renderer &r = s->renderer;
     Session &g = s->session;
+    bool playground = g.mode == "playground";
     int64_t t = nowMs();
     if (!g.completed) g.elapsed = static_cast<int>((t - g.started) / 1000);
     float top = safeTop(s) + dp(s, 8);
@@ -6393,7 +7728,15 @@ void drawGame(AppState *s) {
     drawFittedText(s, std::to_string(g.moves), movesCard.x + movesCard.w * 0.5f, y + dp(s, 38),
                    movesCard.w - dp(s, 14), dp(s, 3.58f), TEXT, 1, true, 1.78f);
     int rankingHighlight = storedStarsForSession(s);
-    drawStarRankingCard(s, rankingCard, g.puzzle, rankingHighlight);
+    if (playground) {
+        drawGlassPanel(s, rankingCard, PANEL);
+        drawFittedText(s, tr(s, "Sandbox"), rankingCard.x + rankingCard.w * 0.5f, y + dp(s, 17),
+                       rankingCard.w - dp(s, 14), dp(s, 2.12f), MUTED, 1, true, 1.20f);
+        drawFittedText(s, tr(s, "No goal"), rankingCard.x + rankingCard.w * 0.5f, y + dp(s, 42),
+                       rankingCard.w - dp(s, 14), dp(s, 2.46f), TEXT, 1, true, 1.22f);
+    } else {
+        drawStarRankingCard(s, rankingCard, g.puzzle, rankingHighlight);
+    }
     drawGlassPanel(s, timeCard, PANEL);
     drawFittedText(s, tr(s, "Time"), timeCard.x + timeCard.w * 0.5f, y + dp(s, 11),
                    timeCard.w - dp(s, 16), dp(s, 2.24f), MUTED, 1, true, 1.32f);
@@ -6448,10 +7791,10 @@ void drawGame(AppState *s) {
                        notice.w - dp(s, 20), dp(s, 2.44f), TEXT, 0, true, 1.26f);
     } else {
         drawResetToolButton(s, resetButton, !waitingForHintCompletion);
-        drawHintToolButton(s, hintButton, !waitingForHintCompletion && t >= s->hintCooldownUntil);
+        drawHintToolButton(s, hintButton, !playground && !waitingForHintCompletion && t >= s->hintCooldownUntil);
     }
     drawBoard(s);
-    drawStarRankingCardMoveLabels(s, rankingCard, g.puzzle, rankingHighlight);
+    if (!playground) drawStarRankingCardMoveLabels(s, rankingCard, g.puzzle, rankingHighlight);
     drawFittedText(s, tr(s, "Time"), timeCard.x + timeCard.w * 0.5f, timeCard.y + dp(s, 11),
                    timeCard.w - dp(s, 16), dp(s, 2.24f), MUTED, 1, true, 1.32f);
     drawFittedText(s, formatTime(g.elapsed), timeCard.x + timeCard.w * 0.5f, timeCard.y + dp(s, 39),
@@ -6621,10 +7964,14 @@ void updateInteractionState(AppState *s) {
     }
     if (s->hintCompletionDueAt > 0 && t >= s->hintCompletionDueAt) {
         s->hintCompletionDueAt = 0;
-        if (s->hasSession && s->screen == Screen::Game && !s->session.completed &&
+        if (s->hasSession && s->screen == Screen::Game && s->session.mode != "playground" && !s->session.completed &&
             solved(s->session.puzzle, s->session.board)) {
             completeGame(s);
         }
+    }
+    if (!s->playgroundStatus.empty() && s->playgroundStatusUntil > 0 && t >= s->playgroundStatusUntil) {
+        s->playgroundStatus.clear();
+        s->playgroundStatusUntil = 0;
     }
     if (s->previewTile >= 0 && s->previewClearAt > 0 && t >= s->previewClearAt) {
         s->previewTile = -1;
@@ -6660,6 +8007,7 @@ void render(AppState *s) {
         case Screen::Main: drawMain(s); break;
         case Screen::Campaign: drawCampaign(s); break;
         case Screen::Freeplay: drawFreeplay(s); break;
+        case Screen::Playground: drawPlayground(s); break;
         case Screen::Daily: drawDaily(s); break;
         case Screen::HowTo: drawHowTo(s); break;
         case Screen::Math: drawMath(s); break;
@@ -6691,6 +8039,113 @@ void startFreeplay(AppState *s) {
     startGame(s, generatePuzzle(c), "freeplay");
 }
 
+void resizePlayground(AppState *s, int width, int height) {
+    PlaygroundConfig old = playgroundConfigFromState(s);
+    PlaygroundConfig next = old;
+    next.width = clampInt(width, 3, 9);
+    next.height = clampInt(height, 3, 9);
+    int total = next.width * next.height;
+    next.board.assign(static_cast<size_t>(total), 0);
+    next.locked.clear();
+    next.disabled.clear();
+    int copyW = std::min(old.width, next.width);
+    int copyH = std::min(old.height, next.height);
+    for (int y = 0; y < copyH; ++y) {
+        for (int x = 0; x < copyW; ++x) {
+            int oldIdx = indexFor(x, y, old.width);
+            int nextIdx = indexFor(x, y, next.width);
+            next.board[static_cast<size_t>(nextIdx)] = old.board[static_cast<size_t>(oldIdx)];
+            if (old.locked.count(oldIdx)) next.locked.insert(nextIdx);
+            if (old.disabled.count(oldIdx)) next.disabled.insert(nextIdx);
+        }
+    }
+    applyPlaygroundConfig(s, next);
+    savePlaygroundPrefs(s);
+}
+
+Puzzle playgroundPuzzleFromState(AppState *s);
+
+void tapPlaygroundTile(AppState *s, int idx) {
+    PlaygroundConfig config = playgroundConfigFromState(s);
+    Puzzle p = playgroundPuzzleFromState(s);
+    if (!isTappable(p, idx)) {
+        playSound(s, SoundCue::Invalid);
+        vibrate(s, 16);
+        return;
+    }
+    std::vector<int> affected = affectedIndexes(p, idx);
+    applyPulse(p, config.board, idx);
+    applyPlaygroundConfig(s, config);
+    savePlaygroundPrefs(s);
+    setPlaygroundStatus(s, "");
+    int stateAfterTap = config.board[static_cast<size_t>(idx)];
+    playSound(s, SoundCue::Pulse, (static_cast<int>(affected.size()) << 8) | stateAfterTap);
+    vibrate(s, 6);
+}
+
+void editPlaygroundTile(AppState *s, int idx) {
+    PlaygroundConfig config = playgroundConfigFromState(s);
+    int total = config.width * config.height;
+    if (idx < 0 || idx >= total) return;
+    if (s->playgroundTool == PLAYGROUND_TOOL_TAP) {
+        tapPlaygroundTile(s, idx);
+        return;
+    }
+    int paintState = playgroundPaintStateForTool(s->playgroundTool);
+    if (s->playgroundTool == PLAYGROUND_TOOL_HOLE) {
+        if (config.disabled.count(idx)) {
+            config.disabled.erase(idx);
+        } else if (static_cast<int>(config.disabled.size()) >= total - 1) {
+            setPlaygroundStatus(s, "Keep at least one tile.");
+            playSound(s, SoundCue::Invalid);
+            return;
+        } else {
+            config.disabled.insert(idx);
+            config.locked.erase(idx);
+            config.board[static_cast<size_t>(idx)] = 0;
+        }
+    } else if (s->playgroundTool == PLAYGROUND_TOOL_LOCK) {
+        config.disabled.erase(idx);
+        if (config.locked.count(idx)) config.locked.erase(idx);
+        else config.locked.insert(idx);
+    } else if (paintState >= 0) {
+        if (config.disabled.count(idx)) {
+            config.disabled.erase(idx);
+        }
+        config.board[static_cast<size_t>(idx)] = mod(paintState, config.states);
+    }
+    applyPlaygroundConfig(s, config);
+    savePlaygroundPrefs(s);
+    setPlaygroundStatus(s, "");
+    playSound(s, SoundCue::Ui);
+}
+
+Puzzle playgroundPuzzleFromState(AppState *s) {
+    PlaygroundConfig config = playgroundConfigFromState(s);
+    Puzzle p;
+    p.width = config.width;
+    p.height = config.height;
+    p.states = config.states;
+    p.defaultPattern = config.pattern;
+    p.locked = config.locked;
+    p.disabled = config.disabled;
+    p.tilePatterns.clear();
+    p.levelId = "playground-" + std::to_string(Rng::hash(encodePlaygroundSeed(config)));
+    p.name = "Playground";
+    p.initial = config.board;
+    p.solution.clear();
+    p.minimumMoves = 0;
+    p.targetMoves = 0;
+    p.difficultyRating = 0;
+    p.scrambleMoves = 0;
+    return p;
+}
+
+void startPlayground(AppState *s) {
+    savePlaygroundPrefs(s);
+    startGame(s, playgroundPuzzleFromState(s), "playground");
+}
+
 void startDailyChallenge(AppState *s, int tier) {
     tier = clampInt(tier, 0, 2);
     std::string date = dailyKey();
@@ -6709,6 +8164,11 @@ void handleAction(AppState *s, const Button &b) {
         case Action::CloseAbout: playSound(s, SoundCue::Ui); go(s, Screen::Settings); break;
         case Action::Campaign: playSound(s, SoundCue::Ui); go(s, Screen::Campaign); break;
         case Action::Freeplay: playSound(s, SoundCue::Ui); go(s, Screen::Freeplay); break;
+        case Action::Playground:
+            playSound(s, SoundCue::Ui);
+            s->playgroundTool = PLAYGROUND_TOOL_TAP;
+            go(s, Screen::Playground);
+            break;
         case Action::Daily: playSound(s, SoundCue::Ui); go(s, Screen::Daily); break;
         case Action::HowTo: playSound(s, SoundCue::Ui); go(s, Screen::HowTo); break;
         case Action::Math: playSound(s, SoundCue::Ui); go(s, Screen::Math); break;
@@ -6733,10 +8193,23 @@ void handleAction(AppState *s, const Button &b) {
             playSound(s, SoundCue::Ui);
             playGamesShowLeaderboard(s, clampInt(b.value, 0, 3));
             break;
+        case Action::CampaignGroup:
+            if (s->progress.groupUnlocked(b.value)) {
+                playSound(s, SoundCue::Ui);
+                s->selectedCampaignGroup = clampInt(b.value, 0, CAMPAIGN_GROUP_COUNT - 1);
+            } else {
+                playSound(s, SoundCue::Invalid);
+            }
+            break;
         case Action::StartCampaign:
-            playSound(s, SoundCue::Start);
             if (!campaignLevelsReady(s)) break;
+            if (!s->progress.unlocked(b.value)) {
+                playSound(s, SoundCue::Invalid);
+                break;
+            }
+            playSound(s, SoundCue::Start);
             s->lastCampaign = b.value;
+            s->selectedCampaignGroup = campaignGroupForLevel(b.value);
             startGame(s, campaignLevel(s, b.value), "campaign");
             break;
         case Action::Size: {
@@ -6787,6 +8260,79 @@ void handleAction(AppState *s, const Button &b) {
             playSound(s, SoundCue::Ui);
             s->freeUnique = !s->freeUnique;
             saveFreePrefs(s);
+            break;
+        case Action::PlaygroundStates: {
+            playSound(s, SoundCue::Ui);
+            std::vector<int> values = {2, 3, 4, 5};
+            PlaygroundConfig config = playgroundConfigFromState(s);
+            config.states = values[static_cast<size_t>(clampInt(b.value, 0, 3))];
+            for (int &value : config.board) value = mod(value, config.states);
+            applyPlaygroundConfig(s, config);
+            savePlaygroundPrefs(s);
+            break;
+        }
+        case Action::PlaygroundPattern: {
+            playSound(s, SoundCue::Ui);
+            PlaygroundConfig config = playgroundConfigFromState(s);
+            config.pattern = PLAYGROUND_PATTERNS[static_cast<size_t>(clampInt(b.value, 0, static_cast<int>(PLAYGROUND_PATTERNS.size()) - 1))];
+            applyPlaygroundConfig(s, config);
+            savePlaygroundPrefs(s);
+            break;
+        }
+        case Action::PlaygroundTool:
+            playSound(s, SoundCue::Ui);
+            s->playgroundTool = playgroundToolAllowed(b.value, s->playgroundStates) ? b.value : PLAYGROUND_TOOL_TAP;
+            break;
+        case Action::PlaygroundTile:
+            editPlaygroundTile(s, b.value);
+            break;
+        case Action::PlaygroundSection:
+            playSound(s, SoundCue::Ui);
+            if (b.value == 0) s->playgroundStatesOpen = !s->playgroundStatesOpen;
+            else if (b.value == 1) s->playgroundPatternOpen = !s->playgroundPatternOpen;
+            else if (b.value == 2) s->playgroundSizeOpen = !s->playgroundSizeOpen;
+            else if (b.value == 3) s->playgroundCodeOpen = !s->playgroundCodeOpen;
+            break;
+        case Action::PlaygroundWidthMinus: playSound(s, SoundCue::Ui); resizePlayground(s, s->playgroundW - 1, s->playgroundH); break;
+        case Action::PlaygroundWidthPlus: playSound(s, SoundCue::Ui); resizePlayground(s, s->playgroundW + 1, s->playgroundH); break;
+        case Action::PlaygroundHeightMinus: playSound(s, SoundCue::Ui); resizePlayground(s, s->playgroundW, s->playgroundH - 1); break;
+        case Action::PlaygroundHeightPlus: playSound(s, SoundCue::Ui); resizePlayground(s, s->playgroundW, s->playgroundH + 1); break;
+        case Action::PlaygroundClear: {
+            playSound(s, SoundCue::Reset);
+            PlaygroundConfig config = playgroundConfigFromState(s);
+            config.board.assign(static_cast<size_t>(config.width * config.height), 0);
+            config.locked.clear();
+            config.disabled.clear();
+            applyPlaygroundConfig(s, config);
+            savePlaygroundPrefs(s);
+            setPlaygroundStatus(s, "");
+            break;
+        }
+        case Action::PlaygroundCopy:
+            playSound(s, SoundCue::Ui);
+            setClipboardText(s, encodePlaygroundSeed(playgroundConfigFromState(s)));
+            setPlaygroundStatus(s, "Puzzle code copied.");
+            break;
+        case Action::PlaygroundPaste: {
+            playSound(s, SoundCue::Ui);
+            PlaygroundConfig config;
+            std::string text = getClipboardText(s);
+            if (text.empty()) {
+                setPlaygroundStatus(s, "Clipboard has no puzzle code.");
+                playSound(s, SoundCue::Invalid);
+            } else if (decodePlaygroundSeed(text, &config)) {
+                applyPlaygroundConfig(s, config);
+                savePlaygroundPrefs(s);
+                setPlaygroundStatus(s, "Puzzle code loaded.");
+            } else {
+                setPlaygroundStatus(s, "Puzzle code not recognized.");
+                playSound(s, SoundCue::Invalid);
+            }
+            break;
+        }
+        case Action::PlaygroundPlay:
+            playSound(s, SoundCue::Start);
+            startPlayground(s);
             break;
         case Action::GuideSize:
             playSound(s, SoundCue::Ui);
@@ -6862,6 +8408,11 @@ void handleAction(AppState *s, const Button &b) {
             }
             break;
         case Action::Hint:
+            if (s->hasSession && s->session.mode == "playground") {
+                playSound(s, SoundCue::Invalid);
+                s->hintLine = "Hints are off in Playground.";
+                break;
+            }
             if (s->hasSession && !s->session.completed && !hintCompletionPending(s) &&
                 !(s->session.mode == "daily" && s->session.leaderboardAttempt)) {
                 int64_t t = nowMs();
@@ -6906,11 +8457,18 @@ void handleAction(AppState *s, const Button &b) {
             if (!s->hasSession) break;
             playSound(s, SoundCue::Start);
             if (s->session.mode == "campaign") {
-                int next = std::min(299, s->lastCampaign + 1);
-                s->lastCampaign = next;
-                startGame(s, campaignLevel(s, next), "campaign");
-            } else {
+                int next = s->lastCampaign + 1;
+                if (next < CAMPAIGN_LEVEL_COUNT && s->progress.unlocked(next)) {
+                    s->lastCampaign = next;
+                    s->selectedCampaignGroup = campaignGroupForLevel(next);
+                    startGame(s, campaignLevel(s, next), "campaign");
+                } else {
+                    go(s, Screen::Campaign);
+                }
+            } else if (s->session.mode == "freeplay") {
                 startFreeplay(s);
+            } else if (s->session.mode == "playground") {
+                go(s, Screen::Playground);
             }
             break;
         case Action::Replay:
@@ -6969,7 +8527,7 @@ void tapTile(AppState *s, int idx) {
     int stateAfterTap = s->session.board[idx];
     playSound(s, SoundCue::Pulse, (static_cast<int>(affected.size()) << 8) | stateAfterTap);
     vibrate(s, 6);
-    if (solved(s->session.puzzle, s->session.board)) completeGame(s);
+    if (s->session.mode != "playground" && solved(s->session.puzzle, s->session.board)) completeGame(s);
 }
 
 void back(AppState *s) {

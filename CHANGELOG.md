@@ -2,6 +2,34 @@
 
 Summarized release notes for Invert the Matrix.
 
+## 1.0.9 - 2026-05-21
+
+Version code: 11
+
+- Added Playground, a hand-built board editor for creating custom boards,
+  placing lock icons and empty holes, sharing compact puzzle codes, loading
+  codes, and playing without a completion modal.
+- Reworked Campaign into a 5x5 group map with 9 levels per group, white borders
+  on available groups, group-star unlocks, and matching progress migration
+  across web and Android.
+- Polished menu headers across the app with consistent section logos, quieter
+  back and text-size controls, thinner top bars, and text-size scaling for menu
+  content.
+- Replaced rough handcrafted menu, Playground, lock, and text-size visuals with
+  cleaner web and Android assets.
+- Added Android Play Games achievement ID resources and tooling for generating
+  localized achievement metadata and import assets, while keeping local service
+  account secrets ignored.
+- Fixed Playground puzzle code generation with compact share codes and backward
+  compatibility for older codes.
+
+Play Store "What's new":
+
+Playground lets you build boards by hand, share compact puzzle codes, and play
+them directly. Campaign now uses a 5x5 group map with clearer unlocks. Menus,
+logos, lock icons, and text-size controls received a broad polish pass across
+web and Android.
+
 ## 1.0.8 - 2026-05-16
 
 Version code: 10

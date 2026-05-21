@@ -7,6 +7,8 @@ import android.util.Log;
 import com.google.android.gms.games.PlayGames;
 import com.google.android.gms.games.leaderboard.LeaderboardVariant;
 
+import java.util.Locale;
+
 public final class PlayGamesBridge {
     public static final int BOARD_DAILY_EASY = 0;
     public static final int BOARD_DAILY_MEDIUM = 1;
@@ -57,6 +59,14 @@ public final class PlayGamesBridge {
                 }));
     }
 
+    public static void unlockAchievement(Activity activity, int achievement) {
+        if (activity == null) return;
+        int resId = achievementResId(activity, achievement);
+        if (resId == 0) return;
+        activity.runOnUiThread(() -> PlayGames.getAchievementsClient(activity)
+                .unlock(activity.getString(resId)));
+    }
+
     private static int leaderboardResId(int leaderboard) {
         switch (leaderboard) {
             case BOARD_DAILY_EASY:
@@ -70,5 +80,14 @@ public final class PlayGamesBridge {
             default:
                 return 0;
         }
+    }
+
+    private static int achievementResId(Activity activity, int achievement) {
+        if (achievement < 0) return 0;
+        int group = achievement / 2 + 1;
+        if (group < 1 || group > 25) return 0;
+        String suffix = achievement % 2 == 0 ? "clear" : "master";
+        String name = String.format(Locale.US, "achievement_chapter_%02d_%s", group, suffix);
+        return activity.getResources().getIdentifier(name, "string", activity.getPackageName());
     }
 }

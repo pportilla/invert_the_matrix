@@ -12,6 +12,7 @@ AGENTS.md
 *.log
 .env
 .env.*
+.secrets/
 
 # Node dependencies and generated caches
 node_modules/
@@ -21,6 +22,7 @@ android-game/node_modules/
 *.py[cod]
 
 # Web build/cache output
+build/
 web-app/dist/
 web-app/.cache/
 
