@@ -48,6 +48,7 @@ jobs:
           rm -rf ../dist-pages
           mkdir -p ../dist-pages
           cp index.html styles.css app.js app.js.map campaign-levels.json ../dist-pages/
+          cp -R assets ../dist-pages/assets
           touch ../dist-pages/.nojekyll
 
       - name: Upload Pages artifact
