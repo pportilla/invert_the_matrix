@@ -4074,6 +4074,13 @@ void syncCampaignGroupAchievements(AppState *s, int group) {
     }
 }
 
+void syncEarnedCampaignAchievements(AppState *s) {
+    if (!s) return;
+    for (int group = 0; group < CAMPAIGN_GROUP_COUNT; ++group) {
+        syncCampaignGroupAchievements(s, group);
+    }
+}
+
 void leaveCurrentGame(AppState *s) {
     if (s->hasSession && s->session.mode == "campaign") {
         go(s, Screen::Campaign);
@@ -4329,6 +4336,20 @@ void drawFallbackMainMenuIcon(AppState *s, Rect rect, Action action) {
     auto line = [&](float ax, float ay, float bx, float by, Color color) {
         r.line(x(ax), y(ay), x(bx), y(by), stroke, color);
     };
+    auto curve = [&](float ax, float ay, float bx, float by, float cx, float cy,
+                     float dx, float dy, Color color, float strokeScale) {
+        float px = ax;
+        float py = ay;
+        for (int i = 1; i <= 16; ++i) {
+            float t = static_cast<float>(i) / 16.0f;
+            float u = 1.0f - t;
+            float qx = u * u * u * ax + 3.0f * u * u * t * bx + 3.0f * u * t * t * cx + t * t * t * dx;
+            float qy = u * u * u * ay + 3.0f * u * u * t * by + 3.0f * u * t * t * cy + t * t * t * dy;
+            r.line(x(px), y(py), x(qx), y(qy), std::max(1.0f, stroke * strokeScale), color);
+            px = qx;
+            py = qy;
+        }
+    };
     auto box = [&](float px, float py, float w, float h, float radius, Color color) {
         r.roundedStroke({x(px), y(py), w * scale, h * scale}, radius * scale, stroke, color);
     };
@@ -4359,14 +4380,11 @@ void drawFallbackMainMenuIcon(AppState *s, Rect rect, Action action) {
         line(12.0f, 8.0f, 12.0f, 16.0f, accent);
         line(8.0f, 12.0f, 16.0f, 12.0f, accent);
     } else if (action == Action::Playground) {
-        box(5.0f, 5.0f, 11.0f, 11.0f, 2.5f, base);
-        line(8.2f, 8.2f, 12.7f, 8.2f, faint);
-        line(8.2f, 12.0f, 12.7f, 12.0f, faint);
-        line(14.5f, 17.8f, 18.4f, 13.9f, accent);
-        line(18.4f, 13.9f, 20.1f, 15.6f, accent);
-        line(20.1f, 15.6f, 16.2f, 19.5f, accent);
-        line(16.2f, 19.5f, 13.8f, 20.2f, accent);
-        line(13.8f, 20.2f, 14.5f, 17.8f, accent);
+        dot(12.0f, 12.0f, 8.45f, withAlpha(ORANGE, 0.98f));
+        curve(12.15f, 3.8f, 12.0f, 7.4f, 12.0f, 16.6f, 12.05f, 20.2f, PANEL_2, 0.84f);
+        curve(3.9f, 12.25f, 8.2f, 11.8f, 15.8f, 12.6f, 20.1f, 12.15f, PANEL_2, 0.84f);
+        curve(7.0f, 4.9f, 3.9f, 8.2f, 3.9f, 15.9f, 7.15f, 19.1f, PANEL_2, 0.78f);
+        curve(17.0f, 4.9f, 20.1f, 8.2f, 20.1f, 15.9f, 16.85f, 19.1f, PANEL_2, 0.78f);
     } else if (action == Action::Daily) {
         box(4.5f, 5.5f, 15.0f, 14.0f, 2.5f, base);
         line(8.0f, 4.0f, 8.0f, 8.0f, base);
@@ -8758,6 +8776,7 @@ extern "C" void android_main(android_app *app) {
     app->onAppCmd = handleCmd;
     app->onInputEvent = handleInput;
     playGamesSignIn(&state);
+    syncEarnedCampaignAchievements(&state);
 
     while (true) {
         int events = 0;
