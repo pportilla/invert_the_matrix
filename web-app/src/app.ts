@@ -13,8 +13,8 @@
   var CHANGELOG_ENTRIES = [
     {
       version: "1.0.9",
-      date: "2026-05-21",
-      text: "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and menu headers, locks, logos, and text-size controls were polished across web and Android."
+      date: "2026-05-28",
+      text: "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and the Playground logo is now a tile-colored basketball. Menu headers, locks, and text-size controls were polished across web and Android."
     },
     {
       version: "1.0.8",
@@ -244,7 +244,7 @@
       "Best": "Mejor",
       "Chapter": "Capítulo",
       "Inversion": "Inversión",
-      "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and menu headers, locks, logos, and text-size controls were polished across web and Android.": "Zona de pruebas añade códigos de rompecabezas para compartir, la campaña usa un mapa de grupos 5x5, y las cabeceras de menú, candados, logos y controles de tamaño de texto se pulieron en web y Android.",
+      "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and the Playground logo is now a tile-colored basketball. Menu headers, locks, and text-size controls were polished across web and Android.": "Zona de pruebas añade códigos de rompecabezas para compartir, la campaña usa un mapa de grupos 5x5, y el logo de Zona de pruebas ahora es un balón de baloncesto con colores de casillas. Las cabeceras de menú, candados y controles de tamaño de texto se pulieron en web y Android.",
       "Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.": "Los retos diarios ahora separan las tarjetas de rompecabezas de las clasificaciones, la configuración personalizada usa opciones visuales de patrón con generación única siempre activa y las pantallas de juego y resultado son más claras.",
       "Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.": "Los ajustes ahora ocultan controles específicos de plataforma, se eliminaron los interruptores de animación y símbolos daltónicos, y Acerca de muestra el historial de versiones con el enlace de GitHub.",
       "Release builds keep native debug symbols for Play Console crash reports.": "Las compilaciones de lanzamiento conservan símbolos nativos de depuración para los informes de fallos de Play Console.",
@@ -540,7 +540,7 @@
       "Best": "Meilleur",
       "Chapter": "Chapitre",
       "Inversion": "Inversion",
-      "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and menu headers, locks, logos, and text-size controls were polished across web and Android.": "Le bac à sable ajoute des codes de casse-tête à partager, la campagne utilise une carte de groupes 5x5, et les en-têtes de menu, cadenas, logos et contrôles de taille du texte ont été améliorés sur web et Android.",
+      "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and the Playground logo is now a tile-colored basketball. Menu headers, locks, and text-size controls were polished across web and Android.": "Le bac à sable ajoute des codes de casse-tête à partager, la campagne utilise une carte de groupes 5x5, et le logo du bac à sable est maintenant un ballon de basket aux couleurs des tuiles. Les en-têtes de menu, cadenas et contrôles de taille du texte ont été améliorés sur web et Android.",
       "Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.": "Les défis quotidiens séparent désormais les cartes de casse-têtes des classements, la configuration personnalisée utilise des puces visuelles de motif avec génération unique toujours active, et les écrans de jeu et de résultat sont plus clairs.",
       "Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.": "Les paramètres masquent désormais les contrôles propres à chaque plateforme, les options d'animation et de symboles daltoniens ont été retirées, et À propos affiche l'historique des versions avec le lien GitHub.",
       "Release builds keep native debug symbols for Play Console crash reports.": "Les builds de publication conservent les symboles de débogage natifs pour les rapports de plantage Play Console.",
