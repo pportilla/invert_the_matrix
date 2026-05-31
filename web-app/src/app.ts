@@ -7,10 +7,30 @@
   "use strict";
 
   var STORAGE_KEY = "resonance-grid-progress-v1";
-  var APP_VERSION = "1.0.9";
+  var APP_VERSION = "1.0.13";
   var CAMPAIGN_DATA_URL = "campaign-levels.json";
   var MATHJAX_URL = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js";
   var CHANGELOG_ENTRIES = [
+    {
+      version: "1.0.13",
+      date: "2026-05-30",
+      text: "The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress."
+    },
+    {
+      version: "1.0.12",
+      date: "2026-05-30",
+      text: "First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements."
+    },
+    {
+      version: "1.0.11",
+      date: "2026-05-30",
+      text: "Added a separate setting for Playground tile numbers, keeping Playground boards number-free unless it is turned on."
+    },
+    {
+      version: "1.0.10",
+      date: "2026-05-30",
+      text: "The Android release is prepared with version code 12, native debug symbols for Play Console crash reports, and refreshed changelog notes for the latest Play Store build."
+    },
     {
       version: "1.0.9",
       date: "2026-05-28",
@@ -53,6 +73,14 @@
       "Daily Challenges": "Retos diarios",
       "Leaderboards": "Clasificaciones",
       "Leaderboard": "Clasificación",
+      "Achievements": "Logros",
+      "Campaign achievements": "Logros de campaña",
+      "Clear": "Completar",
+      "Master": "Maestría",
+      "Unlocked": "Desbloqueado",
+      "Locked": "Bloqueado",
+      "Complete every level in this group.": "Completa todos los niveles de este grupo.",
+      "Earn every star in this group.": "Gana todas las estrellas de este grupo.",
       "Global": "Global",
       "All daily tiers": "Todos los niveles diarios",
       "How to Play": "Cómo jugar",
@@ -225,6 +253,7 @@
       "Language": "Idioma",
       "Sound": "Sonido",
       "Show numbers on tiles": "Mostrar números en las casillas",
+      "Show numbers in Playground": "Mostrar números en Zona de pruebas",
       "About": "Acerca de",
       "About Invert the Matrix": "Acerca de Invert the Matrix",
       "Changelog": "Historial de cambios",
@@ -244,6 +273,10 @@
       "Best": "Mejor",
       "Chapter": "Capítulo",
       "Inversion": "Inversión",
+      "The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress.": "El menú principal ahora incluye Logros, el tablero animado es más grande y Android abre el estado de logros de Play Games mientras la app web muestra el progreso de logros de campaña.",
+      "First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements.": "Primera versión de producción con niveles de campaña, retos diarios, rompecabezas personalizados, tableros de Zona de pruebas, pistas, estrellas y logros de Play Games.",
+      "Added a separate setting for Playground tile numbers, keeping Playground boards number-free unless it is turned on.": "Se añadió un ajuste separado para los números en casillas de Zona de pruebas, para que sus tableros no muestren números salvo que esté activado.",
+      "The Android release is prepared with version code 12, native debug symbols for Play Console crash reports, and refreshed changelog notes for the latest Play Store build.": "La versión de Android está preparada con código de versión 12, símbolos nativos de depuración para los informes de fallos de Play Console y notas actualizadas del historial de cambios para la última compilación de Play Store.",
       "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and the Playground logo is now a tile-colored basketball. Menu headers, locks, and text-size controls were polished across web and Android.": "Zona de pruebas añade códigos de rompecabezas para compartir, la campaña usa un mapa de grupos 5x5, y el logo de Zona de pruebas ahora es un balón de baloncesto con colores de casillas. Las cabeceras de menú, candados y controles de tamaño de texto se pulieron en web y Android.",
       "Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.": "Los retos diarios ahora separan las tarjetas de rompecabezas de las clasificaciones, la configuración personalizada usa opciones visuales de patrón con generación única siempre activa y las pantallas de juego y resultado son más claras.",
       "Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.": "Los ajustes ahora ocultan controles específicos de plataforma, se eliminaron los interruptores de animación y símbolos daltónicos, y Acerca de muestra el historial de versiones con el enlace de GitHub.",
@@ -349,6 +382,14 @@
       "Daily Challenges": "Défis quotidiens",
       "Leaderboards": "Classements",
       "Leaderboard": "Classement",
+      "Achievements": "Succès",
+      "Campaign achievements": "Succès de campagne",
+      "Clear": "Terminer",
+      "Master": "Maîtrise",
+      "Unlocked": "Déverrouillé",
+      "Locked": "Verrouillé",
+      "Complete every level in this group.": "Termine tous les niveaux de ce groupe.",
+      "Earn every star in this group.": "Obtiens toutes les étoiles de ce groupe.",
       "Global": "Global",
       "All daily tiers": "Tous les niveaux quotidiens",
       "How to Play": "Comment jouer",
@@ -521,6 +562,7 @@
       "Language": "Langue",
       "Sound": "Son",
       "Show numbers on tiles": "Afficher les nombres sur les tuiles",
+      "Show numbers in Playground": "Afficher les nombres dans le bac à sable",
       "About": "À propos",
       "About Invert the Matrix": "À propos d'Invert the Matrix",
       "Changelog": "Journal des changements",
@@ -540,6 +582,10 @@
       "Best": "Meilleur",
       "Chapter": "Chapitre",
       "Inversion": "Inversion",
+      "The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress.": "Le menu principal inclut maintenant Succès, le plateau animé est plus grand, et Android ouvre l'état des succès Play Games tandis que la version web affiche la progression des succès de campagne.",
+      "First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements.": "Première version de production avec niveaux de campagne, défis quotidiens, casse-têtes personnalisés, plateaux de bac à sable, indices, étoiles et succès Play Games.",
+      "Added a separate setting for Playground tile numbers, keeping Playground boards number-free unless it is turned on.": "Ajout d'un réglage séparé pour les nombres des tuiles du bac à sable, afin que les plateaux du bac à sable restent sans nombres sauf si ce réglage est activé.",
+      "The Android release is prepared with version code 12, native debug symbols for Play Console crash reports, and refreshed changelog notes for the latest Play Store build.": "La version Android est préparée avec le code de version 12, les symboles de débogage natifs pour les rapports de plantage Play Console et des notes d'historique mises à jour pour la dernière compilation Play Store.",
       "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and the Playground logo is now a tile-colored basketball. Menu headers, locks, and text-size controls were polished across web and Android.": "Le bac à sable ajoute des codes de casse-tête à partager, la campagne utilise une carte de groupes 5x5, et le logo du bac à sable est maintenant un ballon de basket aux couleurs des tuiles. Les en-têtes de menu, cadenas et contrôles de taille du texte ont été améliorés sur web et Android.",
       "Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.": "Les défis quotidiens séparent désormais les cartes de casse-têtes des classements, la configuration personnalisée utilise des puces visuelles de motif avec génération unique toujours active, et les écrans de jeu et de résultat sont plus clairs.",
       "Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.": "Les paramètres masquent désormais les contrôles propres à chaque plateforme, les options d'animation et de symboles daltoniens ont été retirées, et À propos affiche l'historique des versions avec le lien GitHub.",
@@ -817,6 +863,7 @@
     settings: {
       sound: true,
       hideNumbers: true,
+      showPlaygroundNumbers: false,
       guideTextSize: "small",
       language: "en"
     },
@@ -881,6 +928,7 @@
     renderFreeplayControls();
     renderPlaygroundControls();
     renderDaily();
+    renderAchievements();
     renderAbout();
     syncSettingsUI();
     applySettings();
@@ -895,6 +943,7 @@
 
     els.campaignList = document.getElementById("campaign-list");
     els.dailyList = document.getElementById("daily-list");
+    els.achievementsList = document.getElementById("achievements-list");
     els.brandMark = document.querySelector(".brand-mark");
     els.sizeOptions = document.getElementById("size-options");
     els.stateOptions = document.getElementById("state-options");
@@ -940,6 +989,7 @@
     els.levelSelectButton = document.querySelector('[data-action="level-select"]');
     els.settingSound = document.getElementById("setting-sound");
     els.settingNumbers = document.getElementById("setting-numbers");
+    els.settingPlaygroundNumbers = document.getElementById("setting-playground-numbers");
     els.settingLanguage = document.getElementById("setting-language");
     els.aboutVersion = document.getElementById("about-version");
     els.aboutChangelog = document.getElementById("about-changelog");
@@ -1062,7 +1112,7 @@
       editPlaygroundTile(Number(tile.getAttribute("data-playground-index")));
     });
 
-    [els.settingSound, els.settingNumbers, els.settingLanguage].forEach(function (input) {
+    [els.settingSound, els.settingNumbers, els.settingPlaygroundNumbers, els.settingLanguage].forEach(function (input) {
       if (!input) return;
       input.addEventListener("change", updateSettingsFromUI);
     });
@@ -1106,6 +1156,11 @@
     if (action === "show-daily") {
       renderDaily();
       showScreen("daily");
+    }
+    if (action === "show-achievements") {
+      renderAchievements();
+      showScreen("achievements");
+      ensureCampaignLevels().then(renderAchievements);
     }
     if (action === "show-howto") {
       showScreen("howto");
@@ -1257,6 +1312,7 @@
     renderLanguageOptions();
     els.settingSound.checked = settings.sound;
     els.settingNumbers.checked = !Boolean(settings.hideNumbers);
+    if (els.settingPlaygroundNumbers) els.settingPlaygroundNumbers.checked = Boolean(settings.showPlaygroundNumbers);
     if (els.settingLanguage) els.settingLanguage.value = currentLanguage();
   }
 
@@ -1265,6 +1321,7 @@
     var previousLanguage = currentLanguage();
     app.progress.settings.sound = els.settingSound.checked;
     app.progress.settings.hideNumbers = !els.settingNumbers.checked;
+    if (els.settingPlaygroundNumbers) app.progress.settings.showPlaygroundNumbers = els.settingPlaygroundNumbers.checked;
     if (els.settingLanguage) app.progress.settings.language = normalizeLanguage(els.settingLanguage.value);
     saveProgress();
     applySettings();
@@ -1277,6 +1334,7 @@
     var guideSize = normalizeGuideTextSize(app.progress.settings.guideTextSize);
     app.progress.settings.language = currentLanguage();
     document.body.classList.toggle("hide-numbers", Boolean(app.progress.settings.hideNumbers));
+    document.body.classList.toggle("show-playground-numbers", Boolean(app.progress.settings.showPlaygroundNumbers));
     document.body.classList.toggle("guide-size-medium", guideSize === "medium");
     document.body.classList.toggle("guide-size-large", guideSize === "large");
     syncGuideSizeControls();
@@ -1313,6 +1371,7 @@
     renderFreeplayControls();
     renderPlaygroundControls();
     renderDaily();
+    renderAchievements();
     renderAbout();
     if (app.activeScreen === "campaign") renderCampaign();
     if (app.currentGame) {
@@ -2796,6 +2855,63 @@
       '</section>';
   }
 
+  function renderAchievements() {
+    if (!els.achievementsList) return;
+    if (app.campaignLoadState === "loading" || app.campaignLoadState === "idle") {
+      els.achievementsList.innerHTML = '<section class="loading-state"><h3>' + t("Loading campaign") + '</h3><p>' + t("Loading the fixed campaign levels from the bundled JSON.") + '</p></section>';
+      return;
+    }
+    if (app.campaignLoadState === "error" || !app.campaignLevels.length) {
+      els.achievementsList.innerHTML = '<section class="empty-state"><h3>' + t("Campaign data unavailable") + '</h3><p>' + t("The bundled campaign asset could not be loaded. Reload the app or check that campaign-levels.json is included.") + '</p></section>';
+      return;
+    }
+    var unlocked = range(CAMPAIGN_GROUP_COUNT).reduce(function (total, _, groupIndex) {
+      return total + (achievementUnlocked(groupIndex, "clear") ? 1 : 0) + (achievementUnlocked(groupIndex, "master") ? 1 : 0);
+    }, 0);
+    els.achievementsList.innerHTML =
+      '<section class="achievement-summary">' +
+        '<h3>' + t("Campaign achievements") + '</h3>' +
+        '<strong>' + unlocked + '/50</strong>' +
+      '</section>' +
+      '<section class="achievement-grid">' +
+        range(CAMPAIGN_GROUP_COUNT).map(function (_, groupIndex) {
+          return renderAchievementGroup(groupIndex);
+        }).join("") +
+      '</section>';
+  }
+
+  function renderAchievementGroup(groupIndex) {
+    var title = t("Group") + " " + (groupIndex + 1) + ": " + chapterTitle(groupIndex + 1);
+    return '<article class="achievement-card">' +
+      '<div class="achievement-card-heading">' +
+        '<span>' + escapeAttribute(t("Group") + " " + (groupIndex + 1)) + '</span>' +
+        '<strong>' + escapeAttribute(chapterTitle(groupIndex + 1)) + '</strong>' +
+      '</div>' +
+      '<div class="achievement-badge-row">' +
+        renderAchievementBadge(groupIndex, "clear", t("Clear"), t("Complete every level in this group."), title) +
+        renderAchievementBadge(groupIndex, "master", t("Master"), t("Earn every star in this group."), title) +
+      '</div>' +
+    '</article>';
+  }
+
+  function renderAchievementBadge(groupIndex, kind, label, detail, title) {
+    var unlocked = achievementUnlocked(groupIndex, kind);
+    var status = unlocked ? t("Unlocked") : t("Locked");
+    return '<div class="achievement-badge' + (unlocked ? " is-unlocked" : " is-locked") + '" aria-label="' + escapeAttribute(title + ", " + label + ", " + status) + '">' +
+      '<span class="achievement-badge-icon" aria-hidden="true">' + (unlocked ? renderCheckIcon() : "") + '</span>' +
+      '<span class="achievement-badge-copy">' +
+        '<strong>' + escapeAttribute(label) + '</strong>' +
+        '<small>' + escapeAttribute(detail) + '</small>' +
+      '</span>' +
+      '<span class="achievement-badge-status">' + escapeAttribute(status) + '</span>' +
+    '</div>';
+  }
+
+  function achievementUnlocked(groupIndex, kind) {
+    if (kind === "master") return campaignGroupStars(groupIndex) >= CAMPAIGN_GROUP_STAR_MAX;
+    return campaignGroupCompletedCount(groupIndex) >= CAMPAIGN_LEVELS_PER_GROUP;
+  }
+
   function renderDailyCard(tier, dateKey) {
     var record = dailyRecordFor(dateKey, tier.key);
     var completed = Boolean(record && record.completed);
@@ -3404,6 +3520,7 @@
   function renderBoard(pulsedIndexes) {
     var game = app.currentGame;
     if (!game || !els.board) return;
+    els.board.classList.toggle("is-playground-board", game.mode === "playground");
 
     els.board.style.gridTemplateColumns = "repeat(" + game.width + ", minmax(0, 1fr))";
     els.board.style.setProperty("--board-ratio", game.width + " / " + game.height);

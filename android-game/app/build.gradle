@@ -21,8 +21,8 @@ android {
         applicationId "invert_the_matrix.myapp"
         minSdk 23
         targetSdk 35
-        versionCode 11
-        versionName "1.0.9"
+        versionCode 15
+        versionName "1.0.13"
         ndk {
             abiFilters "arm64-v8a", "x86_64"
         }
@@ -195,7 +195,7 @@ nativeTargets.each { target ->
     nativeTaskNames << buildNativeTask
 }
 
-// Android 1.0.6: keep uploadable native symbols for Play Console crash reports.
+// Keep uploadable native symbols for Play Console crash reports.
 tasks.register("packageNativeDebugSymbols", Zip) {
     dependsOn(nativeTaskNames)
     archiveFileName = "native-debug-symbols.zip"

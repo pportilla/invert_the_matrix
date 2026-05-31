@@ -134,7 +134,7 @@ constexpr int64_t HINT_COOLDOWN_MS = 500;
 constexpr int64_t HINT_COMPLETION_DELAY_MS = 500;
 constexpr int EXACT_BFS_STATE_LIMIT = 500000;
 constexpr int EXACT_NULLSPACE_LIMIT = 500000;
-constexpr const char *APP_VERSION_NAME = "1.0.9";
+constexpr const char *APP_VERSION_NAME = "1.0.13";
 constexpr const char *GITHUB_PROFILE_URL = "https://github.com/pportilla";
 constexpr const char *GITHUB_MARK_SVG_PATH =
         "M8 0 C3.58 0 0 3.58 0 8 "
@@ -278,6 +278,28 @@ struct Renderer {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         return true;
+    }
+
+    bool updateSurfaceSize(bool forceViewport = false) {
+        if (display == EGL_NO_DISPLAY || surface == EGL_NO_SURFACE) return false;
+        EGLint nextWidth = 0;
+        EGLint nextHeight = 0;
+        if (eglQuerySurface(display, surface, EGL_WIDTH, &nextWidth) == EGL_FALSE ||
+            eglQuerySurface(display, surface, EGL_HEIGHT, &nextHeight) == EGL_FALSE ||
+            nextWidth <= 0 || nextHeight <= 0) {
+            return false;
+        }
+        bool changed = nextWidth != width || nextHeight != height;
+        width = nextWidth;
+        height = nextHeight;
+        if (changed) {
+            skCanvas = nullptr;
+            skSurface.reset();
+        }
+        if (changed || forceViewport) {
+            glViewport(0, 0, width, height);
+        }
+        return changed;
     }
 
     void initSkia() {
@@ -541,6 +563,7 @@ struct Renderer {
     }
 
     void begin() {
+        updateSurfaceSize();
         vertices.clear();
         ensureSkiaSurface();
         if (skiaReady()) {
@@ -2230,7 +2253,7 @@ void migrateCampaignProgress(Progress &progress) {
 
 enum class Screen { Main, Campaign, Freeplay, Playground, Daily, HowTo, Math, Settings, About, Game };
 enum class Action {
-    Main, BackReturn, CloseAbout, Campaign, Freeplay, Playground, Daily, HowTo, Math, Settings, About, OpenGithub, CampaignGroup, StartCampaign, Generate,
+    Main, BackReturn, CloseAbout, Campaign, Freeplay, Playground, Daily, Achievements, HowTo, Math, Settings, About, OpenGithub, CampaignGroup, StartCampaign, Generate,
     DailyChallenge, Leaderboard,
     Size, States, Pattern, PatternInfo, ClosePatternInfo, PatternInfoBlocker, Difficulty, ToggleLocked, ToggleIrregular, ToggleUnique,
     PlaygroundStates, PlaygroundPattern, PlaygroundTool, PlaygroundTile, PlaygroundSection, PlaygroundWidthMinus, PlaygroundWidthPlus,
@@ -2508,6 +2531,7 @@ struct AppState {
     bool sound = true;
     bool vibration = true;
     bool hideNumbers = true;
+    bool showPlaygroundNumbers = false;
     std::string language = "en";
     int guideTextSize = 0;
     std::string hintLine;
@@ -2543,6 +2567,7 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Playground board", "Tablero de zona de pruebas"},
             {"Daily Challenge", "Reto diario"},
             {"Daily Challenges", "Retos diarios"},
+            {"Achievements", "Logros"},
             {"How to Play", "Cómo jugar"},
             {"The Math", "Las matemáticas"},
             {"Settings", "Ajustes"},
@@ -2615,6 +2640,7 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Sound", "Sonido"},
             {"Vibration", "Vibración"},
             {"Show numbers on tiles", "Mostrar números en las casillas"},
+            {"Show numbers in Playground", "Mostrar números en Zona de pruebas"},
             {"Language", "Idioma"},
             {"About", "Acerca de"},
             {"Options", "Opciones"},
@@ -2842,6 +2868,10 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"solution exists iff", "hay solución sii"},
             {"solutions", "soluciones"},
             {"is a field", "es un cuerpo"},
+            {"The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress.", "El menú principal ahora incluye Logros, el tablero animado es más grande y Android abre el estado de logros de Play Games mientras la app web muestra el progreso de logros de campaña."},
+            {"First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements.", "Primera versión de producción con niveles de campaña, retos diarios, rompecabezas personalizados, tableros de Zona de pruebas, pistas, estrellas y logros de Play Games."},
+            {"Added a separate setting for Playground tile numbers, keeping Playground boards number-free unless it is turned on.", "Se añadió un ajuste separado para los números en casillas de Zona de pruebas, para que sus tableros no muestren números salvo que esté activado."},
+            {"The Android release is prepared with version code 12, native debug symbols for Play Console crash reports, and refreshed changelog notes for the latest Play Store build.", "La versión de Android está preparada con código de versión 12, símbolos nativos de depuración para los informes de fallos de Play Console y notas actualizadas del historial de cambios para la última compilación de Play Store."},
             {"Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and the Playground logo is now a tile-colored basketball. Menu headers, locks, and text-size controls were polished across web and Android.", "Zona de pruebas añade códigos de rompecabezas para compartir, la campaña usa un mapa de grupos 5x5, y el logo de Zona de pruebas ahora es un balón de baloncesto con colores de casillas. Las cabeceras de menú, candados y controles de tamaño de texto se pulieron en web y Android."},
             {"Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.", "Los retos diarios ahora separan las tarjetas de rompecabezas de las clasificaciones, la configuración personalizada usa opciones visuales de patrón con generación única siempre activa y las pantallas de juego y resultado son más claras."},
             {"Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.", "Los ajustes ahora ocultan controles específicos de plataforma, se eliminaron los interruptores de animación y símbolos daltónicos, y Acerca de muestra el historial de versiones con el enlace de GitHub."},
@@ -2859,6 +2889,7 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Playground board", "Plateau du bac à sable"},
             {"Daily Challenge", "Défi quotidien"},
             {"Daily Challenges", "Défis quotidiens"},
+            {"Achievements", "Succès"},
             {"How to Play", "Comment jouer"},
             {"The Math", "Les maths"},
             {"Settings", "Paramètres"},
@@ -2931,6 +2962,7 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Sound", "Son"},
             {"Vibration", "Vibration"},
             {"Show numbers on tiles", "Afficher les nombres sur les tuiles"},
+            {"Show numbers in Playground", "Afficher les nombres dans le bac à sable"},
             {"Language", "Langue"},
             {"About", "À propos"},
             {"Options", "Options"},
@@ -3158,6 +3190,10 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"solution exists iff", "solution existe ssi"},
             {"solutions", "solutions"},
             {"is a field", "est un corps"},
+            {"The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress.", "Le menu principal inclut maintenant Succès, le plateau animé est plus grand, et Android ouvre l'état des succès Play Games tandis que la version web affiche la progression des succès de campagne."},
+            {"First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements.", "Première version de production avec niveaux de campagne, défis quotidiens, casse-têtes personnalisés, plateaux de bac à sable, indices, étoiles et succès Play Games."},
+            {"Added a separate setting for Playground tile numbers, keeping Playground boards number-free unless it is turned on.", "Ajout d'un réglage séparé pour les nombres des tuiles du bac à sable, afin que les plateaux du bac à sable restent sans nombres sauf si ce réglage est activé."},
+            {"The Android release is prepared with version code 12, native debug symbols for Play Console crash reports, and refreshed changelog notes for the latest Play Store build.", "La version Android est préparée avec le code de version 12, les symboles de débogage natifs pour les rapports de plantage Play Console et des notes d'historique mises à jour pour la dernière compilation Play Store."},
             {"Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and the Playground logo is now a tile-colored basketball. Menu headers, locks, and text-size controls were polished across web and Android.", "Le bac à sable ajoute des codes de casse-tête à partager, la campagne utilise une carte de groupes 5x5, et le logo du bac à sable est maintenant un ballon de basket aux couleurs des tuiles. Les en-têtes de menu, cadenas et contrôles de taille du texte ont été améliorés sur web et Android."},
             {"Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.", "Les défis quotidiens séparent désormais les cartes de casse-têtes des classements, la configuration personnalisée utilise des puces visuelles de motif avec génération unique toujours active, et les écrans de jeu et de résultat sont plus clairs."},
             {"Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.", "Les paramètres masquent désormais les contrôles propres à chaque plateforme, les options d'animation et de symboles daltoniens ont été retirées, et À propos affiche l'historique avec le lien GitHub."},
@@ -3671,6 +3707,7 @@ void loadPrefs(AppState *s) {
     s->sound = s->progress.getBool("setting_sound", true);
     s->vibration = s->progress.getBool("setting_vibration", true);
     s->hideNumbers = s->progress.getBool("setting_hide_numbers", true);
+    s->showPlaygroundNumbers = s->progress.getBool("setting_show_playground_numbers", false);
     s->language = s->progress.getString("setting_language", "en");
     if (s->language != "en" && s->language != "es" && s->language != "fr") s->language = "en";
     s->guideTextSize = clampInt(s->progress.getInt("setting_guide_text_size", 0), 0, 2);
@@ -3777,6 +3814,10 @@ void playGamesUnlockAchievement(AppState *s, int achievement) {
 
 void playGamesShowLeaderboard(AppState *s, int leaderboard) {
     callPlayGamesVoid(s, "showLeaderboard", "(Landroid/app/Activity;I)V", leaderboard);
+}
+
+void playGamesShowAchievements(AppState *s) {
+    callPlayGamesVoid(s, "showAchievements", "(Landroid/app/Activity;)V");
 }
 
 void openUrl(AppState *s, const char *url) {
@@ -4296,11 +4337,12 @@ struct MenuIconSpec {
 };
 
 constexpr int MENU_ICON_SIZE = 256;
-static constexpr std::array<MenuIconSpec, 7> MAIN_MENU_ICON_SPECS = {{
+static constexpr std::array<MenuIconSpec, 8> MAIN_MENU_ICON_SPECS = {{
         {Action::Campaign, "campaign", "menu-icons/campaign.rgba"},
         {Action::Freeplay, "custom", "menu-icons/custom.rgba"},
         {Action::Playground, "playground", "menu-icons/playground.rgba"},
         {Action::Daily, "daily", "menu-icons/daily.rgba"},
+        {Action::Achievements, "achievements", "menu-icons/achievements.rgba"},
         {Action::HowTo, "howto", "menu-icons/howto.rgba"},
         {Action::Math, "math", "menu-icons/math.rgba"},
         {Action::Settings, "settings", "menu-icons/settings.rgba"},
@@ -4316,7 +4358,7 @@ const MenuIconSpec *findMainMenuIconSpec(Action action) {
 Color mainMenuIconAccent(Action action) {
     if (action == Action::Freeplay || action == Action::Math) return BLUE;
     if (action == Action::Playground) return PURPLE;
-    if (action == Action::Daily) return ORANGE;
+    if (action == Action::Daily || action == Action::Achievements) return ORANGE;
     if (action == Action::Settings) return MUTED_STRONG;
     return GREEN;
 }
@@ -4391,6 +4433,18 @@ void drawFallbackMainMenuIcon(AppState *s, Rect rect, Action action) {
         line(16.0f, 4.0f, 16.0f, 8.0f, base);
         line(4.8f, 10.0f, 19.2f, 10.0f, faint);
         dot(12.0f, 15.0f, 2.35f, accent);
+    } else if (action == Action::Achievements) {
+        box(6.0f, 5.5f, 12.0f, 8.4f, 2.0f, accent);
+        curve(6.1f, 8.0f, 3.2f, 7.5f, 3.0f, 12.2f, 7.0f, 11.8f, base, 0.85f);
+        curve(17.9f, 8.0f, 20.8f, 7.5f, 21.0f, 12.2f, 17.0f, 11.8f, base, 0.85f);
+        line(10.0f, 14.0f, 10.0f, 17.0f, base);
+        line(14.0f, 14.0f, 14.0f, 17.0f, base);
+        box(7.2f, 17.0f, 9.6f, 2.4f, 1.0f, base);
+        dot(10.0f, 9.0f, 1.0f, TEXT);
+        dot(12.0f, 9.0f, 1.0f, BLUE);
+        dot(14.0f, 9.0f, 1.0f, GREEN);
+        dot(11.0f, 11.0f, 1.0f, PURPLE);
+        dot(13.0f, 11.0f, 1.0f, TEXT);
     } else if (action == Action::HowTo) {
         line(5.0f, 6.4f, 5.0f, 17.6f, base);
         line(5.0f, 6.4f, 8.4f, 5.7f, base);
@@ -5218,18 +5272,18 @@ void drawMain(AppState *s) {
     float textScale = menuTextScale(s);
     float availableH = std::max(dp(s, 180), r.height - safeTop(s) - safeBottom(s) - dp(s, 24));
     float logoLimit = std::max(dp(s, 64), w - dp(s, 96));
-    float baseLogoSize = std::min(dp(s, 142), logoLimit);
+    float baseLogoSize = std::min(dp(s, 168), logoLimit);
     float baseBrandPad = std::min(r.height * 0.042f, dp(s, 36));
     float baseButtonH = dp(s, 48.0f + (textScale - 1.0f) * 12.0f);
     float baseButtonGap = dp(s, 9);
     float baseTitleScale = dp(s, 5.85f);
     bool baseTwoLineTitle = w < dp(s, 560) || r.textWidth("Invert the Matrix", baseTitleScale) > w - dp(s, 70);
     float baseTitleBlockH = baseTwoLineTitle ? dp(s, 82) : dp(s, 46);
-    float baseMenuStackH = baseButtonH * 7.0f + baseButtonGap * 6.0f;
+    float baseMenuStackH = baseButtonH * 8.0f + baseButtonGap * 7.0f;
     float baseContentH = baseBrandPad + baseLogoSize + dp(s, 48) + baseTitleBlockH + dp(s, 28) + baseMenuStackH;
     float fit = clampFloat(availableH / std::max(1.0f, baseContentH), 0.72f, 1.0f);
 
-    float minLogoSize = std::min(dp(s, 92), logoLimit);
+    float minLogoSize = std::min(dp(s, 106), logoLimit);
     float logoSize = std::max(minLogoSize, baseLogoSize * fit);
     float brandPad = std::max(0.0f, baseBrandPad * fit);
     float buttonH = std::max(dp(s, 40), baseButtonH * fit);
@@ -5240,7 +5294,7 @@ void drawMain(AppState *s) {
     float titleLineGap = std::max(dp(s, 30), dp(s, 40) * fit);
     bool twoLineTitle = w < dp(s, 560) || r.textWidth("Invert the Matrix", titleScale) > w - dp(s, 70);
     float titleBlockH = twoLineTitle ? std::max(dp(s, 60), dp(s, 82) * fit) : std::max(dp(s, 38), dp(s, 46) * fit);
-    float menuStackH = buttonH * 7.0f + buttonGap * 6.0f;
+    float menuStackH = buttonH * 8.0f + buttonGap * 7.0f;
     float contentH = brandPad + logoSize + titleOffset + titleBlockH + titleMenuGap + menuStackH;
     float containerTop = (r.height - contentH - safeBottom(s) * 0.5f) * 0.5f + safeTop(s) * 0.35f;
     float minTop = safeTop(s) + dp(s, 2);
@@ -5282,6 +5336,7 @@ void drawMain(AppState *s) {
     drawMenuButton(tr(s, "Custom Level"), Action::Freeplay);
     drawMenuButton(tr(s, "Playground"), Action::Playground);
     drawMenuButton(tr(s, "Daily Challenge"), Action::Daily);
+    drawMenuButton(tr(s, "Achievements"), Action::Achievements);
     drawMenuButton(tr(s, "How to Play"), Action::HowTo);
     drawMenuButton(tr(s, "The Math"), Action::Math);
     drawMenuButton(tr(s, "Settings"), Action::Settings);
@@ -5914,7 +5969,7 @@ Rect drawPlaygroundEditorBoard(AppState *s, float &y) {
                 float badgeSize = std::max(dp(s, 16), std::min(dp(s, 25), tile.w * 0.30f));
                 drawPadlockBadge(s, {tile.x + tile.w - badgeSize - dp(s, 4), tile.y + dp(s, 4), badgeSize, badgeSize});
             }
-            if (!s->hideNumbers || s->screen == Screen::Playground) {
+            if (s->showPlaygroundNumbers) {
                 std::string label = std::to_string(state);
                 r.text(label, tile.x + tile.w * 0.5f, tile.y + tile.h * 0.5f - tile.w * 0.13f,
                        std::max(2.0f, tile.w / 24.0f), state ? TEXT : rgba(24, 32, 43), 1);
@@ -7088,7 +7143,7 @@ void drawSettings(AppState *s) {
     float gap = dp(s, 12);
     float labelH = dp(s, 28.0f + (textScale - 1.0f) * 12.0f);
     float languageChipsH = dp(s, 64.0f + (textScale - 1.0f) * 10.0f);
-    float stackH = labelH + languageChipsH + gap + buttonH * 4.0f + gap * 4.0f;
+    float stackH = labelH + languageChipsH + gap + buttonH * 5.0f + gap * 5.0f;
     float minTop = headerContentTop + dp(s, 20);
     float maxTop = std::max(minTop, static_cast<float>(r.height) - safeBottom(s) - stackH - dp(s, 18));
     // Changelog note: Android settings controls are vertically centered instead of hugging the header.
@@ -7100,6 +7155,7 @@ void drawSettings(AppState *s) {
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "Sound") + " " + onOff(s, s->sound), Action::ToggleSetting, 0, false, s->sound, true, textScale); y += buttonH + gap;
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "Vibration") + " " + onOff(s, s->vibration), Action::ToggleSetting, 1, false, s->vibration, true, textScale); y += buttonH + gap;
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "Show numbers on tiles") + " " + onOff(s, !s->hideNumbers), Action::ToggleSetting, 2, false, !s->hideNumbers, true, textScale); y += buttonH + gap;
+    drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "Show numbers in Playground") + " " + onOff(s, s->showPlaygroundNumbers), Action::ToggleSetting, 3, false, s->showPlaygroundNumbers, true, textScale); y += buttonH + gap;
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "About"), Action::About, 0, false, false, true, textScale); y += buttonH;
     finishScrollContent(s, y);
     drawStickyScreenHeader(s, "Options", "Settings", Action::BackReturn, headerContentTop);
@@ -7275,7 +7331,11 @@ void drawAbout(AppState *s) {
     y += version.h + gap;
 
     drawGuideBlock(s, y, "Changelog",
-                   {"- 1.0.9 - 2026-05-28: " + tr(s, "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and the Playground logo is now a tile-colored basketball. Menu headers, locks, and text-size controls were polished across web and Android."),
+                   {"- 1.0.13 - 2026-05-30: " + tr(s, "The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress."),
+                    "- 1.0.12 - 2026-05-30: " + tr(s, "First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements."),
+                    "- 1.0.11 - 2026-05-30: " + tr(s, "Added a separate setting for Playground tile numbers, keeping Playground boards number-free unless it is turned on."),
+                    "- 1.0.10 - 2026-05-30: " + tr(s, "The Android release is prepared with version code 12, native debug symbols for Play Console crash reports, and refreshed changelog notes for the latest Play Store build."),
+                    "- 1.0.9 - 2026-05-28: " + tr(s, "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and the Playground logo is now a tile-colored basketball. Menu headers, locks, and text-size controls were polished across web and Android."),
                     "- 1.0.8 - 2026-05-16: " + tr(s, "Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer."),
                     "- 1.0.7 - 2026-05-14: " + tr(s, "Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link."),
                     "- 1.0.6 - 2026-05-13: " + tr(s, "Release builds keep native debug symbols for Play Console crash reports."),
@@ -7349,12 +7409,35 @@ bool containsIndex(const std::vector<int> &items, int value) {
     return std::find(items.begin(), items.end(), value) != items.end();
 }
 
+bool useWideGameLayout(AppState *s) {
+    Renderer &r = s->renderer;
+    return r.width > r.height * 1.08f;
+}
+
+float wideGamePanelWidth(AppState *s) {
+    Renderer &r = s->renderer;
+    return std::min(dp(s, 380.0f), std::max(dp(s, 286.0f), r.width * 0.34f));
+}
+
 Rect currentBoardRect(AppState *s) {
     Renderer &r = s->renderer;
+    if (useWideGameLayout(s)) {
+        float margin = dp(s, 18);
+        float panelW = wideGamePanelWidth(s);
+        float boardAreaX = panelW + margin;
+        float top = safeTop(s) + dp(s, 18);
+        float bottom = safeBottom(s) + dp(s, 18);
+        float maxW = std::max(dp(s, 72.0f), r.width - boardAreaX - margin);
+        float maxH = std::max(dp(s, 72.0f), r.height - top - bottom);
+        float cell = std::max(1.0f, std::min(maxW / s->session.puzzle.width, maxH / s->session.puzzle.height));
+        float bw = cell * s->session.puzzle.width;
+        float bh = cell * s->session.puzzle.height;
+        return {boardAreaX + (maxW - bw) * 0.5f, top + (maxH - bh) * 0.5f, bw, bh};
+    }
     float top = safeTop(s) + dp(s, 288);
     float bottom = safeBottom(s) + dp(s, 34);
-    float maxW = r.width - dp(s, 42);
-    float maxH = r.height - top - bottom;
+    float maxW = std::max(dp(s, 72.0f), r.width - dp(s, 42));
+    float maxH = std::max(dp(s, 72.0f), r.height - top - bottom);
     float cell = std::min(maxW / s->session.puzzle.width, maxH / s->session.puzzle.height);
     float bw = cell * s->session.puzzle.width;
     float bh = cell * s->session.puzzle.height;
@@ -7707,8 +7790,9 @@ void drawBoard(AppState *s) {
                 r.text(pat.badge, badge.x + badge.w * 0.5f, badge.y + badge.h * 0.08f, std::max(1.7f, tile.w / 40.0f), TEXT, 1);
             }
             std::string label;
+            bool showNumbers = s->session.mode == "playground" ? s->showPlaygroundNumbers : !s->hideNumbers;
             if (state > 0) {
-                if (!s->hideNumbers) label = std::to_string(state);
+                if (showNumbers) label = std::to_string(state);
             }
             if (!label.empty()) {
                 r.text(label, tile.x + tile.w * 0.5f, tile.y + tile.h * 0.5f - tile.w * 0.13f, std::max(2.0f, tile.w / 24.0f), state ? TEXT : rgba(24, 32, 43), 1);
@@ -7727,19 +7811,25 @@ void drawGame(AppState *s) {
     bool playground = g.mode == "playground";
     int64_t t = nowMs();
     if (!g.completed) g.elapsed = static_cast<int>((t - g.started) / 1000);
+    bool wide = useWideGameLayout(s);
     float top = safeTop(s) + dp(s, 8);
-    drawBackIcon(s, {dp(s, 14), top, dp(s, 50), dp(s, 44)}, Action::ExitGame);
-    drawGearIcon(s, {r.width - dp(s, 64), top, dp(s, 50), dp(s, 44)}, Action::Settings);
-    r.text(sessionModeLabel(s, g), dp(s, 84), top + dp(s, 1), dp(s, 2.32f), GREEN);
-    drawFittedText(s, puzzleDisplayName(s, g), dp(s, 84), top + dp(s, 27), r.width - dp(s, 164), dp(s, 3.28f), TEXT);
-    float y = top + dp(s, 68);
-    float margin = dp(s, 14);
-    float gap = dp(s, 9);
-    float cell = (r.width - margin * 2.0f - gap * 2.0f) / 3.0f;
-    float metricH = dp(s, 68);
-    Rect movesCard{margin, y, cell, metricH};
-    Rect rankingCard{margin + cell + gap, y, cell, metricH};
-    Rect timeCard{margin + (cell + gap) * 2.0f, y, cell, metricH};
+    float margin = dp(s, wide ? 16.0f : 14.0f);
+    float gap = dp(s, wide ? 8.0f : 9.0f);
+    float controlX = margin;
+    float controlW = wide ? std::max(dp(s, 220.0f), wideGamePanelWidth(s) - margin * 2.0f)
+                          : r.width - margin * 2.0f;
+    drawBackIcon(s, {wide ? controlX : dp(s, 14), top, dp(s, 50), dp(s, 44)}, Action::ExitGame);
+    drawGearIcon(s, {wide ? controlX + controlW - dp(s, 50) : r.width - dp(s, 64), top, dp(s, 50), dp(s, 44)}, Action::Settings);
+    float titleX = wide ? controlX + dp(s, 60) : dp(s, 84);
+    float titleW = wide ? controlW - dp(s, 120) : r.width - dp(s, 164);
+    r.text(sessionModeLabel(s, g), titleX, top + dp(s, 1), dp(s, 2.32f), GREEN);
+    drawFittedText(s, puzzleDisplayName(s, g), titleX, top + dp(s, 27), titleW, dp(s, 3.28f), TEXT);
+    float y = top + dp(s, wide ? 58.0f : 68.0f);
+    float cell = (controlW - gap * 2.0f) / 3.0f;
+    float metricH = dp(s, wide ? 60.0f : 68.0f);
+    Rect movesCard{controlX, y, cell, metricH};
+    Rect rankingCard{controlX + cell + gap, y, cell, metricH};
+    Rect timeCard{controlX + (cell + gap) * 2.0f, y, cell, metricH};
     drawGlassPanel(s, movesCard, PANEL);
     drawFittedText(s, tr(s, "Taps"), movesCard.x + movesCard.w * 0.5f, y + dp(s, 11),
                    movesCard.w - dp(s, 16), dp(s, 2.24f), MUTED, 1, true, 1.32f);
@@ -7761,10 +7851,10 @@ void drawGame(AppState *s) {
     drawFittedText(s, formatTime(g.elapsed), timeCard.x + timeCard.w * 0.5f, y + dp(s, 39),
                    timeCard.w - dp(s, 14), dp(s, 3.26f), TEXT, 1, true, 1.62f);
     y += metricH + dp(s, 9);
-    float detailH = dp(s, 60);
-    float miniW = dp(s, 52);
+    float detailH = dp(s, wide ? 56.0f : 60.0f);
+    float miniW = dp(s, wide ? 48.0f : 52.0f);
     float patternW = cell * 2.0f + gap;
-    Rect patternStrip{margin, y, patternW, detailH};
+    Rect patternStrip{controlX, y, patternW, detailH};
     drawGlassPanel(s, patternStrip, PANEL);
     bool patternCardPressed = isPressedButton(s, patternStrip, Action::PatternInfo, 0);
     if (patternCardPressed) {
@@ -7786,19 +7876,19 @@ void drawGame(AppState *s) {
                    patternStrip.w - miniW - dp(s, 30), dp(s, 2.50f), TEXT, 0, true, 1.36f);
     drawPatternMini(s, mini, g.puzzle);
     addButton(s, patternStrip, Action::PatternInfo, 0, true);
-    Rect bestCard{margin + (cell + gap) * 2.0f, y, cell, detailH};
+    Rect bestCard{controlX + (cell + gap) * 2.0f, y, cell, detailH};
     drawGlassPanel(s, bestCard, PANEL);
     drawFittedText(s, tr(s, "Personal Best"), bestCard.x + dp(s, 10), y + dp(s, 10),
                    bestCard.w - dp(s, 20), dp(s, 1.96f), MUTED, 0, true, 1.18f);
     drawFittedText(s, bestMovesText(s), bestCard.x + dp(s, 10), y + dp(s, 34),
                    bestCard.w - dp(s, 20), dp(s, 2.64f), GREEN, 0, true, 1.36f);
     y += detailH + dp(s, 9);
-    float toolH = dp(s, 58);
+    float toolH = dp(s, wide ? 52.0f : 58.0f);
     bool leaderboardAttempt = g.mode == "daily" && g.leaderboardAttempt && !g.completed;
     bool waitingForHintCompletion = hintCompletionPending(s);
-    Rect undoButton{margin, y, cell, toolH};
-    Rect resetButton{margin + cell + gap, y, cell, toolH};
-    Rect hintButton{margin + (cell + gap) * 2.0f, y, cell, toolH};
+    Rect undoButton{controlX, y, cell, toolH};
+    Rect resetButton{controlX + cell + gap, y, cell, toolH};
+    Rect hintButton{controlX + (cell + gap) * 2.0f, y, cell, toolH};
     Rect notice{resetButton.x, y, cell * 2.0f + gap, toolH};
     drawUndoToolButton(s, undoButton, !waitingForHintCompletion && !g.history.empty());
     if (leaderboardAttempt) {
@@ -7829,7 +7919,12 @@ void drawGame(AppState *s) {
                        !waitingForHintCompletion ? TEXT : withAlpha(MUTED, 0.45f), 1, true, 1.22f);
     }
     if (!s->hintLine.empty()) {
-        r.text(tr(s, s->hintLine), r.width * 0.5f, r.height - safeBottom(s) - dp(s, 24), dp(s, 2.08f), MUTED, 1);
+        if (wide) {
+            float hintY = std::min(r.height - safeBottom(s) - dp(s, 24), y + toolH + dp(s, 22));
+            drawFittedText(s, tr(s, s->hintLine), controlX, hintY, controlW, dp(s, 2.08f), MUTED, 0, false, 1.0f);
+        } else {
+            r.text(tr(s, s->hintLine), r.width * 0.5f, r.height - safeBottom(s) - dp(s, 24), dp(s, 2.08f), MUTED, 1);
+        }
     }
 
     if (s->completion) {
@@ -8188,6 +8283,11 @@ void handleAction(AppState *s, const Button &b) {
             go(s, Screen::Playground);
             break;
         case Action::Daily: playSound(s, SoundCue::Ui); go(s, Screen::Daily); break;
+        case Action::Achievements:
+            playSound(s, SoundCue::Ui);
+            syncEarnedCampaignAchievements(s);
+            playGamesShowAchievements(s);
+            break;
         case Action::HowTo: playSound(s, SoundCue::Ui); go(s, Screen::HowTo); break;
         case Action::Math: playSound(s, SoundCue::Ui); go(s, Screen::Math); break;
         case Action::Settings:
@@ -8378,6 +8478,10 @@ void handleAction(AppState *s, const Button &b) {
                 playSound(s, SoundCue::Ui);
                 s->hideNumbers = !s->hideNumbers;
                 s->progress.setInt("setting_hide_numbers", s->hideNumbers ? 1 : 0);
+            } else if (b.value == 3) {
+                playSound(s, SoundCue::Ui);
+                s->showPlaygroundNumbers = !s->showPlaygroundNumbers;
+                s->progress.setInt("setting_show_playground_numbers", s->showPlaygroundNumbers ? 1 : 0);
             }
             break;
         case Action::WidthMinus: playSound(s, SoundCue::Ui); s->customW = clampInt(s->customW - 1, 3, 9); saveFreePrefs(s); break;
@@ -8586,6 +8690,27 @@ void clearPressStateForScroll(AppState *s) {
     }
 }
 
+bool refreshDensity(AppState *s) {
+    if (!s || !s->native || !s->native->config) return false;
+    int density = AConfiguration_getDensity(s->native->config);
+    if (density <= 0) return false;
+    float nextDensity = density / 160.0f;
+    if (std::fabs(nextDensity - s->density) <= 0.001f) return false;
+    s->density = nextDensity;
+    return true;
+}
+
+void handleWindowMetricsChanged(AppState *s, bool forceViewport = false) {
+    if (!s) return;
+    bool sizeChanged = s->renderer.updateSurfaceSize(forceViewport);
+    bool densityChanged = refreshDensity(s);
+    if (!sizeChanged && !densityChanged) return;
+    s->scroll = clampScrollOffset(s, s->scroll);
+    s->dragging = false;
+    stopScrollMomentum(s);
+    clearPressStateForScroll(s);
+}
+
 void beginScrollDrag(AppState *s, float y, int64_t eventTimeMs) {
     float dy = y - s->downY;
     float slop = dp(s, 5.0f);
@@ -8745,7 +8870,16 @@ void handleCmd(android_app *app, int32_t cmd) {
     AppState *s = static_cast<AppState *>(app->userData);
     switch (cmd) {
         case APP_CMD_INIT_WINDOW:
-            if (app->window != nullptr) s->renderer.init(app);
+            if (app->window != nullptr) {
+                if (!s->renderer.ready()) s->renderer.init(app);
+                handleWindowMetricsChanged(s, true);
+            }
+            break;
+        case APP_CMD_WINDOW_RESIZED:
+        case APP_CMD_WINDOW_REDRAW_NEEDED:
+        case APP_CMD_CONTENT_RECT_CHANGED:
+        case APP_CMD_CONFIG_CHANGED:
+            handleWindowMetricsChanged(s, true);
             break;
         case APP_CMD_TERM_WINDOW:
             s->renderer.shutdown();

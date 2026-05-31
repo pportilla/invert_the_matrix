@@ -8,6 +8,7 @@
     <application
         android:name=".InvertMatrixApp"
         android:allowBackup="false"
+        android:appCategory="game"
         android:hasCode="true"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
@@ -22,9 +23,9 @@
 
         <activity
             android:name="android.app.NativeActivity"
-            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|uiMode"
+            android:configChanges="density|keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:exported="true"
-            android:screenOrientation="portrait">
+            android:resizeableActivity="true">
             <meta-data
                 android:name="android.app.lib_name"
                 android:value="invertmatrix" />

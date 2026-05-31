@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import re
 import time
 import urllib.parse
 from pathlib import Path
@@ -109,14 +110,33 @@ class PlayApi:
 
 
 def image_manifest(locale: str) -> dict[str, list[Path]]:
-    localized = OUT / "localized" / locale
     return {
         "icon": [OUT / "icon" / "play-store-icon-512.png"],
-        "featureGraphic": [localized / "feature-graphic" / "feature-graphic-1024x500.png"],
-        "phoneScreenshots": sorted((localized / "screenshots" / "phone").glob("*.png")),
-        "sevenInchScreenshots": sorted((localized / "screenshots" / "tablet-7-inch").glob("*.png")),
-        "tenInchScreenshots": sorted((localized / "screenshots" / "tablet-10-inch").glob("*.png")),
+        "featureGraphic": [OUT / "feature-graphic" / "feature-graphic-1024x500.png"],
+        "phoneScreenshots": sorted((OUT / "screenshots" / "phone").glob("*.png")),
+        "sevenInchScreenshots": sorted((OUT / "screenshots" / "tablet-7-inch").glob("*.png")),
+        "tenInchScreenshots": sorted((OUT / "screenshots" / "tablet-10-inch").glob("*.png")),
     }
+
+
+def listing_copy() -> dict[str, dict[str, str]]:
+    text = (OUT / "listing-description.md").read_text(encoding="utf-8")
+    listings: dict[str, dict[str, str]] = {}
+    for locale in LOCALES:
+        match = re.search(
+            rf"## {re.escape(locale)}\n\n### Short Description\n\n(.+?)\n\n### Full Description\n\n(.+?)\n\n### Feature Graphic Copy",
+            text,
+            re.S,
+        )
+        if not match:
+            raise RuntimeError(f"Missing listing copy for {locale}")
+        full_description = "\n\n".join(line.strip() for line in match.group(2).splitlines() if line.strip())
+        listings[locale] = {
+            "title": "Invert the Matrix",
+            "shortDescription": match.group(1).strip(),
+            "fullDescription": full_description,
+        }
+    return listings
 
 
 def validate_manifest(locales: tuple[str, ...]) -> None:
@@ -128,6 +148,16 @@ def validate_manifest(locales: tuple[str, ...]) -> None:
             for path in paths:
                 if not path.exists():
                     raise RuntimeError(f"Missing asset: {path}")
+
+
+def update_listings(api: PlayApi, edit_id: str, locales: tuple[str, ...]) -> None:
+    copy = listing_copy()
+    for locale in locales:
+        url = (
+            f"{API}/applications/{segment(api.package_name)}/edits/{segment(edit_id)}"
+            f"/listings/{segment(locale)}"
+        )
+        api.request("PUT", url, json=copy[locale])
 
 
 def upload_assets(api: PlayApi, edit_id: str, locales: tuple[str, ...]) -> None:
@@ -146,6 +176,7 @@ def main() -> None:
     parser.add_argument("--service-account", type=Path, default=SERVICE_ACCOUNT, help="Service account JSON path.")
     parser.add_argument("--locales", nargs="+", default=list(LOCALES), help="Listing locales to update.")
     parser.add_argument("--commit", action="store_true", help="Commit the Play edit. Without this, the edit is validated then deleted.")
+    parser.add_argument("--skip-validate", action="store_true", help="Commit without calling edits.validate first.")
     args = parser.parse_args()
 
     locales = tuple(args.locales)
@@ -156,9 +187,11 @@ def main() -> None:
     committed = False
     try:
         print(f"Created edit {edit_id}")
+        update_listings(api, edit_id, locales)
         upload_assets(api, edit_id, locales)
-        api.validate_edit(edit_id)
-        print("Validated edit")
+        if not args.skip_validate:
+            api.validate_edit(edit_id)
+            print("Validated edit")
         if args.commit:
             api.commit_edit(edit_id)
             committed = True

@@ -41,6 +41,10 @@
             <span>Daily Challenge</span>
             <img class="menu-icon" src="assets/menu-icons/daily.png" alt="" aria-hidden="true" draggable="false">
           </button>
+          <button class="menu-action" data-action="show-achievements">
+            <span>Achievements</span>
+            <img class="menu-icon" src="assets/menu-icons/achievements.png" alt="" aria-hidden="true" draggable="false">
+          </button>
           <button class="menu-action" data-action="show-howto">
             <span>How to Play</span>
             <img class="menu-icon" src="assets/menu-icons/howto.png" alt="" aria-hidden="true" draggable="false">
@@ -229,6 +233,23 @@
         </header>
 
         <section id="daily-list" class="daily-list" aria-label="Daily puzzle tiers"></section>
+      </main>
+
+      <main id="screen-achievements" class="screen">
+        <header class="screen-header sticky-screen-header section-header">
+          <button class="icon-button icon-only" data-action="show-main" aria-label="Back">
+            <svg class="back-mark" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19 12H6m6-6-6 6 6 6"></path>
+            </svg>
+          </button>
+          <img class="section-header-icon" src="assets/menu-icons/achievements.png" alt="" aria-hidden="true" draggable="false">
+          <div class="section-title-block">
+            <p class="kicker">Achievements</p>
+            <h2>Achievements</h2>
+          </div>
+        </header>
+
+        <section id="achievements-list" class="achievements-list" aria-label="Achievements"></section>
       </main>
 
       <main id="screen-game" class="screen screen-game">
@@ -701,6 +722,10 @@
             <span>Show numbers on tiles</span>
             <input id="setting-numbers" type="checkbox">
           </label>
+          <label class="toggle-row">
+            <span>Show numbers in Playground</span>
+            <input id="setting-playground-numbers" type="checkbox">
+          </label>
           <button class="settings-button" data-action="show-about">
             <span>About</span>
             <svg class="chevron-mark" viewBox="0 0 24 24" aria-hidden="true">
@@ -731,7 +756,7 @@
 
         <section class="about-panel" aria-label="About Invert the Matrix">
           <div class="about-version-card">
-            <strong id="about-version">Version 1.0.9</strong>
+            <strong id="about-version">Version 1.0.13</strong>
           </div>
 
           <div class="about-changelog-card">

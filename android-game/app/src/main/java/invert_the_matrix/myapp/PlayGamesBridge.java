@@ -17,6 +17,7 @@ public final class PlayGamesBridge {
     public static final int BOARD_DAILY_GLOBAL = 3;
 
     private static final int RC_LEADERBOARD_UI = 9004;
+    private static final int RC_ACHIEVEMENTS_UI = 9005;
     private static final String TAG = "InvertPlayGames";
     private static final int[] ACHIEVEMENT_RES_IDS = {
             R.string.achievement_chapter_01_clear,
@@ -103,6 +104,11 @@ public final class PlayGamesBridge {
                 }));
     }
 
+    public static void showAchievements(Activity activity) {
+        if (activity == null) return;
+        activity.runOnUiThread(() -> openAchievementsWhenAuthenticated(activity));
+    }
+
     public static void unlockAchievement(Activity activity, int achievement) {
         if (activity == null) return;
         int resId = achievementResId(achievement);
@@ -134,6 +140,45 @@ public final class PlayGamesBridge {
     private static int achievementResId(int achievement) {
         if (achievement < 0 || achievement >= ACHIEVEMENT_RES_IDS.length) return 0;
         return ACHIEVEMENT_RES_IDS[achievement];
+    }
+
+    private static void openAchievementsWhenAuthenticated(Activity activity) {
+        if (activity == null) return;
+        PlayGames.getGamesSignInClient(activity)
+                .isAuthenticated()
+                .addOnCompleteListener(task -> {
+                    boolean authenticated = task.isSuccessful()
+                            && task.getResult() != null
+                            && task.getResult().isAuthenticated();
+                    if (authenticated) {
+                        showAchievementsUi(activity);
+                        return;
+                    }
+                    PlayGames.getGamesSignInClient(activity)
+                            .signIn()
+                            .addOnCompleteListener(signInTask -> {
+                                boolean signedIn = signInTask.isSuccessful()
+                                        && signInTask.getResult() != null
+                                        && signInTask.getResult().isAuthenticated();
+                                if (signedIn) {
+                                    flushPendingAchievements(activity);
+                                    showAchievementsUi(activity);
+                                    return;
+                                }
+                                Log.w(TAG, "Opening achievements failed; Play Games sign-in unavailable", signInTask.getException());
+                            });
+                });
+    }
+
+    private static void showAchievementsUi(Activity activity) {
+        if (activity == null) return;
+        PlayGames.getAchievementsClient(activity)
+                .getAchievementsIntent()
+                .addOnSuccessListener((Intent intent) -> activity.startActivityForResult(intent, RC_ACHIEVEMENTS_UI))
+                .addOnFailureListener(error -> {
+                    Log.w(TAG, "Opening achievements failed", error);
+                    PlayGames.getGamesSignInClient(activity).signIn();
+                });
     }
 
     private static void checkAchievementAuth(Activity activity, boolean requestSignInWhenEmpty) {
