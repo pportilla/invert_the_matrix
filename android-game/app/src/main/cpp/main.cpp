@@ -134,7 +134,7 @@ constexpr int64_t HINT_COOLDOWN_MS = 500;
 constexpr int64_t HINT_COMPLETION_DELAY_MS = 500;
 constexpr int EXACT_BFS_STATE_LIMIT = 500000;
 constexpr int EXACT_NULLSPACE_LIMIT = 500000;
-constexpr const char *APP_VERSION_NAME = "1.0.13";
+constexpr const char *APP_VERSION_NAME = "1.0.15";
 constexpr const char *GITHUB_PROFILE_URL = "https://github.com/pportilla";
 constexpr const char *GITHUB_MARK_SVG_PATH =
         "M8 0 C3.58 0 0 3.58 0 8 "
@@ -2485,6 +2485,7 @@ struct AppState {
     int completionMark = 0;
     bool dailyExitConfirm = false;
     bool patternInfoOpen = false;
+    int64_t patternInfoOpenedAt = 0;
     int lastCampaign = 0;
     int selectedCampaignGroup = 0;
     float density = 1.0f;
@@ -2661,6 +2662,17 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Menu", "Menú"},
             {"Taps", "Toques"},
             {"Pattern", "Patrón"},
+            {"Goal", "Objetivo"},
+            {"All tiles white", "Todas en blanco"},
+            {"Tap effect", "Efecto del toque"},
+            {"View", "Ver"},
+            {"Tap effect (not the goal)", "Efecto del toque (no es el objetivo)"},
+            {"Mixed tap effects", "Efectos de toque mixtos"},
+            {"This preview shows which tiles one tap changes.", "Esta vista previa muestra qué casillas cambia un toque."},
+            {"Goal: make every tile white.", "Objetivo: dejar todas las casillas en blanco."},
+            {"Playground has no completion goal.", "En la Zona de pruebas no hay objetivo final."},
+            {"On mixed boards, match each tappable tile's symbol to an effect above.", "En los tableros mixtos, relaciona el símbolo de cada casilla que se puede tocar con uno de los efectos de arriba."},
+            {"Hold a tile to preview the exact effect before tapping.", "Mantén pulsada una casilla para ver el efecto exacto antes de tocarla."},
             {"Tap pattern info", "Información del patrón de toque"},
             {"When you tap a tile, this pattern is centered on that tile. Every tile inside the pattern changes state.", "Al tocar una casilla, este patrón se centra en esa casilla. Cada casilla dentro del patrón cambia de estado."},
             {"The green outline matches the preview you see when you hold a tile.", "El borde verde coincide con la vista previa que ves al mantener presionada una casilla."},
@@ -2868,6 +2880,8 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"solution exists iff", "hay solución sii"},
             {"solutions", "soluciones"},
             {"is a field", "es un cuerpo"},
+            {"Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility.", "Se actualizaron las dependencias AndroidX Activity y Fragment a versiones compatibles actuales para Google Play."},
+            {"Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand.", "La app ahora está orientada a Android 16, mantiene fiable la navegación Atrás del sistema y deja claro el objetivo de poner todas las casillas en blanco, con ayuda del efecto de toque disponible cuando se necesite."},
             {"The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress.", "El menú principal ahora incluye Logros, el tablero animado es más grande y Android abre el estado de logros de Play Games mientras la app web muestra el progreso de logros de campaña."},
             {"First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements.", "Primera versión de producción con niveles de campaña, retos diarios, rompecabezas personalizados, tableros de Zona de pruebas, pistas, estrellas y logros de Play Games."},
             {"Added a separate setting for Playground tile numbers, keeping Playground boards number-free unless it is turned on.", "Se añadió un ajuste separado para los números en casillas de Zona de pruebas, para que sus tableros no muestren números salvo que esté activado."},
@@ -2983,6 +2997,17 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Menu", "Menu"},
             {"Taps", "Touchers"},
             {"Pattern", "Motif"},
+            {"Goal", "Objectif"},
+            {"All tiles white", "Toutes blanches"},
+            {"Tap effect", "Effet du toucher"},
+            {"View", "Voir"},
+            {"Tap effect (not the goal)", "Effet du toucher (pas l’objectif)"},
+            {"Mixed tap effects", "Effets de toucher mixtes"},
+            {"This preview shows which tiles one tap changes.", "Cet aperçu montre quelles tuiles sont modifiées par un toucher."},
+            {"Goal: make every tile white.", "Objectif : rendre toutes les tuiles blanches."},
+            {"Playground has no completion goal.", "Le bac à sable n’a pas d’objectif de fin."},
+            {"On mixed boards, match each tappable tile's symbol to an effect above.", "Sur les plateaux mixtes, associe le symbole de chaque tuile touchable à l’un des effets ci-dessus."},
+            {"Hold a tile to preview the exact effect before tapping.", "Maintiens une tuile appuyée pour voir l’effet exact avant de la toucher."},
             {"Tap pattern info", "Info sur le motif de toucher"},
             {"When you tap a tile, this pattern is centered on that tile. Every tile inside the pattern changes state.", "Quand tu touches une tuile, ce motif se centre sur cette tuile. Chaque tuile dans le motif change d'état."},
             {"The green outline matches the preview you see when you hold a tile.", "Le contour vert correspond à l'aperçu visible quand tu gardes une tuile appuyée."},
@@ -3190,6 +3215,8 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"solution exists iff", "solution existe ssi"},
             {"solutions", "solutions"},
             {"is a field", "est un corps"},
+            {"Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility.", "Mise à jour des dépendances AndroidX Activity et Fragment vers les versions prises en charge actuelles pour Google Play."},
+            {"Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand.", "L’application cible désormais Android 16, maintient un retour système fiable et clarifie l’objectif de rendre toutes les tuiles blanches, avec une aide sur l’effet de toucher disponible à la demande."},
             {"The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress.", "Le menu principal inclut maintenant Succès, le plateau animé est plus grand, et Android ouvre l'état des succès Play Games tandis que la version web affiche la progression des succès de campagne."},
             {"First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements.", "Première version de production avec niveaux de campagne, défis quotidiens, casse-têtes personnalisés, plateaux de bac à sable, indices, étoiles et succès Play Games."},
             {"Added a separate setting for Playground tile numbers, keeping Playground boards number-free unless it is turned on.", "Ajout d'un réglage séparé pour les nombres des tuiles du bac à sable, afin que les plateaux du bac à sable restent sans nombres sauf si ce réglage est activé."},
@@ -3984,6 +4011,7 @@ void go(AppState *s, Screen screen) {
     s->completion = false;
     s->dailyExitConfirm = false;
     s->patternInfoOpen = false;
+    s->patternInfoOpenedAt = 0;
     s->hintCompletionDueAt = 0;
     s->hasPressedButton = false;
     s->pressedButtonUntil = 0;
@@ -4009,6 +4037,7 @@ void startGame(AppState *s, const Puzzle &p, const std::string &mode) {
     s->completionStars = 0;
     s->completionMark = 0;
     s->patternInfoOpen = false;
+    s->patternInfoOpenedAt = 0;
     s->hintLine.clear();
     s->pressTile = -1;
     s->longPreviewShown = false;
@@ -4166,6 +4195,7 @@ void completeGame(AppState *s) {
     if (!s->hasSession || s->session.completed) return;
     if (s->session.mode == "playground") return;
     s->patternInfoOpen = false;
+    s->patternInfoOpenedAt = 0;
     s->session.completed = true;
     s->session.elapsed = static_cast<int>((nowMs() - s->session.started) / 1000);
     s->completionStars = calculateStars(s->session);
@@ -7331,7 +7361,9 @@ void drawAbout(AppState *s) {
     y += version.h + gap;
 
     drawGuideBlock(s, y, "Changelog",
-                   {"- 1.0.13 - 2026-05-30: " + tr(s, "The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress."),
+                   {"- 1.0.15 - 2026-09-01: " + tr(s, "Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility."),
+                    "- 1.0.14 - 2026-09-01: " + tr(s, "Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand."),
+                    "- 1.0.13 - 2026-05-30: " + tr(s, "The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress."),
                     "- 1.0.12 - 2026-05-30: " + tr(s, "First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements."),
                     "- 1.0.11 - 2026-05-30: " + tr(s, "Added a separate setting for Playground tile numbers, keeping Playground boards number-free unless it is turned on."),
                     "- 1.0.10 - 2026-05-30: " + tr(s, "The Android release is prepared with version code 12, native debug symbols for Play Console crash reports, and refreshed changelog notes for the latest Play Store build."),
@@ -7478,25 +7510,6 @@ void drawPatternPreviewGrid(AppState *s, Rect rect, const Pattern &pat) {
     }
 }
 
-void drawPatternMini(AppState *s, Rect rect, const Puzzle &p) {
-    drawPatternPreviewGrid(s, rect, patternFor(p.defaultPattern));
-}
-
-void drawPatternInfoButton(AppState *s, Rect rect, bool pressed = false) {
-    Renderer &r = s->renderer;
-    float cx = rect.x + rect.w * 0.5f;
-    float cy = rect.y + rect.h * 0.5f;
-    float radius = std::min(rect.w, rect.h) * 0.42f;
-    Color ring = pressed ? withAlpha(GREEN, 0.78f) : rgba(229, 236, 245, 0.58f);
-    r.circle(cx, cy, radius, ring, 28);
-    r.circle(cx, cy, std::max(1.0f, radius - dp(s, 1.25f)), PANEL, 28);
-    float dot = std::max(dp(s, 2.2f), radius * 0.18f);
-    float stemW = std::max(dp(s, 1.8f), radius * 0.16f);
-    float stemH = radius * 0.52f;
-    r.circle(cx, cy - radius * 0.30f, dot * 0.5f, TEXT, 14);
-    r.roundedRect(cx - stemW * 0.5f, cy - stemH * 0.06f, stemW, stemH, stemW * 0.5f, TEXT);
-}
-
 void addOutsideDismissButtons(AppState *s, Rect modal, Action action) {
     Renderer &r = s->renderer;
     float w = static_cast<float>(r.width);
@@ -7509,44 +7522,128 @@ void addOutsideDismissButtons(AppState *s, Rect modal, Action action) {
     if (rightX < w) addButton(s, {rightX, modal.y, w - rightX, modal.h}, action, 0, true);
 }
 
+std::vector<std::string> tapPatternKeysForPuzzle(const Puzzle &p) {
+    std::vector<std::string> keys;
+    std::set<std::string> seen;
+    for (int tile : tappableIndexes(p)) {
+        auto patternIt = p.tilePatterns.find(tile);
+        std::string key = patternIt == p.tilePatterns.end() ? p.defaultPattern : patternIt->second;
+        if (seen.insert(key).second) keys.push_back(key);
+    }
+    if (keys.empty()) keys.push_back(p.defaultPattern);
+    return keys;
+}
+
+void drawPatternInfoPreview(AppState *s, Rect area, const std::vector<std::string> &keys, float reveal) {
+    if (keys.empty() || area.w <= 0.0f || area.h <= 0.0f) return;
+    int count = static_cast<int>(keys.size());
+    int columns = count == 1 ? 1 : std::min(3, count);
+    int rows = (count + columns - 1) / columns;
+    float gap = dp(s, count == 1 ? 0.0f : 7.0f);
+    float slotW = (area.w - gap * static_cast<float>(columns - 1)) / static_cast<float>(columns);
+    float slotH = (area.h - gap * static_cast<float>(rows - 1)) / static_cast<float>(rows);
+    float scale = 0.78f + 0.22f * reveal;
+    float side = std::max(1.0f, std::min(slotW, slotH) * scale);
+
+    for (int i = 0; i < count; ++i) {
+        int row = i / columns;
+        int col = i % columns;
+        int rowCount = std::min(columns, count - row * columns);
+        float rowWidth = side * static_cast<float>(rowCount) + gap * static_cast<float>(rowCount - 1);
+        float x = area.x + (area.w - rowWidth) * 0.5f + static_cast<float>(col) * (side + gap);
+        float rowBlockH = side * static_cast<float>(rows) + gap * static_cast<float>(rows - 1);
+        float y = area.y + (area.h - rowBlockH) * 0.5f + static_cast<float>(row) * (side + gap);
+        Pattern pattern = patternFor(keys[static_cast<size_t>(i)]);
+        drawPatternPreviewGrid(s, {x, y, side, side}, pattern);
+        if (count > 1 && side >= dp(s, 18.0f)) {
+            float badgeH = std::min(dp(s, 18.0f), side * 0.30f);
+            float badgeW = std::max(badgeH, std::min(dp(s, 24.0f), side * 0.38f));
+            Rect badge{x + side - badgeW - dp(s, 2.5f), y + dp(s, 2.5f), badgeW, badgeH};
+            s->renderer.roundedRect(badge.x, badge.y, badge.w, badge.h, badge.h * 0.5f,
+                                    rgba(9, 11, 18, 0.88f));
+            s->renderer.text(pattern.badge, badge.x + badge.w * 0.5f, badge.y + badge.h * 0.08f,
+                             std::max(dp(s, 1.35f), badgeH / 7.2f), TEXT, 1);
+        }
+    }
+}
+
 void drawPatternInfoPopup(AppState *s) {
     if (!s->patternInfoOpen) return;
     Renderer &r = s->renderer;
-    r.rect(0, 0, r.width, r.height, rgba(0, 0, 0, 0.68f));
+    int64_t elapsed = s->patternInfoOpenedAt > 0 ? std::max<int64_t>(0, nowMs() - s->patternInfoOpenedAt) : 260;
+    float opening = clampFloat(static_cast<float>(elapsed) / 240.0f, 0.0f, 1.0f);
+    float eased = 1.0f - std::pow(1.0f - opening, 3.0f);
+    float patternReveal = clampFloat((static_cast<float>(elapsed) - 45.0f) / 215.0f, 0.0f, 1.0f);
+    patternReveal = 1.0f - std::pow(1.0f - patternReveal, 3.0f);
+    r.rect(0, 0, r.width, r.height, rgba(0, 0, 0, 0.68f * eased));
 
-    float modalW = r.width - dp(s, 36);
-    float pad = dp(s, 18);
+    float maxH = r.height - safeTop(s) - safeBottom(s) - dp(s, 28);
+    bool compact = maxH < dp(s, 470);
+    float modalW = std::min(r.width - dp(s, 36), dp(s, 520));
+    float pad = dp(s, compact ? 14.0f : 18.0f);
     float textW = modalW - pad * 2.0f;
-    float titleH = dp(s, 74);
-    float demoH = dp(s, 112);
-    float bodyScale = dp(s, 2.54f);
-    float bodyLineH = dp(s, 34);
-    std::vector<std::string> lines = wrapTextLines(s, std::vector<std::string>{
-            "When you tap a tile, this pattern is centered on that tile. Every tile inside the pattern changes state.",
-            "The green outline matches the preview you see when you hold a tile."
-    }, bodyScale, textW);
-    float modalH = pad * 2.0f + titleH + demoH + dp(s, 18) +
-                   bodyLineH * static_cast<float>(lines.size());
-    float maxH = r.height - safeTop(s) - safeBottom(s) - dp(s, 42);
-    modalH = std::min(modalH, maxH);
-    Rect modal{dp(s, 18), (r.height - modalH) * 0.5f, modalW, modalH};
-    modal.y = std::max(safeTop(s) + dp(s, 18), std::min(modal.y, r.height - safeBottom(s) - modalH - dp(s, 18)));
+    float titleH = dp(s, compact ? 62.0f : 76.0f);
+    float demoH = dp(s, compact ? 78.0f : 118.0f);
+    float bodyScale = dp(s, compact ? 1.82f : 2.18f);
+    float bodyLineH = dp(s, compact ? 22.0f : 27.0f);
+    float bodyGap = dp(s, compact ? 10.0f : 15.0f);
+    bool playground = s->session.mode == "playground";
+    std::vector<std::string> patternKeys = tapPatternKeysForPuzzle(s->session.puzzle);
+    bool mixed = patternKeys.size() > 1;
+    std::vector<std::string> paragraphs{
+            "This preview shows which tiles one tap changes.",
+            playground ? "Playground has no completion goal." : "Goal: make every tile white."
+    };
+    if (mixed) paragraphs.push_back("On mixed boards, match each tappable tile's symbol to an effect above.");
+    paragraphs.push_back("Hold a tile to preview the exact effect before tapping.");
+    std::vector<std::string> visibleParagraphs = paragraphs;
+    std::vector<std::string> lines = wrapTextLines(s, visibleParagraphs, bodyScale, textW);
+    float minDemoH = dp(s, compact ? 42.0f : 52.0f);
+    auto fixedContentHeight = [&]() {
+        return pad * 2.0f + titleH + bodyGap + bodyLineH * static_cast<float>(lines.size());
+    };
+    float fixedH = fixedContentHeight();
+    for (int attempt = 0; attempt < 7 && fixedH + minDemoH > maxH; ++attempt) {
+        bodyScale *= 0.90f;
+        bodyLineH *= 0.90f;
+        lines = wrapTextLines(s, visibleParagraphs, bodyScale, textW);
+        fixedH = fixedContentHeight();
+    }
+    while (visibleParagraphs.size() > 2 && fixedH + minDemoH > maxH) {
+        visibleParagraphs.pop_back();
+        lines = wrapTextLines(s, visibleParagraphs, bodyScale, textW);
+        fixedH = fixedContentHeight();
+    }
+    if (!lines.empty() && fixedH + minDemoH > maxH) {
+        float nonBodyH = pad * 2.0f + titleH + bodyGap;
+        float availableLineH = (maxH - nonBodyH - minDemoH) / static_cast<float>(lines.size());
+        bodyLineH = std::max(1.0f, std::min(bodyLineH, availableLineH));
+        fixedH = fixedContentHeight();
+    }
+    demoH = std::max(1.0f, std::min(demoH, maxH - fixedH));
+    float modalH = fixedH + demoH;
+    float baseY = (r.height - modalH) * 0.5f;
+    baseY = std::max(safeTop(s) + dp(s, 14),
+                     std::min(baseY, r.height - safeBottom(s) - modalH - dp(s, 14)));
+    Rect modal{(r.width - modalW) * 0.5f, baseY + (1.0f - eased) * dp(s, 10), modalW, modalH};
     addOutsideDismissButtons(s, modal, Action::ClosePatternInfo);
     addButton(s, modal, Action::PatternInfoBlocker, 0, true);
 
     r.roundedRect(modal.x, modal.y, modal.w, modal.h, dp(s, 8), LINE_STRONG);
     r.roundedRect(modal.x + 1.2f, modal.y + 1.2f, modal.w - 2.4f, modal.h - 2.4f, dp(s, 7), PANEL_2);
-    drawBackIcon(s, {modal.x + dp(s, 12), modal.y + dp(s, 12), dp(s, 42), dp(s, 38)}, Action::ClosePatternInfo);
-    drawFittedText(s, tr(s, "Tap Pattern"), modal.x + dp(s, 68), modal.y + dp(s, 15),
+    drawBackIcon(s, {modal.x + dp(s, 10), modal.y + dp(s, 10), dp(s, 42), dp(s, 38)}, Action::ClosePatternInfo);
+    drawFittedText(s, tr(s, "Tap effect (not the goal)"), modal.x + dp(s, 64), modal.y + dp(s, compact ? 11.0f : 14.0f),
                    modal.w - dp(s, 86), dp(s, 2.08f), GREEN, 0, true, 1.18f);
-    drawFittedText(s, tr(s, "Pattern"), modal.x + dp(s, 68), modal.y + dp(s, 42),
-                   modal.w - dp(s, 86), dp(s, 3.44f), TEXT, 0, true, 1.55f);
+    std::string patternName = mixed ? tr(s, "Mixed tap effects") : localizedPatternLabel(s, patternKeys.front());
+    drawFittedText(s, patternName, modal.x + dp(s, 64), modal.y + dp(s, compact ? 36.0f : 43.0f),
+                   modal.w - dp(s, 82), dp(s, compact ? 2.80f : 3.44f), TEXT, 0, true, 1.50f);
 
-    float demoW = std::min(textW, dp(s, 146));
     float demoY = modal.y + pad + titleH;
-    drawMathPulseDemo(s, {modal.x + (modal.w - demoW) * 0.5f, demoY, demoW, demoH}, true);
+    float demoW = mixed ? textW : std::min(textW, demoH);
+    drawPatternInfoPreview(s, {modal.x + (modal.w - demoW) * 0.5f, demoY, demoW, demoH},
+                           patternKeys, patternReveal);
 
-    float textY = demoY + demoH + dp(s, 15);
+    float textY = demoY + demoH + bodyGap;
     for (const std::string &line : lines) {
         drawFittedText(s, line, modal.x + pad, textY, textW, bodyScale, MUTED, 0, false, 1.0f);
         textY += bodyLineH;
@@ -7852,30 +7949,37 @@ void drawGame(AppState *s) {
                    timeCard.w - dp(s, 14), dp(s, 3.26f), TEXT, 1, true, 1.62f);
     y += metricH + dp(s, 9);
     float detailH = dp(s, wide ? 56.0f : 60.0f);
-    float miniW = dp(s, wide ? 48.0f : 52.0f);
-    float patternW = cell * 2.0f + gap;
-    Rect patternStrip{controlX, y, patternW, detailH};
-    drawGlassPanel(s, patternStrip, PANEL);
-    bool patternCardPressed = isPressedButton(s, patternStrip, Action::PatternInfo, 0);
-    if (patternCardPressed) {
-        drawPressedButtonFeedback(s, patternStrip, std::min(dp(s, 8), patternStrip.h * 0.18f));
+    Rect goalCard{controlX, y, cell, detailH};
+    if (!playground) {
+        drawGlassPanel(s, goalCard, PANEL);
+        drawFittedText(s, tr(s, "Goal"), goalCard.x + dp(s, 10), goalCard.y + dp(s, 10),
+                       goalCard.w - dp(s, 20), dp(s, 1.96f), GREEN, 0, true, 1.18f);
+        drawFittedText(s, tr(s, "All tiles white"), goalCard.x + dp(s, 10), goalCard.y + dp(s, 34),
+                       goalCard.w - dp(s, 20), dp(s, 2.36f), TEXT, 0, true, 1.24f);
     }
-    Rect mini{patternStrip.x + patternStrip.w - miniW - dp(s, 7), y + dp(s, 6), miniW, dp(s, 48)};
-    std::string pat = g.puzzle.tilePatterns.empty() ? localizedPatternLabel(s, g.puzzle.defaultPattern) : tr(s, "Mixed patterns");
-    std::string patternTitle = tr(s, "Pattern");
-    float patternTitleScale = dp(s, 2.08f);
-    float patternTitleX = patternStrip.x + dp(s, 10);
-    drawFittedText(s, patternTitle, patternTitleX, y + dp(s, 10),
-                   patternStrip.w - miniW - dp(s, 30), patternTitleScale, MUTED, 0, true, 1.28f);
-    float infoSize = dp(s, 22);
-    float infoX = std::min(patternTitleX + r.textWidth(patternTitle, patternTitleScale) + dp(s, 7),
-                           patternStrip.x + patternStrip.w - miniW - dp(s, 33));
-    drawPatternInfoButton(s, {infoX, y + dp(s, 4), infoSize, infoSize}, patternCardPressed);
-    drawFittedText(s, pat,
-                   patternStrip.x + dp(s, 10), y + dp(s, 34),
-                   patternStrip.w - miniW - dp(s, 30), dp(s, 2.50f), TEXT, 0, true, 1.36f);
-    drawPatternMini(s, mini, g.puzzle);
-    addButton(s, patternStrip, Action::PatternInfo, 0, true);
+
+    Rect patternCard{playground ? controlX : controlX + cell + gap,
+                     y,
+                     playground ? cell * 2.0f + gap : cell,
+                     detailH};
+    drawGlassPanel(s, patternCard, PANEL);
+    bool patternCardPressed = isPressedButton(s, patternCard, Action::PatternInfo, 0);
+    if (patternCardPressed) {
+        drawPressedButtonFeedback(s, patternCard, std::min(dp(s, 8), patternCard.h * 0.18f));
+    }
+    float chevronSpace = dp(s, 24);
+    drawFittedText(s, tr(s, "Tap effect"), patternCard.x + dp(s, 10), patternCard.y + dp(s, 10),
+                   patternCard.w - dp(s, 20) - chevronSpace, dp(s, 1.96f), MUTED, 0, true, 1.18f);
+    drawFittedText(s, tr(s, "View"), patternCard.x + dp(s, 10), patternCard.y + dp(s, 34),
+                   patternCard.w - dp(s, 20) - chevronSpace, dp(s, 2.48f), TEXT, 0, true, 1.28f);
+    float chevronX = patternCard.x + patternCard.w - dp(s, 14);
+    float chevronY = patternCard.y + patternCard.h * 0.5f + dp(s, 5);
+    Color chevronColor = patternCardPressed ? GREEN : MUTED_STRONG;
+    r.line(chevronX - dp(s, 4), chevronY - dp(s, 6), chevronX + dp(s, 2), chevronY,
+           dp(s, 2.0f), chevronColor);
+    r.line(chevronX + dp(s, 2), chevronY, chevronX - dp(s, 4), chevronY + dp(s, 6),
+           dp(s, 2.0f), chevronColor);
+    addButton(s, patternCard, Action::PatternInfo, 0, true);
     Rect bestCard{controlX + (cell + gap) * 2.0f, y, cell, detailH};
     drawGlassPanel(s, bestCard, PANEL);
     drawFittedText(s, tr(s, "Personal Best"), bestCard.x + dp(s, 10), y + dp(s, 10),
@@ -8352,16 +8456,23 @@ void handleAction(AppState *s, const Button &b) {
             break;
         }
         case Action::PatternInfo:
+            if (!s->hasSession || s->screen != Screen::Game || s->completion ||
+                s->dailyExitConfirm || s->session.completed) {
+                break;
+            }
             playSound(s, SoundCue::Ui);
             s->patternInfoOpen = true;
+            s->patternInfoOpenedAt = nowMs();
             s->pressTile = -1;
             s->longPreviewShown = false;
             s->previewTile = -1;
             s->previewClearAt = 0;
+            if (s->hintLine == "Previewing this tap.") s->hintLine.clear();
             break;
         case Action::ClosePatternInfo:
             playSound(s, SoundCue::Ui);
             s->patternInfoOpen = false;
+            s->patternInfoOpenedAt = 0;
             break;
         case Action::PatternInfoBlocker:
             break;
@@ -8655,6 +8766,7 @@ void tapTile(AppState *s, int idx) {
 void back(AppState *s) {
     if (s->patternInfoOpen) {
         s->patternInfoOpen = false;
+        s->patternInfoOpenedAt = 0;
         return;
     }
     if (s->dailyExitConfirm) {

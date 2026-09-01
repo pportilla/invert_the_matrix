@@ -13,16 +13,16 @@ def campaignAssetsDir = layout.buildDirectory.dir("generated/assets/campaign")
 def campaignAssetFile = layout.buildDirectory.file("generated/assets/campaign/campaign-levels.json")
 
 android {
-    namespace "invert_the_matrix.myapp"
-    compileSdk 35
-    buildToolsVersion "37.0.0"
+    namespace = "invert_the_matrix.myapp"
+    compileSdk 36
+    buildToolsVersion "36.0.0"
 
     defaultConfig {
         applicationId "invert_the_matrix.myapp"
         minSdk 23
-        targetSdk 35
-        versionCode 15
-        versionName "1.0.13"
+        targetSdk 36
+        versionCode 17
+        versionName "1.0.15"
         ndk {
             abiFilters "arm64-v8a", "x86_64"
         }
@@ -53,13 +53,13 @@ android {
         }
         release {
             minifyEnabled true
-            shrinkResources true
+            shrinkResources = true
             ndk {
-                debugSymbolLevel "SYMBOL_TABLE"
+                debugSymbolLevel = "SYMBOL_TABLE"
             }
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             if (keystoreProperties["storeFile"]) {
-                signingConfig signingConfigs.release
+                signingConfig = signingConfigs.release
             }
         }
     }
@@ -158,7 +158,7 @@ nativeTargets.each { target ->
 
         doFirst {
             if (!ndkRoot.exists()) {
-                throw new GradleException("NDK not found at ${ndkRoot}. Install it with: ANDROID_HOME=${rootProject.file("local-sdk")} ANDROID_SDK_ROOT=${rootProject.file("local-sdk")} sdkmanager --sdk_root=${rootProject.file("local-sdk")} 'ndk;28.2.13676358'")
+                throw new GradleException("NDK not found at ${ndkRoot}. Install it with: ${rootProject.file("local-sdk")}/cmdline-tools/latest/bin/android --no-metrics --sdk=${rootProject.file("local-sdk")} sdk install ndk/28.2.13676358")
             }
             nativeOut.parentFile.mkdirs()
             nativeSymbolOut.parentFile.mkdirs()
@@ -218,5 +218,16 @@ tasks.configureEach {
 preBuild.dependsOn("syncCampaignLevels", "verifyCampaignLevelsAsset", nativeTaskNames)
 
 dependencies {
+    // Play Games still requests obsolete AndroidX transitive versions. These
+    // constraints upgrade the packaged versions without making them part of
+    // the app's own API surface.
+    constraints {
+        implementation("androidx.activity:activity:1.13.0") {
+            because "Play Games transitively requests obsolete Activity 1.0.0"
+        }
+        implementation("androidx.fragment:fragment:1.9.0") {
+            because "Play Games transitively requests obsolete Fragment 1.1.0"
+        }
+    }
     implementation "com.google.android.gms:play-services-games-v2:21.0.0"
 }

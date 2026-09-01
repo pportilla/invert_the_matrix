@@ -7,6 +7,7 @@ third_party/skia/
 local.properties
 signing/keystore.properties
 signing/*.jks
+signing*.zip
 *.apk
 *.apks
 *.aab

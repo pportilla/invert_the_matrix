@@ -2,6 +2,64 @@
 
 Summarized release notes for Invert the Matrix.
 
+## Android 1.0.15 - 2026-09-01
+
+Version code: 17
+
+- Updated AndroidX Fragment from the resolved 1.1.0 dependency to the current
+  stable 1.9.0 release.
+- Updated AndroidX Activity from the resolved 1.0.0 dependency to the current
+  stable 1.13.0 release.
+- Removed the outdated-SDK warnings reported by Google Play for version code
+  16 while retaining Android 16 targeting and the new goal/tap-effect UI.
+
+Play Store "What's new":
+
+Updated for Android 16 with a clearer all-white goal, on-demand tap-effect
+help, and current supported AndroidX libraries.
+
+Localized Play Store "What's new":
+
+en-US: Updated for Android 16 with a clearer all-white goal, on-demand
+tap-effect help, and current supported AndroidX libraries.
+
+es-ES: Actualización para Android 16 con un objetivo más claro, ayuda del
+efecto de toque disponible cuando se necesita y bibliotecas AndroidX actuales.
+
+fr-FR: Mise à jour pour Android 16 avec un objectif plus clair, une aide sur
+l’effet du toucher à la demande et des bibliothèques AndroidX actuelles.
+
+## Android 1.0.14 - 2026-09-01
+
+Version code: 16
+
+- Updated the app to compile against and target Android 16 (API level 36).
+- Preserved the existing native system Back behavior on Android 16 while the
+  app transitions to the predictive-back callback API.
+- Made the all-white goal explicit during puzzle gameplay.
+- Replaced the always-visible pattern diagram with animated tap-effect help
+  that opens only when requested, including accurate mixed-pattern previews.
+- Added explicit no-backup rules for Android 12 and later device transfers.
+- Kept the minimum supported version at Android 6 (API level 23).
+
+Play Store "What's new":
+
+Updated for Android 16. The all-white goal is now clear at a glance, while
+animated tap-effect help stays hidden until you open it.
+
+Localized Play Store "What's new":
+
+en-US: Updated for Android 16. The all-white goal is now clear at a glance,
+while animated tap-effect help stays hidden until you open it.
+
+es-ES: Actualización para Android 16. El objetivo de dejar todas las casillas
+en blanco ahora se ve de un vistazo, y la ayuda animada del efecto de toque se
+mantiene oculta hasta que la abras.
+
+fr-FR: Mise à jour pour Android 16. L’objectif de rendre toutes les tuiles
+blanches est maintenant clair, et l’aide animée sur l’effet de toucher reste
+masquée jusqu’à son ouverture.
+
 ## 1.0.13 - 2026-05-30
 
 Version code: 15

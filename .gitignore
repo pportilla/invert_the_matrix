@@ -47,6 +47,7 @@ android-game/signing/*.jks
 android-game/signing/*.keystore
 android-game/signing/*.p12
 android-game/signing/*.pem
+android-game/signing*.zip
 android-game/app/google-services.json
 android-game/app/src/**/google-services.json
 

@@ -9,6 +9,8 @@
         android:name=".InvertMatrixApp"
         android:allowBackup="false"
         android:appCategory="game"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:hasCode="true"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
@@ -21,9 +23,11 @@
             android:name="com.google.android.gms.games.APP_ID"
             android:value="@string/game_services_project_id" />
 
+        <!-- The native input loop currently handles Back through AKEYCODE_BACK. -->
         <activity
             android:name="android.app.NativeActivity"
             android:configChanges="density|keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:enableOnBackInvokedCallback="false"
             android:exported="true"
             android:resizeableActivity="true">
             <meta-data

@@ -41,7 +41,7 @@ Requirements:
 
 - Linux development environment
 - JDK 17 or newer
-- Android SDK with platform 35, build tools 37.0.0, and NDK
+- Android SDK with platform 36, build tools 36.0.0, and NDK
   `28.2.13676358`
 - Skia source checked out at `android-game/third_party/skia`
 - `ninja`, `python3`, and standard C/C++ build tools
@@ -58,13 +58,13 @@ mkdir -p local-sdk
 export ANDROID_HOME="$PWD/local-sdk"
 export ANDROID_SDK_ROOT="$PWD/local-sdk"
 
-# Use your installed Android command line tools, or place them under
-# local-sdk/cmdline-tools/latest first.
-sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
-  "platform-tools" \
-  "platforms;android-35" \
-  "build-tools;37.0.0" \
-  "ndk;28.2.13676358"
+# Use the Android CLI bundled with the current command-line tools.
+export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+android --no-metrics --sdk="$ANDROID_SDK_ROOT" sdk install \
+  platform-tools \
+  platforms/android-36 \
+  build-tools/36.0.0 \
+  ndk/28.2.13676358
 ```
 
 Fetch Skia:

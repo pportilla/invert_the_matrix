@@ -8,12 +8,12 @@ layer.
 
 ## Build Configuration
 
-- `compileSdk` / `targetSdk`: 35
+- `compileSdk` / `targetSdk`: 36
 - `minSdk`: 23
 - Android Gradle Plugin: 9.2.1
 - Gradle wrapper: 9.4.1
 - NDK: `28.2.13676358`
-- Build tools: `37.0.0`
+- Build tools: `36.0.0`
 - Debug application id suffix: `.debug`
 - Release bundle output:
   `app/build/outputs/bundle/release/app-release.aab`
@@ -34,11 +34,12 @@ Install Android SDK packages into the project-local SDK:
 mkdir -p local-sdk
 export ANDROID_HOME="$PWD/local-sdk"
 export ANDROID_SDK_ROOT="$PWD/local-sdk"
-sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
-  "platform-tools" \
-  "platforms;android-35" \
-  "build-tools;37.0.0" \
-  "ndk;28.2.13676358"
+export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+android --no-metrics --sdk="$ANDROID_SDK_ROOT" sdk install \
+  platform-tools \
+  platforms/android-36 \
+  build-tools/36.0.0 \
+  ndk/28.2.13676358
 ```
 
 Fetch Skia:
