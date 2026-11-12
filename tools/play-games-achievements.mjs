@@ -42,6 +42,33 @@ const chapterTitles = [
 ];
 
 const translations = {
+  ko: {
+    "Binary Beginnings": "두 가지 색의 시작",
+    "Fourfold Flips": "네 줄 뒤집기",
+    "Lights With Lock Icons": "잠긴 불빛",
+    "Lockstep Squares": "나란히 놓인 네모",
+    "First Empty Holes": "첫 빈자리",
+    "Binary Breakaways": "두 가지 색의 탈출",
+    "Fivefold Binary": "다섯 줄, 두 가지 색",
+    "Three-Color Start": "세 가지 색의 시작",
+    "Triple Grid": "세 가지 색의 격자",
+    "Three Lock-Icon Tiles": "세 가지 색과 자물쇠",
+    "Three Empty Holes": "세 가지 색과 빈자리",
+    "Triple Combine": "세 가지 색의 조합",
+    "Pattern Primer": "패턴 첫걸음",
+    "Patterns With Lock Icons": "패턴과 자물쇠",
+    "Color Gauntlet": "색깔 도전",
+    "Four-State Start": "네 가지 상태의 시작",
+    "Four-State Lock-Icon Tiles": "네 가지 상태와 자물쇠",
+    "Four-State Empty Holes": "네 가지 상태와 빈자리",
+    "Four-State Patterns": "네 가지 상태의 패턴",
+    "Four-State Matrix": "네 가지 상태의 행렬",
+    "Five-State Start": "다섯 가지 상태의 시작",
+    "Five-State Lock-Icon Tiles": "다섯 가지 상태와 자물쇠",
+    "Five-State Empty Holes": "다섯 가지 상태와 빈자리",
+    "Five-State Patterns": "다섯 가지 상태의 패턴",
+    "Dense Dimensions": "빽빽한 격자",
+  },
   es: {
     "Binary Beginnings": "Comienzos binarios",
     "Fourfold Flips": "Giros cuádruples",
@@ -154,11 +181,13 @@ function makeAchievements() {
       initialState: "REVEALED",
       name: {
         "en-US": `Clear ${title}`,
+        "ko-KR": `${t("ko", title)} · 그룹 완료`,
         "es-ES": `Completa ${t("es", title)}`,
         "fr-FR": `Termine ${t("fr", title)}`,
       },
       description: {
         "en-US": `Complete all 9 levels in Group ${group}.`,
+        "ko-KR": `${group}그룹의 레벨 9개를 모두 완료하세요.`,
         "es-ES": `Completa los 9 niveles del grupo ${group}.`,
         "fr-FR": `Termine les 9 niveaux du groupe ${group}.`,
       },
@@ -172,11 +201,13 @@ function makeAchievements() {
       initialState: "REVEALED",
       name: {
         "en-US": `Master ${title}`,
+        "ko-KR": `${t("ko", title)} · 별 수집가`,
         "es-ES": `Domina ${t("es", title)}`,
         "fr-FR": `Maîtrise ${t("fr", title)}`,
       },
       description: {
         "en-US": `Earn 27 stars in Group ${group}.`,
+        "ko-KR": `${group}그룹에서 별 27개를 모으세요.`,
         "es-ES": `Gana 27 estrellas en el grupo ${group}.`,
         "fr-FR": `Gagne 27 étoiles dans le groupe ${group}.`,
       },
@@ -594,20 +625,14 @@ function writeImportZip(args) {
     achievement.sortRank,
   ])).join("\n") + "\n";
 
-  const localizations = achievements.flatMap((achievement) => [
-    csvLine([
+  const localizations = achievements.flatMap((achievement) =>
+    ["es-ES", "fr-FR", "ko-KR"].map((locale) => csvLine([
       achievement.name["en-US"],
-      achievement.name["es-ES"],
-      achievement.description["es-ES"],
-      "es-ES",
-    ]),
-    csvLine([
-      achievement.name["en-US"],
-      achievement.name["fr-FR"],
-      achievement.description["fr-FR"],
-      "fr-FR",
-    ]),
-  ]).join("\n") + "\n";
+      achievement.name[locale],
+      achievement.description[locale],
+      locale,
+    ]))
+  ).join("\n") + "\n";
 
   const iconMappings = achievements.map((achievement) => csvLine([
     achievement.name["en-US"],

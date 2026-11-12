@@ -94,7 +94,7 @@ private upload key.
 
 1. Check the highest version code already uploaded in Play Console. Increase
    `versionCode` above it, and keep `versionName`, both apps' About screens, and
-   English, Spanish, and French release notes aligned.
+   English, Spanish, French, and Korean release notes aligned.
 2. Run the complete release check above. Review
    `app/build/reports/lint-results-release.html`.
 3. Smoke-test the debug and optimized release APKs on emulators. Cover Android
@@ -183,7 +183,7 @@ leaderboard IDs from `app/src/main/res/values/strings.xml`.
 ## Repeatable Play publishing helper
 
 From the repository root, `tools/publish_play_release.py` validates the signed
-bundle, matches native symbol build IDs, and reads all three release-note
+bundle, matches native symbol build IDs, and reads the release-note
 translations from `CHANGELOG.md`. Its default `status` command reads the saved
 local report. Commands without `--commit` make no Google Play changes.
 

@@ -35,8 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type-check, build, and generate campaign data
+      - name: Check translations, build, and generate campaign data
         run: |
+          npm run check:translations
           npm run build
           npm run generate:campaign
 

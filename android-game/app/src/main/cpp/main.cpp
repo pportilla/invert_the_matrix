@@ -137,7 +137,7 @@ constexpr int64_t HINT_COOLDOWN_MS = 500;
 constexpr int64_t HINT_COMPLETION_DELAY_MS = 500;
 constexpr int EXACT_BFS_STATE_LIMIT = 500000;
 constexpr int EXACT_NULLSPACE_LIMIT = 500000;
-constexpr const char *APP_VERSION_NAME = "1.0.16";
+constexpr const char *APP_VERSION_NAME = "1.0.17";
 constexpr const char *GITHUB_PROFILE_URL = "https://github.com/pportilla";
 constexpr const char *GITHUB_MARK_SVG_PATH =
         "M8 0 C3.58 0 0 3.58 0 8 "
@@ -183,6 +183,10 @@ float clampFloat(float value, float minValue, float maxValue) {
     return std::max(minValue, std::min(maxValue, value));
 }
 
+const std::unordered_map<std::string, std::string> &translationTable(const std::string &language);
+struct LanguageOption { const char *code; const char *name; };
+constexpr LanguageOption languages[] = {{"en", "English"}, {"es", "Español"}, {"fr", "Français"}, {"ko", "한국어"}};
+
 struct Renderer {
     android_app *app = nullptr;
     EGLDisplay display = EGL_NO_DISPLAY;
@@ -216,6 +220,7 @@ struct Renderer {
     static constexpr int FONT_CHAR_COUNT = 224;
     static constexpr int MATH_GLYPH_COUNT = 8;
     stbtt_bakedchar baked[FONT_CHAR_COUNT]{};
+    std::unordered_map<int, stbtt_packedchar> supplementalGlyphs;
     stbtt_packedchar mathBaked[MATH_GLYPH_COUNT]{};
     GLuint mathTexture = 0;
     bool mathReady = false;
@@ -418,6 +423,66 @@ struct Renderer {
         loadMathFont();
     }
 
+    std::vector<unsigned char> readFontAsset(const char *path) const {
+        if (!app || !app->activity || !app->activity->assetManager) return {};
+        AAsset *asset = AAssetManager_open(app->activity->assetManager, path, AASSET_MODE_BUFFER);
+        if (!asset) return {};
+        const auto *bytes = static_cast<const unsigned char *>(AAsset_getBuffer(asset));
+        std::vector<unsigned char> data;
+        if (bytes) data.assign(bytes, bytes + AAsset_getLength(asset));
+        AAsset_close(asset);
+        return data;
+    }
+
+    void packSupplementalGlyphs(const std::vector<unsigned char> &font, std::vector<unsigned char> &bitmap, int firstRow) {
+        supplementalGlyphs.clear();
+        if (font.empty() || firstRow >= FONT_ATLAS) return;
+        std::set<int> needed;
+        auto collect = [&](const std::string &text) {
+            for (int cp : utf8Codepoints(text)) {
+                if (cp >= FONT_FIRST_CHAR + FONT_CHAR_COUNT) needed.insert(cp);
+            }
+        };
+        for (const auto &language : languages) {
+            collect(language.name);
+            for (const auto &entry : translationTable(language.code)) {
+                collect(entry.first);
+                collect(entry.second);
+            }
+        }
+        std::vector<int> codepoints(needed.begin(), needed.end());
+        std::vector<stbtt_packedchar> glyphs(codepoints.size());
+        // Reuse the space below the Latin alphabet in the same GL texture.
+        // Use a smaller bake size if a future translation introduces more glyphs.
+        for (int size : {80, 64, 48, 32, 24}) {
+            stbtt_pack_context pack{};
+            if (!stbtt_PackBegin(&pack, bitmap.data() + firstRow * FONT_ATLAS, FONT_ATLAS,
+                                 FONT_ATLAS - firstRow, 0, 1, nullptr)) break;
+            stbtt_pack_range range{};
+            range.font_size = static_cast<float>(size);
+            range.array_of_unicode_codepoints = codepoints.data();
+            range.num_chars = static_cast<int>(codepoints.size());
+            range.chardata_for_range = glyphs.data();
+            int packed = stbtt_PackFontRanges(&pack, font.data(), 0, &range, 1);
+            stbtt_PackEnd(&pack);
+            if (!packed) continue;
+            for (size_t i = 0; i < glyphs.size(); ++i) {
+                auto glyph = glyphs[i];
+                glyph.y0 += firstRow;
+                glyph.y1 += firstRow;
+                float factor = FONT_BAKE_SIZE / size;
+                glyph.xadvance *= factor;
+                glyph.xoff *= factor;
+                glyph.yoff *= factor;
+                glyph.xoff2 *= factor;
+                glyph.yoff2 *= factor;
+                supplementalGlyphs.emplace(codepoints[i], glyph);
+            }
+            return;
+        }
+        LOGE("Supplemental font glyphs did not fit the atlas");
+    }
+
     void loadFont() {
         const char *paths[] = {
                 "/system/fonts/Roboto-Regular.ttf",
@@ -438,6 +503,8 @@ struct Renderer {
             if (in) break;
             fontData.clear();
         }
+        auto fallbackFont = readFontAsset("fonts/DroidSansFallback-subset.ttf");
+        if (fontData.empty()) fontData = fallbackFont;
         if (fontData.empty()) {
             LOGE("No system font found, falling back to pixel text");
             fontReady = false;
@@ -460,6 +527,7 @@ struct Renderer {
             return;
         }
 
+        packSupplementalGlyphs(fallbackFont, bitmap, result);
         glGenTextures(1, &fontTexture);
         glBindTexture(GL_TEXTURE_2D, fontTexture);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -473,26 +541,7 @@ struct Renderer {
 
     void loadMathFont() {
         mathReady = false;
-        std::vector<unsigned char> fontData;
-        if (app && app->activity && app->activity->assetManager) {
-            AAsset *asset = AAssetManager_open(app->activity->assetManager,
-                                               "fonts/NotoSansMath-Regular.ttf",
-                                               AASSET_MODE_BUFFER);
-            if (asset) {
-                off_t size = AAsset_getLength(asset);
-                if (size > 0) {
-                    fontData.resize(static_cast<size_t>(size));
-                    int total = 0;
-                    while (total < size) {
-                        int read = AAsset_read(asset, fontData.data() + total, static_cast<size_t>(size - total));
-                        if (read <= 0) break;
-                        total += read;
-                    }
-                    if (total != size) fontData.clear();
-                }
-                AAsset_close(asset);
-            }
-        }
+        auto fontData = readFontAsset("fonts/NotoSansMath-Regular.ttf");
         if (fontData.empty()) {
             const char *paths[] = {
                     "/system/fonts/NotoSansMath-Regular.ttf",
@@ -979,8 +1028,9 @@ struct Renderer {
             float widthPx = 0.0f;
             for (int codepoint : utf8Codepoints(text)) {
                 if (codepoint == '\n') break;
-                int glyph = fontGlyphIndex(codepoint);
-                widthPx += baked[glyph].xadvance * factor;
+                auto glyph = supplementalGlyphs.find(codepoint);
+                float advance = glyph != supplementalGlyphs.end() ? glyph->second.xadvance : baked[fontGlyphIndex(codepoint)].xadvance;
+                widthPx += advance * factor;
             }
             return widthPx;
         }
@@ -1098,9 +1148,13 @@ struct Renderer {
                     lineY += heightPx * 1.18f;
                     continue;
                 }
-                int glyph = fontGlyphIndex(codepoint);
                 stbtt_aligned_quad q{};
-                stbtt_GetBakedQuad(baked, FONT_ATLAS, FONT_ATLAS, glyph, &baseX, &baseY, &q, 1);
+                auto glyph = supplementalGlyphs.find(codepoint);
+                if (glyph != supplementalGlyphs.end()) {
+                    stbtt_GetPackedQuad(&glyph->second, FONT_ATLAS, FONT_ATLAS, 0, &baseX, &baseY, &q, 1);
+                } else {
+                    stbtt_GetBakedQuad(baked, FONT_ATLAS, FONT_ATLAS, fontGlyphIndex(codepoint), &baseX, &baseY, &q, 1);
+                }
                 float x0 = x + q.x0 * factor;
                 float x1 = x + q.x1 * factor;
                 float y0 = lineY + q.y0 * factor;
@@ -2754,150 +2808,81 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Endgame Circuit", "Circuito final"},
             {"Final Inversion", "Inversión final"},
             {"Clear the board", "Deja el tablero en blanco"},
-            {"Clear every tile by turning it white.", "Deja en blanco todas las casillas."},
-            {"Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.", "Un toque en una casilla aplica su patrón de toque al tablero, y cada casilla alcanzada avanza un estado."},
-            {"Use previews and level clues to plan calmly before each tap.", "Mira la vista previa y las pistas del nivel para jugar con calma antes de cada toque."},
-            {"1. Make every tile white", "1. Deja todas las casillas en blanco"},
-            {"A white tile is solved.", "Una casilla blanca ya está resuelta."},
-            {"Colored tiles are not wrong. They just need to keep advancing until they return to white.", "Las casillas de color no están mal. Solo tienen que seguir avanzando hasta volver al blanco."},
-            {"The puzzle ends only when every tile is white at the same time.", "El nivel se completa cuando todas las casillas están blancas al mismo tiempo."},
-            {"2. Tap and cycle", "2. Toca y haz avanzar"},
-            {"Tap an available tile to apply the level's tap pattern.", "Toca una casilla disponible para aplicar el patrón de toque del nivel."},
-            {"Every tile reached by the pattern advances one state.", "Cada casilla alcanzada por el patrón avanza un estado."},
-            {"States cycle: after the last colored state, the next advance returns that tile to white.", "Los estados van en ciclo: después del último color, el siguiente avance devuelve la casilla al blanco."},
-            {"3. Use the pattern preview", "3. Usa la vista previa del patrón"},
-            {"A level can use a cross, diagonal, square, horizontal, vertical, knight, or mixed pattern.", "Un nivel puede usar patrón de cruz, diagonal, cuadrado, horizontal, vertical, caballo o mixto."},
-            {"Hold or hover a tile to see exactly which tiles will change before you tap.", "Mantén presionada una casilla, o pasa el cursor por encima, para ver exactamente cuáles cambiarán antes de tocar."},
-            {"4. Handle special tiles", "4. Ten en cuenta las casillas especiales"},
-            {"A tile with a lock icon still needs to become white and can change when a nearby tap reaches it.", "Una casilla con candado también debe quedar blanca y puede cambiar cuando la alcanza un toque cercano."},
-            {"You cannot tap a tile with a lock icon directly.", "No puedes tocar directamente una casilla con candado."},
-            {"An empty hole is outside the board. Tap patterns skip empty holes.", "Un hueco vacío está fuera del tablero. Los patrones de toque saltan los huecos vacíos."},
-            {"Modes: Choose your puzzle", "Modos: elige partida"},
-            {"Campaign: Solve fixed levels in order. Each solve opens the next level.", "Campaña: resuelve niveles fijos en orden. Cada victoria abre el siguiente nivel."},
-            {"Campaign: Pick groups on a 5x5 map. Earn 15 stars in a group to open adjacent groups.", "Campaña: elige grupos en un mapa 5x5. Gana 15 estrellas en un grupo para abrir grupos adyacentes."},
-            {"Custom Level: Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.", "Nivel personalizado: elige tamaño, estados, patrón, dificultad, casillas con candado y huecos vacíos. El generador siempre intenta crear una solución única."},
-            {"Playground: Build a board by hand, share its puzzle code, and play without a completion modal.", "Zona de pruebas: crea un tablero a mano, comparte su código de rompecabezas y juega sin pantalla de finalización."},
-            {"Daily Challenge: Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.", "Reto diario: juega los mismos tres niveles generados que el resto para la fecha de hoy. Cada uno guarda su mejor resultado."},
+            {"Turn every tile white. A single tap can change several tiles at once.", "Deja todo el tablero en blanco. Con un solo toque puedes cambiar varias casillas a la vez."},
+            {"Before you tap, hold a tile to see where its pattern reaches.", "Antes de tocar una casilla, mantenla pulsada para ver hasta dónde llega su patrón."},
+            {"1. Read the colors", "1. Fíjate en los colores"},
+            {"White is the color you want every tile to reach.", "El blanco es el color al que deben llegar todas las casillas."},
+            {"A white tile can still change color if another tap reaches it.", "Una casilla blanca puede volver a cambiar de color si la alcanza otro toque."},
+            {"You solve the puzzle when all the tiles are white at once.", "Resuelves el nivel cuando todas las casillas están blancas a la vez."},
+            {"2. Follow the color cycle", "2. Sigue el ciclo de colores"},
+            {"Tap an unlocked tile. Its pattern tells you which tiles will change.", "Toca una casilla sin candado. Su patrón indica qué casillas cambiarán."},
+            {"Each tile in the pattern moves on to its next color.", "Cada casilla que alcanza el patrón pasa al siguiente color."},
+            {"After the last color comes white again.", "Después del último color vuelve el blanco."},
+            {"3. Check the pattern", "3. Comprueba el patrón"},
+            {"Look for crosses, diagonals, squares, rows, columns and even chess knight moves. Some boards mix several patterns.", "Hay cruces, diagonales, cuadrados, filas, columnas y hasta saltos de caballo de ajedrez. Algunos tableros combinan varios patrones."},
+            {"Hold a tile to preview its pattern. Lift your finger when you’re done looking.", "Mantén pulsada una casilla para ver su patrón. Cuando termines de mirarlo, levanta el dedo."},
+            {"4. Locks and holes", "4. Candados y huecos"},
+            {"A locked tile still has to turn white.", "Las casillas con candado también tienen que quedar blancas."},
+            {"To change it, tap another tile whose pattern reaches it.", "Para cambiar una casilla con candado, toca otra cuyo patrón la alcance."},
+            {"A hole is just a gap in the board. Tap patterns skip it.", "Donde hay un hueco no hay casilla. Los patrones de toque se lo saltan."},
+            {"Choose your puzzle", "Elige tu rompecabezas"},
+            {"Campaign: Pick a group on the 5 × 5 map. Earn 15 stars there to unlock the groups directly beside it, above it and below it.", "Campaña: Elige un grupo en el mapa de 5 × 5. Consigue 15 estrellas en él para desbloquear los grupos que tenga a la izquierda, a la derecha, arriba y abajo."},
+            {"Custom Level: Choose the board size, number of colors, pattern and difficulty. You can add locks and holes. The game looks for a puzzle with a unique solution when it can.", "Nivel personalizado: Elige el tamaño del tablero, el número de colores, el patrón y la dificultad. Puedes añadir candados y huecos. El juego procura crear un rompecabezas con una única solución."},
+            {"Playground: Build your own board and share it with a puzzle code. You can keep experimenting even after every tile turns white.", "Zona de pruebas: Crea tu propio tablero y comparte su código. Puedes seguir probando toques incluso cuando todo el tablero esté en blanco."},
+            {"Daily Challenge: Everyone gets the same three puzzles each day. Each one keeps its own best score.", "Reto diario: Cada día hay tres rompecabezas iguales para todos. Tu mejor resultado se guarda por separado en cada uno."},
             {"Taps, stars, and hints", "Toques, estrellas y pistas"},
-            {"The tap counter counts every tap you commit.", "El contador suma cada toque que haces."},
-            {"Three stars mean you matched the generator's minimum found tap count.", "Consigues tres estrellas si igualas el mínimo de toques encontrado por el generador."},
-            {"Two-star and one-star targets allow extra taps.", "Los objetivos de dos y una estrella admiten algunos toques extra."},
-            {"Undo rewinds one tap, and Reset restores the starting board.", "Deshacer vuelve un toque atrás, y Reiniciar recupera el tablero inicial."},
-            {"Hint applies the next tap from a solver plan. A hinted try can still complete the puzzle, but it no longer earns stars.", "La pista aplica el siguiente toque de un plan de resolución. Puedes completar el nivel con pistas, pero ese intento ya no gana estrellas."},
-            {"Tiles changed by a hint are outlined in red.", "Las casillas cambiadas por una pista aparecen con borde rojo."},
-            {"Sound toggles audio effects.", "Sonido activa o desactiva los efectos."},
-            {"Show numbers on tiles displays state values when you want a more exact view.", "Mostrar números en las casillas enseña los valores cuando quieres ver el estado exacto."},
-            {"Android also includes haptic feedback controls.", "En Android también hay controles de vibración."},
-            {"Invert the Matrix is a modular linear-algebra puzzle.", "Invert the Matrix es un rompecabezas de álgebra lineal modular."},
-            {"To play, think of each tile as having a state, shown by its color.", "Para jugar, piensa que cada casilla tiene un estado, mostrado por su color."},
-            {"A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile.", "Un toque a una casilla no cambia solo la casilla que tocas, sino que cambia todas las casillas que se encuentran en un patrón centrado en la casilla elegida."},
-            {"After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all tiles white at the same time.", "Después del último estado (color), una casilla vuelve al blanco. El objetivo es encontrar una secuencia de toques para que todas las casillas terminen siendo blancas al mismo tiempo."},
-            {"Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap.", "Algunos tableros tienen solo dos estados posibles: blanco y azul, y solo un patrón: una cruz centrada en la casilla que tocas."},
-            {"But later on, everything gets much more complicated.", "¡Pero más adelante todo se complica mucho más!"},
-            {"Modeling The Game", "Modelo del juego"},
-            {"Turn the board into one equation.", "Convertir el tablero en una ecuación."},
-            {"First list the active board positions in a fixed order.", "Primero enumeramos las casillas en un orden fijo."},
-            {"Then the displayed board is a vector s in (Z/nZ)^m.", "Entonces el tablero mostrado pasa a ser un vector s en (Z/nZ)^m."},
-            {"Each allowed tap has an effect vector recording which tiles it advances.", "Cada toque permitido tiene un vector de efecto que indica qué casillas hace avanzar."},
-            {"The columns of A are those effect vectors, and a tap-count vector x solves the puzzle when s + A x = 0 modulo n.", "Las columnas de A son esos vectores de efecto, y un vector de toques x resuelve el nivel cuando s + A x = 0 módulo n."},
-            {"Values are read modulo n, so after n - 1 the next value is 0.", "Los valores se leen módulo n, así que después de n - 1 el siguiente valor es 0."},
-            {"From Lights Out", "Desde Lights Out"},
-            {"Classical Lights Out is the n = 2 case: tiles are 0 or 1.", "Lights Out clásico es el caso n = 2: las casillas valen 0 o 1."},
-            {"Tapping a tile changes the same shape of nearby tiles every time.", "Tocar una casilla cambia siempre el mismo grupo de casillas cercanas."},
-            {"Usually that shape is the tapped tile plus the tiles above, below, left, and right.", "Normalmente ese grupo es la casilla tocada más las casillas de arriba, abajo, izquierda y derecha."},
-            {"Changing a tile is adding 1 modulo 2, so tapping the same tile twice gives no net change.", "Cambiar una casilla equivale a sumar 1 módulo 2, por eso tocar la misma casilla dos veces no cambia nada en total."},
-            {"Invert the Matrix keeps that add-the-effects rule while allowing n states over Z/nZ.", "Invert the Matrix conserva esa regla de sumar efectos, pero permite n estados sobre Z/nZ."},
-            {"Empty holes are not included in the board vector. Tiles with lock icons stay in it because they must become white.", "Un hueco no es una casilla. Las casillas con candado permanecen en el vector del tablero porque deben quedar blancas."},
-            {"Tiles with lock icons do not get tap choices because they cannot be tapped directly.", "Las casillas con candado no tienen opciones de toque porque no se pueden tocar directamente."},
-            {"The mathematical question is precise: can the allowed taps add up to the target change -s?", "La pregunta matemática es precisa: ¿pueden los toques permitidos sumar el cambio objetivo -s?"},
-            {"1. The Board Is A Vector", "1. El tablero es un vector"},
-            {"Let P = {p_1, ..., p_m} be the set of active board positions, in a fixed order.", "Sea P = {p_1, ..., p_m} el conjunto de casillas, en un orden fijo."},
-            {"A configuration is the vector s = (s_1, ..., s_m) in (Z/nZ)^m.", "Una configuración es el vector s = (s_1, ..., s_m) en (Z/nZ)^m."},
-            {"Value s_i is the state value shown at p_i, read modulo n.", "El valor s_i es el estado que muestra la casilla p_i, leído módulo n."},
-            {"The solved board is the zero vector.", "El tablero resuelto es el vector cero."},
-            {"2. Each Tap Has An Effect Vector", "2. Cada toque tiene un vector de efecto"},
-            {"Let q_1, ..., q_r be the positions that can be tapped.", "Sean q_1, ..., q_r las casillas que se pueden tocar."},
-            {"The effect vector of the tap at q_j is v_j in (Z/nZ)^m.", "El vector de efecto del toque en q_j es v_j en (Z/nZ)^m."},
-            {"Value (v_j)_i is 1 when that tap advances p_i, and 0 otherwise.", "El valor (v_j)_i es 1 si ese toque hace avanzar p_i, y 0 en caso contrario."},
-            {"The tap matrix is A = [v_1 ... v_r].", "La matriz de toques es A = [v_1 ... v_r]."},
-            {"A row tracks a board position. A column tracks an allowed tap.", "Una fila sigue una casilla. Una columna sigue un toque permitido."},
-            {"A tile with a lock icon gets a row, but no column, because it must become white and cannot be tapped directly.", "Una casilla con candado tiene fila, pero no columna, porque debe quedar blanca y no se puede tocar directamente."},
-            {"3. The Tap Vector", "3. El vector de toques"},
-            {"The tap-count vector x = (x_1, ..., x_r) lies in (Z/nZ)^r.", "El vector de toques x = (x_1, ..., x_r) está en (Z/nZ)^r."},
-            {"Value x_j records how many times the tap at q_j is used, modulo n.", "El valor x_j cuenta cuántas veces se usa el toque en q_j, módulo n."},
-            {"Executing x adds sum_j x_j v_j, which is A x.", "Al ejecutar x se suma sum_j x_j v_j, que es A x."},
-            {"Tap order does not enter the algebra.", "El orden de los toques no importa para el álgebra."},
-            {"Goal: Find A Tap-Count Vector", "Objetivo: encontrar el vector de toques"},
-            {"After applying x, the board vector is s + A x.", "Después de aplicar x, el vector del tablero es s + A x."},
-            {"The target is the zero vector in (Z/nZ)^m.", "El objetivo es el vector cero en (Z/nZ)^m."},
-            {"So a solution satisfies A x = -s modulo n.", "Así, una solución satisface A x = -s módulo n."},
-            {"This is a set of linear equations with arithmetic modulo n.", "Este es un conjunto de ecuaciones lineales con aritmética módulo n."},
-            {"When Does A Solution Exist?", "¿Cuándo existe una solución?"},
-            {"The columns of A describe all board changes reachable by allowed taps.", "Las columnas de A describen todos los cambios de tablero que se pueden conseguir con toques permitidos."},
-            {"Equivalently, Im(A) = {A x : x in (Z/nZ)^r}.", "De forma equivalente, Im(A) = {A x : x en (Z/nZ)^r}."},
-            {"There is a solution exactly when the target -s lies in Im(A).", "Existe una solución exactamente cuando el objetivo -s está en Im(A)."},
-            {"Over prime n, simplify the rows of the system [A | -s].", "Para n primo, simplifica las filas del sistema [A | -s]."},
-            {"A row [0 ... 0 | c] with c not 0 proves that no solution exists.", "Una fila [0 ... 0 | c] con c distinto de 0 demuestra que no existe solución."},
-            {"If no impossible row appears, the simplified system gives at least one tap plan.", "Si no aparece ninguna fila imposible, el sistema simplificado da al menos un plan de toques."},
-            {"Prime n: Fields", "n primo: cuerpos"},
-            {"For n = 2, 3, or 5, Z/nZ is a field.", "Para n = 2, 3 o 5, Z/nZ es un cuerpo."},
-            {"Every value different from 0 has an inverse, so simplifying rows can divide by it.", "Todo valor distinto de 0 tiene inverso, así que simplificar filas puede dividir por él."},
-            {"Simplifying rows works like ordinary linear algebra, only with modular arithmetic.", "Simplificar filas funciona como en álgebra lineal ordinaria, solo que con aritmética modular."},
-            {"When simplification leaves a choice open, that choice gives another solving plan.", "Cuando la simplificación deja una elección abierta, esa elección da otro plan de solución."},
-            {"Composite n: Rings", "n compuesto: anillos"},
-            {"For composite n, Z/nZ is a ring rather than a field.", "Para n compuesto, Z/nZ es un anillo en vez de un cuerpo."},
-            {"For n = 4, the number 2 is different from 0 but has no inverse.", "Para n = 4, el número 2 es distinto de 0 pero no tiene inverso."},
-            {"So division by 2 is not a valid row operation.", "Por eso dividir por 2 no es una operación de fila válida."},
-            {"The rule is unchanged: -s must lie in Im(A) over Z/nZ.", "La regla no cambia: -s debe pertenecer a Im(A) sobre Z/nZ."},
-            {"Verification must use operations that are valid in the ring, or smaller modulo checks that agree with each other.", "La comprobación debe usar operaciones válidas en el anillo, o comprobaciones módulo más pequeñas que sean compatibles entre sí."},
-            {"When Is It Unique?", "¿Cuándo es única?"},
-            {"If x0 solves the puzzle, every other solution is x0 plus a tap-count vector z with A z = 0.", "Si x0 resuelve el nivel, cualquier otra solución es x0 más un vector de toques z con A z = 0."},
-            {"The equation A z = 0 means that z causes no net board change.", "La ecuación A z = 0 significa que z no produce ningún cambio neto en el tablero."},
-            {"The set of all such z is ker(A), the kernel of the tap matrix.", "El conjunto de todos esos z es ker(A), el núcleo de la matriz de toques."},
-            {"Tapping one tile n extra times adds n e_j, the zero vector in (Z/nZ)^r.", "Tocar una casilla n veces más suma n e_j, el vector cero en (Z/nZ)^r."},
-            {"That represents the same tap-count vector, not a new tap-count solution.", "Eso representa el mismo vector de toques, no una solución nueva como vector de toques."},
-            {"Thus the full solution set is x0 + ker(A).", "Así, el conjunto completo de soluciones es x0 + ker(A)."},
-            {"The solution is unique exactly when ker(A) contains only the zero vector.", "La solución es única exactamente cuando ker(A) solo contiene el vector cero."},
-            {"If a tap-count vector z is not zero and has A z = 0, then x0 and x0 + z solve the same board.", "Si un vector de toques z es distinto de cero y cumple A z = 0, entonces x0 y x0 + z resuelven el mismo tablero."},
-            {"When Is A Invertible?", "¿Cuándo es invertible A?"},
-            {"A true inverse matrix can exist only when A is square, meaning it has the same number of rows and columns.", "Una matriz inversa de verdad solo puede existir cuando A es cuadrada, es decir, cuando tiene el mismo número de filas y columnas."},
-            {"This happens on a w by h board with no tiles with lock icons and no empty holes.", "Esto ocurre en un tablero de w por h sin casillas con candado ni huecos vacíos."},
-            {"In that case, A sends vectors in (Z/nZ)^(w h) to vectors in (Z/nZ)^(w h).", "En ese caso, A transforma vectores de (Z/nZ)^(w h) en vectores de (Z/nZ)^(w h)."},
-            {"An inverse means every starting board has one unique tap-count vector.", "Una inversa significa que todo tablero inicial tiene una única solución como vector de toques."},
-            {"Over Z/nZ, this happens exactly when det(A) has a multiplicative inverse modulo n.", "Sobre Z/nZ, esto ocurre exactamente cuando det(A) tiene inverso multiplicativo módulo n."},
-            {"For prime n, this means det(A) is not equal to 0 modulo n.", "Para n primo, esto significa que det(A) no es igual a 0 módulo n."},
-            {"For n = 4, det(A) must be odd.", "Para n = 4, det(A) debe ser impar."},
-            {"If this fails in the square case, some starting boards cannot be solved and ker(A) contains tap-count vectors different from zero.", "Si esto falla en el caso cuadrado, algunos tableros iniciales no se pueden resolver y ker(A) contiene vectores de toques distintos de cero."},
-            {"With tiles with lock icons or empty holes, A may have different numbers of rows and columns.", "Con casillas con candado o huecos vacíos, A puede tener distinto número de filas y columnas."},
-            {"Then the useful tests are whether the target change can be reached and whether ker(A) contains tap-count vectors different from zero.", "Entonces las pruebas útiles son si el cambio objetivo se puede alcanzar y si ker(A) contiene vectores de toques distintos de cero."},
-            {"Why The Minimum Matters", "Por qué importa el mínimo"},
-            {"Linear algebra may give many valid tap-count vectors.", "El álgebra lineal puede dar muchos vectores de toques válidos."},
-            {"For each tap count x_j, use the number from 0 through n - 1 that represents it.", "Para cada número de toques x_j, usa el número de 0 a n - 1 que lo representa."},
-            {"The physical length is the sum of those chosen numbers.", "La longitud física es la suma de esos números elegidos."},
-            {"The three-star target is based on a shortest solution found for that board.", "El objetivo de tres estrellas se basa en una solución más corta encontrada para ese tablero."},
-            {"How The Shortest Solver Works", "Cómo funciona el solucionador más corto"},
-            {"Small boards search by tap count: first one tap, then two taps, and so on.", "En tableros pequeños, el juego busca por número de toques: primero un toque, luego dos toques, y así sucesivamente."},
-            {"The first solved state reached gives the true minimum.", "El primer estado resuelto alcanzado da el mínimo real."},
-            {"Larger prime-state boards simplify the rows of A x = -s.", "En tableros más grandes con estados primos se simplifican las filas de A x = -s."},
-            {"If the simplified system leaves choices that are not forced, the solutions are x0 + ker(A).", "Si el sistema simplificado deja elecciones que no están forzadas, las soluciones son x0 + ker(A)."},
-            {"When that search is small enough, the app enumerates those tap-count vectors.", "Cuando esa búsqueda es lo bastante pequeña, el juego enumera esos vectores de toques."},
-            {"It chooses the vector with the smallest sum of tap counts from 0 through n - 1.", "Elige el vector con la menor suma de números de toques de 0 a n - 1."},
-            {"If exact search is too large, or composite n is too large for this search, the game uses a known solving plan.", "Si la búsqueda exacta es demasiado grande, o si n compuesto es demasiado grande para esta búsqueda, el juego usa un plan conocido."},
-            {"The shortest tap-count vector need not be unique. Ties are possible.", "El vector de toques más corto no tiene por qué ser único. Puede haber empates."},
-            {"The app keeps the same shortest plan every time when it can prove the minimum.", "El juego guarda el mismo plan más corto cada vez cuando puede probar el mínimo."},
-            {"Tiles With Lock Icons And Empty Holes", "Casillas con candado y huecos vacíos"},
-            {"A tile with a lock icon stays in the board vector because its value must become zero, and nearby taps may still change it.", "Una casilla con candado permanece en el vector del tablero porque su valor debe llegar a cero, y los toques cercanos todavía pueden cambiarla."},
-            {"It does not get its own tap choice in x because it cannot be tapped directly.", "No tiene su propia opción de toque en x porque no se puede tocar directamente."},
-            {"An empty hole is left out of the ordered list P, so the equation only tracks active board positions.", "Un hueco no es una casilla, así que se queda fuera de la lista ordenada P. La ecuación solo sigue las casillas."},
-            {"This is how the same equation adapts to irregular boards.", "Así se adapta la misma ecuación a tableros irregulares."},
-            {"How The Generator Uses This", "Cómo usa esto el generador"},
-            {"The generator uses the same ingredients: board shape, tiles with lock icons, empty holes, tap pattern, and effect vectors.", "El generador usa los mismos ingredientes: forma del tablero, casillas con candado, huecos vacíos, patrón de toque y vectores de efecto."},
-            {"It chooses or verifies a starting vector s with some x satisfying s + A x = 0.", "Elige o comprueba un vector inicial s con algún x que cumple s + A x = 0."},
-            {"When the exact solver is available, it searches the solution set for a short tap-count vector.", "Cuando el solucionador exacto está disponible, busca un vector de toques corto en el conjunto de soluciones."},
-            {"Hints follow a stored solving plan one tap at a time.", "Las pistas siguen un plan guardado, toque a toque."},
-            {"The red outline marks exactly the tiles changed by that hint tap.", "El borde rojo marca exactamente las casillas cambiadas por esa pista."},
-            {"What The Symbols Mean", "Qué significan los símbolos"},
-            {"These are the compact labels used by the equations and solver.", "Estas son las etiquetas compactas usadas por las ecuaciones y el solucionador."},
+            {"Previewing a pattern is free. Your tap counts when the tiles change.", "Ver el patrón no cuesta ningún toque. El toque cuenta cuando cambian las casillas."},
+            {"For three stars, solve the puzzle in as few taps as the game’s best known solution, or fewer.", "Para ganar tres estrellas, iguala o mejora el número de toques de la mejor solución que ha encontrado el juego."},
+            {"The one- and two-star targets leave room for extra taps.", "Los objetivos de una y dos estrellas dejan margen para más toques."},
+            {"Undo takes back your last tap. Reset puts the board back the way it started.", "Deshacer anula tu último toque. Reiniciar te devuelve al tablero inicial."},
+            {"A hint plays one tap for you. You can still finish that attempt, but it earns no stars.", "Una pista da un toque por ti. Puedes terminar ese intento, aunque no ganarás estrellas."},
+            {"Look for the red outlines to see which tiles the hint changed.", "El borde rojo señala las casillas que ha cambiado la pista."},
+            {"Turn sound effects on or off in Settings.", "En Ajustes puedes activar o desactivar los efectos de sonido."},
+            {"If you prefer numbers, turn them on to see each tile’s state alongside its color.", "Si prefieres guiarte por números, actívalos para ver el estado de cada casilla además de su color."},
+            {"On Android, you can also turn vibration on or off.", "En Android también puedes activar o desactivar la vibración."},
+            {"What happens when you add up the taps?", "¿Qué pasa cuando sumas los efectos de los toques?"},
+            {"Take a board with just two colors. Tap the center of a cross and every tile in the cross switches between white and blue. Tap the same spot again and you’re back where you started. The same rule works with other patterns. With more colors, it takes more taps to go all the way around the cycle.", "Imagina un tablero de dos colores. Toca el centro de una cruz y todas sus casillas pasan de blanco a azul o de azul a blanco. Toca el mismo sitio otra vez y vuelves al punto de partida. La idea también funciona con otros patrones y con más colores. Si hay más colores, harán falta más toques para recorrer el ciclo."},
+            {"The board in one equation", "El tablero en una ecuación"},
+            {"Give white the number 0 and count up through the colors. On a board with n colors, the next step after n-1 is 0 again. This is arithmetic modulo n, written in the ring R=Z/nZ.", "Asigna el 0 al blanco y numera los demás colores en orden. Si hay n colores, después de n-1 vuelves al 0. Así funciona la aritmética módulo n en el anillo R=Z/nZ."},
+            {"Now read the tiles in a fixed order. Their numbers form the board vector s. Put the effect of each possible tap in a column of a matrix A. If x records how often you tap each unlocked tile, Ax gives the total change. You win when s+Ax=0.", "Lee las casillas siempre en el mismo orden. Sus números forman el vector del tablero s. Escribe el efecto de cada toque posible en una columna de la matriz A. Si x recoge el número de toques que das en cada casilla, Ax es el cambio total. Ganas cuando s+Ax=0."},
+            {"From two states to many", "De dos estados a varios"},
+            {"In the classic Lights Out puzzle, a tap flips the chosen tile and its neighbors above, below, left and right. Each flip adds 1 modulo 2. Two taps in the same spot cancel because 1+1=0 modulo 2.", "En el clásico Lights Out, un toque cambia la casilla elegida y sus vecinas de arriba, abajo, izquierda y derecha. Cada cambio suma 1 módulo 2. Dos toques en el mismo sitio se anulan porque 1+1=0 módulo 2."},
+            {"Invert the Matrix adds more states and patterns, but tap effects still add together. Skip holes when you list the tiles. Include locked tiles, since a tap on another tile can change them.", "Invert the Matrix añade más estados y patrones, pero los efectos de los toques se siguen sumando. Al enumerar las casillas, omite los huecos e incluye las casillas con candado, que pueden cambiar con un toque en otra casilla."},
+            {"Can you combine the available taps to cancel the starting board? The change you need is -s.", "¿Puedes combinar los toques disponibles para anular el tablero inicial? El cambio que buscas es -s."},
+            {"1. The board is a vector", "1. El tablero es un vector"},
+            {"Number the m tiles p_1,…,p_m in any fixed order. Write their states in that same order to get s=(s_1,…,s_m) ∈ R^m. Each entry s_i is the color of tile p_i. An all-white board is the zero vector.", "Numera las m casillas como p_1,…,p_m en el orden que prefieras. Escribe sus estados en ese mismo orden para obtener s=(s_1,…,s_m) ∈ R^m. Cada componente s_i indica el color de la casilla p_i. Un tablero en blanco es el vector cero."},
+            {"2. Each tap contributes a column", "2. Cada toque aporta una columna"},
+            {"Label the r tiles you can tap q_1,…,q_r. Tap q_j once and record a 1 for each tile that changes and a 0 for each tile that stays the same. The result is its effect vector v_j, column j of A.", "Llama q_1,…,q_r a las r casillas que puedes tocar. Toca q_j una vez y anota un 1 por cada casilla que cambie y un 0 por cada una que quede igual. Así obtienes su vector de efecto v_j, la columna j de A."},
+            {"Read across a row to see which taps affect one tile. Read down a column to see which tiles one tap affects. A locked tile has a row of its own, but you can’t tap it, so it has no column.", "Lee una fila para ver qué toques afectan a una casilla. Lee una columna para ver qué casillas cambia un toque. Una casilla con candado tiene su propia fila, pero como no puedes tocarla, no tiene columna."},
+            {"How many times should you tap each tile?", "¿Cuántas veces hay que tocar cada casilla?"},
+            {"The tap-count vector x=(x_1,…,x_r) records how often you tap each unlocked tile, modulo n. Each tap on q_j adds the same v_j, so together the taps add Ax=∑_j x_jv_j. You can play them in any order.", "El vector de toques x=(x_1,…,x_r) recoge cuántas veces tocas cada casilla sin candado, módulo n. Cada toque en q_j suma el mismo vector v_j, así que el cambio total es Ax=∑_j x_jv_j. Puedes dar los toques en el orden que quieras."},
+            {"The final board is s+Ax. To make it all white, look for a vector x that solves Ax=-s in R.", "El tablero final es s+Ax. Para dejarlo en blanco, busca un vector x que resuelva Ax=-s en R."},
+            {"When does a solution exist?", "¿Cuándo existe una solución?"},
+            {"Every tap-count vector produces a change Ax. All those changes together form the image of A, written Im(A). A board has a solution exactly when -s belongs to this image.", "Cada vector de toques produce un cambio Ax. El conjunto de todos esos cambios es la imagen de A, que se escribe Im(A). Un tablero tiene solución si y solo si -s pertenece a esa imagen."},
+            {"When n is prime, you can check by row reducing the augmented matrix [A | -s] to echelon form. A row saying 0=c with c ≠ 0 rules out a solution. If no such row appears, you can read off at least one solution by back substitution.", "Si n es primo, puedes escalonar la matriz ampliada [A | -s] mediante operaciones por filas. Una fila que diga 0=c con c ≠ 0 descarta toda solución. Si no aparece ninguna, puedes obtener una solución por sustitución hacia atrás."},
+            {"Prime numbers and fields", "Números primos y cuerpos"},
+            {"With 2, 3 or 5 states, R is a field. Every nonzero element has a multiplicative inverse, so you can divide by it. With four states, even a simple division by 2 can go wrong. We’ll see why below.", "Con 2, 3 o 5 estados, R es un cuerpo. Cada elemento distinto de cero tiene inverso multiplicativo, así que puedes dividir por él. Con cuatro estados, hasta una división por 2 puede dar problemas. Más abajo veremos por qué."},
+            {"What changes with four states?", "¿Qué cambia con cuatro estados?"},
+            {"When n is composite, R is still a ring, but some nonzero elements have no multiplicative inverse. For example, modulo 4, twice any number is even, so 2a can never equal 1. You can’t divide a row by 2 here.", "Si n es compuesto, R sigue siendo un anillo, pero algunos elementos distintos de cero carecen de inverso multiplicativo. Por ejemplo, módulo 4, el doble de cualquier número es par, así que 2a nunca puede valer 1. Aquí no puedes dividir una fila por 2."},
+            {"The test for a solution is still -s ∈ Im(A). Use row operations valid in the ring. If n factors into coprime prime powers, you can also solve modulo each of those powers and combine the results.", "El criterio sigue siendo -s ∈ Im(A). Usa operaciones por filas válidas en el anillo. Si n se descompone en potencias de primos distintos, también puedes resolver el sistema módulo cada potencia y combinar los resultados."},
+            {"When is the solution unique?", "¿Cuándo es única la solución?"},
+            {"Suppose x_0 solves the board. If a tap-count vector z leaves the board unchanged, then Az=0 and x_0+z also solves it. These vectors z form the kernel of A, written ker(A). Adding each of them to x_0 gives all the solutions.", "Supón que x_0 resuelve el tablero. Si un vector de toques z deja el tablero igual, entonces Az=0 y x_0+z también es solución. Estos vectores z forman el núcleo de A, que se escribe ker(A). Al sumar cada uno a x_0 obtienes todas las soluciones."},
+            {"Remember that counts are taken modulo n. Tapping one tile n extra times takes its whole pattern around the color cycle. It leaves both the board and the tap-count vector unchanged.", "Recuerda que los toques se cuentan módulo n. Si tocas una casilla n veces más, todas las casillas de su patrón completan el ciclo de colores. Tanto el tablero como el vector de toques quedan igual."},
+            {"So a solvable board has exactly one tap-count vector when ker(A)={0}. Over a field, this means the columns of A are linearly independent. The kernel test also works in the four-state ring.", "Así, un tablero con solución tiene un único vector de toques si y solo si ker(A)={0}. Sobre un cuerpo, esto significa que las columnas de A son linealmente independientes. El criterio del núcleo también vale en el anillo de cuatro estados."},
+            {"When is A invertible?", "¿Cuándo es invertible A?"},
+            {"If you can tap every tile, A has one row and one column per tile, so it is square. Holes leave that count balanced. A lock removes a column and keeps the row. When a square A is invertible, every starting board has exactly one tap-count solution.", "Si puedes tocar todas las casillas, A tiene una fila y una columna por casilla, así que es cuadrada. Los huecos no alteran esa igualdad. Un candado elimina una columna y conserva la fila. Si la matriz cuadrada A es invertible, cada tablero inicial tiene un único vector de toques que lo resuelve."},
+            {"A square A is invertible exactly when its determinant has a multiplicative inverse in R. For prime n, the determinant must be nonzero modulo n. For n=4, it must be odd. If this test fails, some starting boards have no solution and others have several. For a rectangular matrix, use the image to test existence and the kernel to test uniqueness.", "Una matriz cuadrada A es invertible si y solo si su determinante tiene inverso multiplicativo en R. Para n primo, el determinante debe ser distinto de cero módulo n. Para n=4, debe ser impar. Si falla este criterio, hay tableros sin solución y otros con varias. Para una matriz rectangular, la imagen indica si hay solución y el núcleo si es única."},
+            {"Counting the taps in a solution", "Cómo contar los toques de una solución"},
+            {"To play a solution, take each count x_j as a number from 0 to n-1. Call that number t_j. Add these numbers as ordinary integers to get the number of taps, ℓ(x). The shortest solution the game has found sets the three-star target.", "Para jugar una solución, representa cada componente x_j con un número entre 0 y n-1, que llamaremos t_j. Suma esos números como enteros para obtener el total de toques, ℓ(x). La solución más corta que ha encontrado el juego fija el objetivo de tres estrellas."},
+            {"How the game finds a short solution", "Cómo busca el juego una solución corta"},
+            {"If the board has few enough possible states, the game searches all positions one tap away, then two taps away, and so on. The first time it reaches an all-white board, it has found the fewest taps possible.", "Si el tablero tiene pocas configuraciones posibles, el juego explora primero las que están a un toque, luego las que están a dos y así sucesivamente. La primera vez que llega a un tablero en blanco, ha encontrado el mínimo de toques."},
+            {"For larger boards with a prime number of states per tile, the game row reduces Ax=-s. If there are few enough solutions to try, it compares them all and keeps one with the fewest taps. When an exact search is too large, including on large four-state boards, it uses a known solution whose length may be above the minimum.", "En tableros más grandes con un número primo de estados por casilla, el juego reduce el sistema Ax=-s por filas. Si hay pocas soluciones, las compara todas y guarda una de las que requieren menos toques. Cuando la búsqueda exacta resulta demasiado grande, como en los tableros grandes de cuatro estados, usa una solución conocida que puede superar el mínimo."},
+            {"Different tap-count vectors can tie for the minimum, and you can play the same vector in different orders. When the game proves a minimum, it always picks the same plan among those tied for shortest. It doesn’t tell you whether another plan ties with it.", "Distintos vectores de toques pueden empatar en el mínimo, y puedes jugar un mismo vector en órdenes distintos. Cuando el juego comprueba el mínimo, elige siempre el mismo plan entre los más cortos. No indica si hay otro igual de corto."},
+            {"Locked tiles and holes in the matrix", "Candados y huecos en la matriz"},
+            {"To model a hole, leave that position out entirely. To model a lock, keep the tile’s entry in s and its row in A, since it still has to turn white. Leave out its column. The remaining columns tell you which other taps can change it.", "Para representar un hueco, omite esa posición por completo. Para un candado, conserva la componente de la casilla en s y su fila en A, porque también debe quedar blanca. Omite su columna. Las demás columnas indican qué otros toques pueden cambiarla."},
+            {"How puzzles are made", "Cómo se crean los rompecabezas"},
+            {"The generator starts with a white board and scrambles it with allowed taps. It keeps track of how to undo their combined effect, so the starting board comes with a solution. When it can, the solver finds a shortest plan for the star targets. A hint plays one tap toward a solution and outlines the tiles it changed in red.", "El generador empieza con un tablero en blanco y lo mezcla con toques permitidos. Guarda cómo anular el efecto conjunto de esos toques, así que el tablero inicial ya tiene solución. Cuando es posible, busca un plan de longitud mínima para fijar los objetivos de estrellas. Cada pista da un toque hacia la solución y marca en rojo las casillas que cambia."},
+            {"What the symbols mean", "Qué significan los símbolos"},
             {"modulus / tile states", "módulo / estados de casilla"},
             {"board vector in (Z/nZ)^m", "vector del tablero en (Z/nZ)^m"},
             {"columns are effect vectors", "columnas de vectores de efecto"},
@@ -2908,9 +2893,10 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"if tap j changes tile i", "si el toque j cambia la casilla i"},
             {"otherwise", "en caso contrario"},
             {"number of taps on tile j", "número de toques en la casilla j"},
-            {"solution exists iff", "hay solución sii"},
+            {"solution exists iff", "hay solución si y solo si"},
             {"solutions", "soluciones"},
             {"is a field", "es un cuerpo"},
+            {"You can now play in Korean. We also rewrote How to Play and the math guide, from your first tap to the equations behind a solution.", "Ya puedes jugar en coreano. Hemos revisado las instrucciones y la guía de matemáticas, desde tu primer toque hasta las ecuaciones que explican cómo resolver un tablero."},
             {"Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later.", "Se mejoraron la compatibilidad con Android 16, la navegación Atrás del sistema y la distribución de la pantalla junto a las barras del sistema. La aplicación de Android requiere ahora Android 7 o posterior."},
             {"Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility.", "Se actualizaron las dependencias AndroidX Activity y Fragment a versiones compatibles actuales para Google Play."},
             {"Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand.", "La app ahora está orientada a Android 16, mantiene fiable la navegación Atrás del sistema y deja claro el objetivo de poner todas las casillas en blanco, con ayuda del efecto de toque disponible cuando se necesite."},
@@ -3090,150 +3076,81 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Endgame Circuit", "Circuit final"},
             {"Final Inversion", "Inversion finale"},
             {"Clear the board", "Vide le plateau"},
-            {"Clear every tile by turning it white.", "Rends chaque tuile blanche."},
-            {"Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.", "Un toucher sur une tuile applique son motif de toucher au plateau, et chaque tuile atteinte avance d'un état."},
-            {"Use previews and level clues to plan calmly before each tap.", "Utilise les aperçus et les indices du niveau pour planifier calmement avant chaque toucher."},
-            {"1. Make every tile white", "1. Rends toutes les tuiles blanches"},
-            {"A white tile is solved.", "Une tuile blanche est résolue."},
-            {"Colored tiles are not wrong. They just need to keep advancing until they return to white.", "Les tuiles colorées ne sont pas fausses. Elles doivent simplement continuer à avancer jusqu'à revenir au blanc."},
-            {"The puzzle ends only when every tile is white at the same time.", "Le casse-tête se termine seulement quand toutes les tuiles sont blanches en même temps."},
-            {"2. Tap and cycle", "2. Touche et fais cycler"},
-            {"Tap an available tile to apply the level's tap pattern.", "Touche une tuile disponible pour appliquer le motif de toucher du niveau."},
-            {"Every tile reached by the pattern advances one state.", "Chaque tuile atteinte par le motif avance d'un état."},
-            {"States cycle: after the last colored state, the next advance returns that tile to white.", "Les états forment un cycle: après le dernier état coloré, l'avancée suivante ramène cette tuile au blanc."},
-            {"3. Use the pattern preview", "3. Utilise l'aperçu du motif"},
-            {"A level can use a cross, diagonal, square, horizontal, vertical, knight, or mixed pattern.", "Un niveau peut utiliser un motif croix, diagonale, carré, horizontal, vertical, cavalier ou mixte."},
-            {"Hold or hover a tile to see exactly which tiles will change before you tap.", "Maintiens ou survole une tuile pour voir exactement lesquelles changeront avant de toucher."},
-            {"4. Handle special tiles", "4. Gère les tuiles spéciales"},
-            {"A tile with a lock icon still needs to become white and can change when a nearby tap reaches it.", "Une tuile avec cadenas doit aussi devenir blanche et peut changer quand un toucher voisin l'atteint."},
-            {"You cannot tap a tile with a lock icon directly.", "Tu ne peux pas toucher directement une tuile avec cadenas."},
-            {"An empty hole is outside the board. Tap patterns skip empty holes.", "Un trou vide est hors du plateau. Les motifs de toucher ignorent les trous vides."},
-            {"Modes: Choose your puzzle", "Modes : choisis ton casse-tête"},
-            {"Campaign: Solve fixed levels in order. Each solve opens the next level.", "Campagne : résous les niveaux fixes dans l'ordre. Chaque résolution ouvre le suivant."},
-            {"Campaign: Pick groups on a 5x5 map. Earn 15 stars in a group to open adjacent groups.", "Campagne : choisis des groupes sur une carte 5x5. Gagne 15 étoiles dans un groupe pour ouvrir les groupes adjacents."},
-            {"Custom Level: Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.", "Niveau personnalisé : choisis taille, états, motif, difficulté, tuiles avec cadenas et trous vides. Le générateur préfère toujours une solution unique."},
-            {"Playground: Build a board by hand, share its puzzle code, and play without a completion modal.", "Bac à sable : crée un plateau à la main, partage son code de casse-tête et joue sans écran de fin."},
-            {"Daily Challenge: Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.", "Défi quotidien : joue les mêmes trois casse-têtes générés que tout le monde pour la date. Chacun garde son meilleur score."},
-            {"Taps, stars, and hints", "Touchers, étoiles et indices"},
-            {"The tap counter counts every tap you commit.", "Le compteur de touchers compte chaque toucher que tu valides."},
-            {"Three stars mean you matched the generator's minimum found tap count.", "Trois étoiles signifient que tu as égalé le minimum de touchers trouvé par le générateur."},
-            {"Two-star and one-star targets allow extra taps.", "Les objectifs à deux et une étoile autorisent quelques touchers en plus."},
-            {"Undo rewinds one tap, and Reset restores the starting board.", "Annuler revient d'un toucher, et Réinitialiser restaure le plateau de départ."},
-            {"Hint applies the next tap from a solver plan. A hinted try can still complete the puzzle, but it no longer earns stars.", "Indice applique le toucher suivant d'un plan de résolution. Un essai avec indice peut quand même terminer le casse-tête, mais il ne gagne plus d'étoiles."},
-            {"Tiles changed by a hint are outlined in red.", "Les tuiles changées par un indice sont entourées en rouge."},
-            {"Sound toggles audio effects.", "Son active ou désactive les effets audio."},
-            {"Show numbers on tiles displays state values when you want a more exact view.", "Afficher les nombres sur les tuiles montre les valeurs d'état quand tu veux une vue plus exacte."},
-            {"Android also includes haptic feedback controls.", "Android inclut aussi des contrôles de retour haptique."},
-            {"Invert the Matrix is a modular linear-algebra puzzle.", "Invert the Matrix est un casse-tête d'algèbre linéaire modulaire."},
-            {"To play, think of each tile as having a state, shown by its color.", "Pour jouer, imagine que chaque tuile possède un état, indiqué par sa couleur."},
-            {"A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile.", "Un toucher sur une tuile ne change pas seulement cette tuile, mais toutes les tuiles qui se trouvent dans un motif centré sur la tuile choisie."},
-            {"After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all tiles white at the same time.", "Après le dernier état, ou couleur, une tuile revient au blanc. Le but est de trouver une suite de touchers pour que toutes les tuiles soient blanches en même temps."},
-            {"Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap.", "Certains plateaux n'ont que deux états possibles : blanc et bleu, et un seul motif : une croix centrée sur la tuile que tu touches."},
-            {"But later on, everything gets much more complicated.", "Mais plus tard, tout se complique beaucoup plus."},
-            {"Modeling The Game", "Modéliser le jeu"},
-            {"Turn the board into one equation.", "Transformer le plateau en une équation."},
-            {"First list the active board positions in a fixed order.", "Liste d'abord les positions actives du plateau dans un ordre fixe."},
-            {"Then the displayed board is a vector s in (Z/nZ)^m.", "Le plateau affiché est alors un vecteur s dans (Z/nZ)^m."},
-            {"Each allowed tap has an effect vector recording which tiles it advances.", "Chaque toucher autorisé a un vecteur d'effet qui indique quelles tuiles il avance."},
-            {"The columns of A are those effect vectors, and a tap-count vector x solves the puzzle when s + A x = 0 modulo n.", "Les colonnes de A sont ces vecteurs d'effet, et un vecteur de touchers x résout le casse-tête quand s + A x = 0 modulo n."},
-            {"Values are read modulo n, so after n - 1 the next value is 0.", "Les valeurs sont lues modulo n, donc après n - 1 la valeur suivante est 0."},
-            {"From Lights Out", "Depuis Lights Out"},
-            {"Classical Lights Out is the n = 2 case: tiles are 0 or 1.", "Lights Out classique est le cas n = 2 : les tuiles valent 0 ou 1."},
-            {"Tapping a tile changes the same shape of nearby tiles every time.", "Toucher une tuile change toujours le même groupe de tuiles proches."},
-            {"Usually that shape is the tapped tile plus the tiles above, below, left, and right.", "En général, ce groupe est la tuile touchée plus les tuiles au-dessus, en dessous, à gauche et à droite."},
-            {"Changing a tile is adding 1 modulo 2, so tapping the same tile twice gives no net change.", "Changer une tuile revient à ajouter 1 modulo 2, donc toucher deux fois la même tuile ne produit aucun changement net."},
-            {"Invert the Matrix keeps that add-the-effects rule while allowing n states over Z/nZ.", "Invert the Matrix conserve cette règle d'addition des effets, mais permet n états sur Z/nZ."},
-            {"Empty holes are not included in the board vector. Tiles with lock icons stay in it because they must become white.", "Les trous vides ne sont pas inclus dans le vecteur du plateau. Les tuiles avec cadenas y restent parce qu'elles doivent devenir blanches."},
-            {"Tiles with lock icons do not get tap choices because they cannot be tapped directly.", "Les tuiles avec cadenas n'ont pas de choix de toucher parce qu'on ne peut pas les toucher directement."},
-            {"The mathematical question is precise: can the allowed taps add up to the target change -s?", "La question mathématique est précise : les touchers autorisés peuvent-ils produire le changement cible -s ?"},
-            {"1. The Board Is A Vector", "1. Le plateau est un vecteur"},
-            {"Let P = {p_1, ..., p_m} be the set of active board positions, in a fixed order.", "Soit P = {p_1, ..., p_m} l'ensemble des positions actives du plateau, dans un ordre fixé."},
-            {"A configuration is the vector s = (s_1, ..., s_m) in (Z/nZ)^m.", "Une configuration est le vecteur s = (s_1, ..., s_m) dans (Z/nZ)^m."},
-            {"Value s_i is the state value shown at p_i, read modulo n.", "La valeur s_i est l'état affiché en p_i, lu modulo n."},
-            {"The solved board is the zero vector.", "Le plateau résolu est le vecteur zéro."},
-            {"2. Each Tap Has An Effect Vector", "2. Chaque toucher a un vecteur d'effet"},
-            {"Let q_1, ..., q_r be the positions that can be tapped.", "Soient q_1, ..., q_r les positions que l'on peut toucher."},
-            {"The effect vector of the tap at q_j is v_j in (Z/nZ)^m.", "Le vecteur d'effet du toucher en q_j est v_j dans (Z/nZ)^m."},
-            {"Value (v_j)_i is 1 when that tap advances p_i, and 0 otherwise.", "La valeur (v_j)_i est 1 quand ce toucher avance p_i, et 0 sinon."},
-            {"The tap matrix is A = [v_1 ... v_r].", "La matrice des touchers est A = [v_1 ... v_r]."},
-            {"A row tracks a board position. A column tracks an allowed tap.", "Une ligne suit une position du plateau. Une colonne suit un toucher autorisé."},
-            {"A tile with a lock icon gets a row, but no column, because it must become white and cannot be tapped directly.", "Une tuile avec cadenas garde une ligne, mais pas de colonne, parce qu'elle doit devenir blanche et qu'on ne peut pas la toucher directement."},
-            {"3. The Tap Vector", "3. Le vecteur de touchers"},
-            {"The tap-count vector x = (x_1, ..., x_r) lies in (Z/nZ)^r.", "Le vecteur de touchers x = (x_1, ..., x_r) appartient à (Z/nZ)^r."},
-            {"Value x_j records how many times the tap at q_j is used, modulo n.", "La valeur x_j indique combien de fois le toucher en q_j est utilisé, modulo n."},
-            {"Executing x adds sum_j x_j v_j, which is A x.", "Exécuter x ajoute sum_j x_j v_j, c'est-à-dire A x."},
-            {"Tap order does not enter the algebra.", "L'ordre des touchers n'intervient pas dans l'algèbre."},
-            {"Goal: Find A Tap-Count Vector", "Objectif : trouver le vecteur de touchers"},
-            {"After applying x, the board vector is s + A x.", "Après application de x, le vecteur du plateau est s + A x."},
-            {"The target is the zero vector in (Z/nZ)^m.", "La cible est le vecteur zéro dans (Z/nZ)^m."},
-            {"So a solution satisfies A x = -s modulo n.", "Une solution satisfait donc A x = -s modulo n."},
-            {"This is a set of linear equations with arithmetic modulo n.", "C'est un ensemble d'équations linéaires avec arithmétique modulo n."},
-            {"When Does A Solution Exist?", "Quand une solution existe-t-elle ?"},
-            {"The columns of A describe all board changes reachable by allowed taps.", "Les colonnes de A décrivent tous les changements atteignables par touchers autorisés."},
-            {"Equivalently, Im(A) = {A x : x in (Z/nZ)^r}.", "De façon équivalente, Im(A) = {A x : x dans (Z/nZ)^r}."},
-            {"There is a solution exactly when the target -s lies in Im(A).", "Il existe une solution exactement quand la cible -s appartient à Im(A)."},
-            {"Over prime n, simplify the rows of the system [A | -s].", "Pour n premier, simplifie les lignes du système [A | -s]."},
-            {"A row [0 ... 0 | c] with c not 0 proves that no solution exists.", "Une ligne [0 ... 0 | c] avec c différent de 0 prouve qu'il n'existe pas de solution."},
-            {"If no impossible row appears, the simplified system gives at least one tap plan.", "Si aucune ligne impossible n'apparaît, le système simplifié donne au moins un plan de touchers."},
-            {"Prime n: Fields", "n premier : corps"},
-            {"For n = 2, 3, or 5, Z/nZ is a field.", "Pour n = 2, 3 ou 5, Z/nZ est un corps."},
-            {"Every value different from 0 has an inverse, so simplifying rows can divide by it.", "Toute valeur différente de 0 a un inverse, donc simplifier les lignes peut diviser par elle."},
-            {"Simplifying rows works like ordinary linear algebra, only with modular arithmetic.", "Simplifier les lignes fonctionne comme l'algèbre linéaire ordinaire, mais en arithmétique modulaire."},
-            {"When simplification leaves a choice open, that choice gives another solving plan.", "Quand la simplification laisse un choix ouvert, ce choix donne un autre plan de résolution."},
-            {"Composite n: Rings", "n composé : anneaux"},
-            {"For composite n, Z/nZ is a ring rather than a field.", "Pour n composé, Z/nZ est un anneau plutôt qu'un corps."},
-            {"For n = 4, the number 2 is different from 0 but has no inverse.", "Pour n = 4, le nombre 2 est différent de 0 mais n'a pas d'inverse."},
-            {"So division by 2 is not a valid row operation.", "Diviser par 2 n'est donc pas une opération de ligne valide."},
-            {"The rule is unchanged: -s must lie in Im(A) over Z/nZ.", "La règle ne change pas : -s doit appartenir à Im(A) sur Z/nZ."},
-            {"Verification must use operations that are valid in the ring, or smaller modulo checks that agree with each other.", "La vérification doit utiliser des opérations valides dans l'anneau, ou des contrôles modulo plus petits qui sont compatibles entre eux."},
-            {"When Is It Unique?", "Quand est-ce unique ?"},
-            {"If x0 solves the puzzle, every other solution is x0 plus a tap-count vector z with A z = 0.", "Si x0 résout le casse-tête, toute autre solution est x0 plus un vecteur de touchers z avec A z = 0."},
-            {"The equation A z = 0 means that z causes no net board change.", "L'équation A z = 0 signifie que z ne produit aucun changement net sur le plateau."},
-            {"The set of all such z is ker(A), the kernel of the tap matrix.", "L'ensemble de tous ces z est ker(A), le noyau de la matrice des touchers."},
-            {"Tapping one tile n extra times adds n e_j, the zero vector in (Z/nZ)^r.", "Toucher une tuile n fois de plus ajoute n e_j, le vecteur zéro dans (Z/nZ)^r."},
-            {"That represents the same tap-count vector, not a new tap-count solution.", "Cela représente le même vecteur de touchers, pas une nouvelle solution comme vecteur de touchers."},
-            {"Thus the full solution set is x0 + ker(A).", "L'ensemble complet des solutions est donc x0 + ker(A)."},
-            {"The solution is unique exactly when ker(A) contains only the zero vector.", "La solution est unique exactement quand ker(A) ne contient que le vecteur zéro."},
-            {"If a tap-count vector z is not zero and has A z = 0, then x0 and x0 + z solve the same board.", "Si un vecteur de touchers z est différent de zéro et vérifie A z = 0, alors x0 et x0 + z résolvent le même plateau."},
-            {"When Is A Invertible?", "Quand A est-elle inversible ?"},
-            {"A true inverse matrix can exist only when A is square, meaning it has the same number of rows and columns.", "Une vraie matrice inverse ne peut exister que si A est carrée, c'est-à-dire si elle a le même nombre de lignes et de colonnes."},
-            {"This happens on a w by h board with no tiles with lock icons and no empty holes.", "Cela arrive sur un plateau w par h sans tuiles avec cadenas et sans trous vides."},
-            {"In that case, A sends vectors in (Z/nZ)^(w h) to vectors in (Z/nZ)^(w h).", "Dans ce cas, A transforme des vecteurs de (Z/nZ)^(w h) en vecteurs de (Z/nZ)^(w h)."},
-            {"An inverse means every starting board has one unique tap-count vector.", "Un inverse signifie que chaque plateau de départ a une solution unique comme vecteur de touchers."},
-            {"Over Z/nZ, this happens exactly when det(A) has a multiplicative inverse modulo n.", "Sur Z/nZ, cela arrive exactement quand det(A) a un inverse multiplicatif modulo n."},
-            {"For prime n, this means det(A) is not equal to 0 modulo n.", "Pour n premier, cela signifie que det(A) n'est pas égal à 0 modulo n."},
-            {"For n = 4, det(A) must be odd.", "Pour n = 4, det(A) doit être impair."},
-            {"If this fails in the square case, some starting boards cannot be solved and ker(A) contains tap-count vectors different from zero.", "Si cela échoue dans le cas carré, certains plateaux de départ ne peuvent pas être résolus et ker(A) contient des vecteurs de touchers différents de zéro."},
-            {"With tiles with lock icons or empty holes, A may have different numbers of rows and columns.", "Avec des tuiles avec cadenas ou des trous vides, A peut avoir des nombres de lignes et de colonnes différents."},
-            {"Then the useful tests are whether the target change can be reached and whether ker(A) contains tap-count vectors different from zero.", "Les tests utiles sont alors de savoir si le changement cible peut être atteint et si ker(A) contient des vecteurs de touchers différents de zéro."},
-            {"Why The Minimum Matters", "Pourquoi le minimum compte"},
-            {"Linear algebra may give many valid tap-count vectors.", "L'algèbre linéaire peut donner de nombreux vecteurs de touchers valides."},
-            {"For each tap count x_j, use the number from 0 through n - 1 that represents it.", "Pour chaque nombre de touchers x_j, utilise le nombre de 0 à n - 1 qui le représente."},
-            {"The physical length is the sum of those chosen numbers.", "La longueur physique est la somme de ces nombres choisis."},
-            {"The three-star target is based on a shortest solution found for that board.", "L'objectif trois étoiles se base sur une solution la plus courte trouvée pour ce plateau."},
-            {"How The Shortest Solver Works", "Comment fonctionne le solveur le plus court"},
-            {"Small boards search by tap count: first one tap, then two taps, and so on.", "Pour les petits plateaux, le jeu cherche par nombre de touchers : d'abord un toucher, puis deux touchers, et ainsi de suite."},
-            {"The first solved state reached gives the true minimum.", "Le premier état résolu atteint donne le vrai minimum."},
-            {"Larger prime-state boards simplify the rows of A x = -s.", "Les grands plateaux à états premiers simplifient les lignes de A x = -s."},
-            {"If the simplified system leaves choices that are not forced, the solutions are x0 + ker(A).", "Si le système simplifié laisse des choix qui ne sont pas forcés, les solutions sont x0 + ker(A)."},
-            {"When that search is small enough, the app enumerates those tap-count vectors.", "Quand cette recherche est assez petite, le jeu énumère ces vecteurs de touchers."},
-            {"It chooses the vector with the smallest sum of tap counts from 0 through n - 1.", "Elle choisit le vecteur avec la plus petite somme de nombres de touchers de 0 à n - 1."},
-            {"If exact search is too large, or composite n is too large for this search, the game uses a known solving plan.", "Si la recherche exacte est trop grande, ou si n composé est trop grand pour cette recherche, le jeu utilise un plan connu."},
-            {"The shortest tap-count vector need not be unique. Ties are possible.", "Le vecteur de touchers le plus court n'est pas forcément unique. Des égalités sont possibles."},
-            {"The app keeps the same shortest plan every time when it can prove the minimum.", "Le jeu garde le même plan le plus court chaque fois qu'il peut prouver le minimum."},
-            {"Tiles With Lock Icons And Empty Holes", "Tuiles avec cadenas et trous vides"},
-            {"A tile with a lock icon stays in the board vector because its value must become zero, and nearby taps may still change it.", "Une tuile avec cadenas reste dans le vecteur du plateau parce que sa valeur doit devenir zéro, et des touchers voisins peuvent encore la changer."},
-            {"It does not get its own tap choice in x because it cannot be tapped directly.", "Elle n'a pas son propre choix de toucher dans x parce qu'on ne peut pas la toucher directement."},
-            {"An empty hole is left out of the ordered list P, so the equation only tracks active board positions.", "Un trou vide est laissé hors de la liste ordonnée P, donc l'équation ne suit que les positions actives du plateau."},
-            {"This is how the same equation adapts to irregular boards.", "C'est ainsi que la même équation s'adapte aux plateaux irréguliers."},
-            {"How The Generator Uses This", "Comment le générateur utilise cela"},
-            {"The generator uses the same ingredients: board shape, tiles with lock icons, empty holes, tap pattern, and effect vectors.", "Le générateur utilise les mêmes ingrédients : forme du plateau, tuiles avec cadenas, trous vides, motif de toucher et vecteurs d'effet."},
-            {"It chooses or verifies a starting vector s with some x satisfying s + A x = 0.", "Il choisit ou vérifie un vecteur de départ s avec un x satisfaisant s + A x = 0."},
-            {"When the exact solver is available, it searches the solution set for a short tap-count vector.", "Quand le solveur exact est disponible, il cherche un vecteur de touchers court dans l'ensemble des solutions."},
-            {"Hints follow a stored solving plan one tap at a time.", "Les indices suivent un plan stocké, toucher par toucher."},
-            {"The red outline marks exactly the tiles changed by that hint tap.", "Le contour rouge marque exactement les tuiles changées par cet indice."},
-            {"What The Symbols Mean", "Signification des symboles"},
-            {"These are the compact labels used by the equations and solver.", "Ce sont les étiquettes compactes utilisées par les équations et le solveur."},
+            {"Turn every tile white. A single tap can change several tiles at once.", "Le but est de rendre toutes les tuiles blanches. Un seul appui peut en changer plusieurs à la fois."},
+            {"Before you tap, hold a tile to see where its pattern reaches.", "Avant de jouer, garde le doigt sur une tuile pour voir quelles tuiles son motif atteint."},
+            {"1. Read the colors", "1. Repère les couleurs"},
+            {"White is the color you want every tile to reach.", "Chaque tuile doit finir sur le blanc."},
+            {"A white tile can still change color if another tap reaches it.", "Une tuile déjà blanche peut reprendre une couleur si un autre appui l’atteint."},
+            {"You solve the puzzle when all the tiles are white at once.", "Tu as gagné quand toutes les tuiles sont blanches en même temps."},
+            {"2. Follow the color cycle", "2. Suis le cycle des couleurs"},
+            {"Tap an unlocked tile. Its pattern tells you which tiles will change.", "Appuie sur une tuile sans cadenas. Son motif indique quelles tuiles vont changer."},
+            {"Each tile in the pattern moves on to its next color.", "Chaque tuile touchée par le motif passe à la couleur suivante."},
+            {"After the last color comes white again.", "Après la dernière couleur, on revient au blanc."},
+            {"3. Check the pattern", "3. Regarde le motif"},
+            {"Look for crosses, diagonals, squares, rows, columns and even chess knight moves. Some boards mix several patterns.", "Tu trouveras des croix, des diagonales, des carrés, des lignes, des colonnes et même des sauts de cavalier comme aux échecs. Certains plateaux combinent plusieurs motifs."},
+            {"Hold a tile to preview its pattern. Lift your finger when you’re done looking.", "Garde le doigt sur une tuile pour voir son motif, puis relève-le quand tu as fini de regarder."},
+            {"4. Locks and holes", "4. Cadenas et trous"},
+            {"A locked tile still has to turn white.", "Les tuiles avec un cadenas doivent elles aussi devenir blanches."},
+            {"To change it, tap another tile whose pattern reaches it.", "Pour changer une tuile verrouillée, appuie sur une autre tuile dont le motif l’atteint."},
+            {"A hole is just a gap in the board. Tap patterns skip it.", "Un trou est une place vide sur le plateau. Les motifs passent par-dessus."},
+            {"Choose your puzzle", "Choisis ton casse-tête"},
+            {"Campaign: Pick a group on the 5 × 5 map. Earn 15 stars there to unlock the groups directly beside it, above it and below it.", "Campagne : Choisis un groupe sur la carte de 5 × 5. Gagne 15 étoiles dans ce groupe pour débloquer ses voisins de gauche, de droite, du haut et du bas."},
+            {"Custom Level: Choose the board size, number of colors, pattern and difficulty. You can add locks and holes. The game looks for a puzzle with a unique solution when it can.", "Niveau personnalisé : Choisis la taille du plateau, le nombre de couleurs, le motif et la difficulté. Tu peux ajouter des cadenas et des trous. Le jeu essaie de te proposer un casse-tête à solution unique."},
+            {"Playground: Build your own board and share it with a puzzle code. You can keep experimenting even after every tile turns white.", "Bac à sable : Crée ton propre plateau et partage-le grâce à son code. Tu peux continuer à essayer des coups même quand tout le plateau est blanc."},
+            {"Daily Challenge: Everyone gets the same three puzzles each day. Each one keeps its own best score.", "Défi quotidien : Chaque jour, tout le monde reçoit les trois mêmes casse-têtes. Ton meilleur score est enregistré pour chacun."},
+            {"Taps, stars, and hints", "Coups, étoiles et indices"},
+            {"Previewing a pattern is free. Your tap counts when the tiles change.", "Tu peux regarder un motif sans dépenser de coup. Le coup compte quand les tuiles changent."},
+            {"For three stars, solve the puzzle in as few taps as the game’s best known solution, or fewer.", "Pour gagner trois étoiles, termine en autant de coups que la meilleure solution trouvée par le jeu, ou en moins."},
+            {"The one- and two-star targets leave room for extra taps.", "Les objectifs à une et deux étoiles te laissent quelques coups de plus."},
+            {"Undo takes back your last tap. Reset puts the board back the way it started.", "Annuler retire ton dernier coup. Réinitialiser remet le plateau dans son état de départ."},
+            {"A hint plays one tap for you. You can still finish that attempt, but it earns no stars.", "Un indice joue un coup pour toi. Tu peux terminer cet essai, mais tu n’y gagneras pas d’étoiles."},
+            {"Look for the red outlines to see which tiles the hint changed.", "Un contour rouge indique les tuiles que l’indice a changées."},
+            {"Turn sound effects on or off in Settings.", "Dans les paramètres, tu peux activer ou couper les sons du jeu."},
+            {"If you prefer numbers, turn them on to see each tile’s state alongside its color.", "Si tu préfères les chiffres, affiche-les pour lire l’état des tuiles en plus de leur couleur."},
+            {"On Android, you can also turn vibration on or off.", "Sur Android, tu peux aussi activer ou couper les vibrations."},
+            {"What happens when you add up the taps?", "Que se passe-t-il quand on additionne les effets des coups ?"},
+            {"Take a board with just two colors. Tap the center of a cross and every tile in the cross switches between white and blue. Tap the same spot again and you’re back where you started. The same rule works with other patterns. With more colors, it takes more taps to go all the way around the cycle.", "Imagine un plateau à deux couleurs. Appuie au centre d’une croix et chacune de ses tuiles passe du blanc au bleu ou du bleu au blanc. Appuie une seconde fois au même endroit et tu retrouves le plateau de départ. Le principe vaut aussi pour d’autres motifs ou d’autres couleurs. Avec plus de couleurs, le cycle est simplement plus long."},
+            {"The board in one equation", "Le plateau en une équation"},
+            {"Give white the number 0 and count up through the colors. On a board with n colors, the next step after n-1 is 0 again. This is arithmetic modulo n, written in the ring R=Z/nZ.", "Associe le nombre 0 au blanc, puis numérote les autres couleurs dans l’ordre. Avec n couleurs, après n-1 on revient à 0. C’est l’arithmétique modulo n, dans l’anneau R=Z/nZ."},
+            {"Now read the tiles in a fixed order. Their numbers form the board vector s. Put the effect of each possible tap in a column of a matrix A. If x records how often you tap each unlocked tile, Ax gives the total change. You win when s+Ax=0.", "Lis les tuiles dans un ordre fixe. Leurs valeurs forment le vecteur du plateau s. Place l’effet de chaque appui possible dans une colonne d’une matrice A. Si x compte les appuis sur chaque tuile, Ax donne le changement total. Tu gagnes quand s+Ax=0."},
+            {"From two states to many", "De deux états à plusieurs"},
+            {"In the classic Lights Out puzzle, a tap flips the chosen tile and its neighbors above, below, left and right. Each flip adds 1 modulo 2. Two taps in the same spot cancel because 1+1=0 modulo 2.", "Dans le jeu Lights Out, un appui inverse la tuile choisie et ses voisines du haut, du bas, de gauche et de droite. Chaque changement ajoute 1 modulo 2. Deux appuis au même endroit s’annulent, car 1+1=0 modulo 2."},
+            {"Invert the Matrix adds more states and patterns, but tap effects still add together. Skip holes when you list the tiles. Include locked tiles, since a tap on another tile can change them.", "Invert the Matrix ajoute des états et des motifs, mais les effets des appuis s’additionnent toujours. Dans la liste des tuiles, laisse de côté les trous et garde les tuiles verrouillées, puisqu’un appui ailleurs peut les changer."},
+            {"Can you combine the available taps to cancel the starting board? The change you need is -s.", "Peux-tu combiner les appuis possibles pour annuler le plateau de départ ? Le changement à obtenir est -s."},
+            {"1. The board is a vector", "1. Le plateau est un vecteur"},
+            {"Number the m tiles p_1,…,p_m in any fixed order. Write their states in that same order to get s=(s_1,…,s_m) ∈ R^m. Each entry s_i is the color of tile p_i. An all-white board is the zero vector.", "Numérote les m tuiles p_1,…,p_m dans l’ordre de ton choix. Écris leurs états dans ce même ordre pour obtenir s=(s_1,…,s_m) ∈ R^m. La composante s_i indique la couleur de la tuile p_i. Un plateau tout blanc correspond au vecteur nul."},
+            {"2. Each tap contributes a column", "2. Une colonne par appui possible"},
+            {"Label the r tiles you can tap q_1,…,q_r. Tap q_j once and record a 1 for each tile that changes and a 0 for each tile that stays the same. The result is its effect vector v_j, column j of A.", "Appelle q_1,…,q_r les r tuiles sur lesquelles tu peux appuyer. Appuie une fois sur q_j, puis note 1 pour chaque tuile qui change et 0 pour celles qui restent en place. Tu obtiens son vecteur d’effet v_j, la colonne j de A."},
+            {"Read across a row to see which taps affect one tile. Read down a column to see which tiles one tap affects. A locked tile has a row of its own, but you can’t tap it, so it has no column.", "Une ligne indique quels appuis font changer une tuile. Une colonne indique quelles tuiles changent sous l’effet d’un appui. Une tuile verrouillée a sa ligne, mais comme tu ne peux pas appuyer dessus, elle n’a pas de colonne."},
+            {"How many times should you tap each tile?", "Combien de fois appuyer sur chaque tuile ?"},
+            {"The tap-count vector x=(x_1,…,x_r) records how often you tap each unlocked tile, modulo n. Each tap on q_j adds the same v_j, so together the taps add Ax=∑_j x_jv_j. You can play them in any order.", "Le vecteur des appuis x=(x_1,…,x_r) compte les appuis sur chaque tuile déverrouillée, modulo n. Chaque appui sur q_j ajoute le même vecteur v_j. Le changement total vaut donc Ax=∑_j x_jv_j, quel que soit l’ordre des appuis."},
+            {"The final board is s+Ax. To make it all white, look for a vector x that solves Ax=-s in R.", "Le plateau final est s+Ax. Pour le rendre tout blanc, cherche un vecteur x qui vérifie Ax=-s dans R."},
+            {"When does a solution exist?", "Quand existe-t-il une solution ?"},
+            {"Every tap-count vector produces a change Ax. All those changes together form the image of A, written Im(A). A board has a solution exactly when -s belongs to this image.", "Chaque vecteur des appuis produit un changement Ax. L’ensemble de ces changements est l’image de A, notée Im(A). Le plateau admet une solution si et seulement si -s appartient à cette image."},
+            {"When n is prime, you can check by row reducing the augmented matrix [A | -s] to echelon form. A row saying 0=c with c ≠ 0 rules out a solution. If no such row appears, you can read off at least one solution by back substitution.", "Si n est premier, mets la matrice augmentée [A | -s] sous forme échelonnée par des opérations sur les lignes. Une ligne qui dit 0=c avec c ≠ 0 exclut toute solution. Sinon, tu peux trouver une solution en remontant le système."},
+            {"Prime numbers and fields", "Nombres premiers et corps"},
+            {"With 2, 3 or 5 states, R is a field. Every nonzero element has a multiplicative inverse, so you can divide by it. With four states, even a simple division by 2 can go wrong. We’ll see why below.", "Avec 2, 3 ou 5 états, R est un corps. Tout élément non nul a un inverse pour la multiplication, ce qui permet de diviser par cet élément. Avec quatre états, même une division par 2 pose problème. On verra pourquoi un peu plus loin."},
+            {"What changes with four states?", "Qu’est-ce qui change avec quatre états ?"},
+            {"When n is composite, R is still a ring, but some nonzero elements have no multiplicative inverse. For example, modulo 4, twice any number is even, so 2a can never equal 1. You can’t divide a row by 2 here.", "Si n est composé, R reste un anneau, mais certains éléments non nuls n’ont pas d’inverse pour la multiplication. Par exemple, modulo 4, un double est toujours pair. Ainsi 2a ne vaut jamais 1, et on ne peut pas diviser une ligne par 2."},
+            {"The test for a solution is still -s ∈ Im(A). Use row operations valid in the ring. If n factors into coprime prime powers, you can also solve modulo each of those powers and combine the results.", "Le critère reste -s ∈ Im(A). Utilise des opérations sur les lignes valables dans cet anneau. Si n est un produit de puissances de nombres premiers distincts, on peut aussi résoudre le système modulo chacune de ces puissances, puis combiner les résultats."},
+            {"When is the solution unique?", "Quand la solution est-elle unique ?"},
+            {"Suppose x_0 solves the board. If a tap-count vector z leaves the board unchanged, then Az=0 and x_0+z also solves it. These vectors z form the kernel of A, written ker(A). Adding each of them to x_0 gives all the solutions.", "Suppose que x_0 soit une solution. Si un vecteur des appuis z laisse le plateau inchangé, alors Az=0 et x_0+z est aussi une solution. Ces vecteurs z forment le noyau de A, noté ker(A). En ajoutant chacun d’eux à x_0, on obtient toutes les solutions."},
+            {"Remember that counts are taken modulo n. Tapping one tile n extra times takes its whole pattern around the color cycle. It leaves both the board and the tap-count vector unchanged.", "On compte les appuis modulo n. Si tu appuies n fois de plus sur une tuile, toutes les tuiles de son motif font un tour complet du cycle. Le plateau et le vecteur des appuis restent les mêmes."},
+            {"So a solvable board has exactly one tap-count vector when ker(A)={0}. Over a field, this means the columns of A are linearly independent. The kernel test also works in the four-state ring.", "Un plateau résoluble admet donc un unique vecteur des appuis si et seulement si ker(A)={0}. Sur un corps, cela signifie que les colonnes de A sont linéairement indépendantes. Le critère du noyau vaut aussi dans l’anneau à quatre états."},
+            {"When is A invertible?", "Quand A est-elle inversible ?"},
+            {"If you can tap every tile, A has one row and one column per tile, so it is square. Holes leave that count balanced. A lock removes a column and keeps the row. When a square A is invertible, every starting board has exactly one tap-count solution.", "Si tu peux appuyer sur chaque tuile, A a autant de lignes que de colonnes et elle est carrée. Les trous préservent cette égalité. Un cadenas supprime une colonne et conserve la ligne. Si la matrice carrée A est inversible, chaque plateau de départ admet un unique vecteur des appuis qui le résout."},
+            {"A square A is invertible exactly when its determinant has a multiplicative inverse in R. For prime n, the determinant must be nonzero modulo n. For n=4, it must be odd. If this test fails, some starting boards have no solution and others have several. For a rectangular matrix, use the image to test existence and the kernel to test uniqueness.", "Une matrice carrée A est inversible si et seulement si son déterminant est inversible dans R. Pour n premier, il doit être non nul modulo n. Pour n=4, il doit être impair. Si ce critère échoue, certains plateaux n’ont aucune solution et d’autres en ont plusieurs. Pour une matrice rectangulaire, l’image permet de tester l’existence d’une solution et le noyau son unicité."},
+            {"Counting the taps in a solution", "Compter les coups d’une solution"},
+            {"To play a solution, take each count x_j as a number from 0 to n-1. Call that number t_j. Add these numbers as ordinary integers to get the number of taps, ℓ(x). The shortest solution the game has found sets the three-star target.", "Pour jouer une solution, représente chaque composante x_j par un nombre de 0 à n-1, noté t_j. Additionne ces nombres comme des entiers pour obtenir le nombre de coups, ℓ(x). La solution la plus courte trouvée par le jeu fixe l’objectif des trois étoiles."},
+            {"How the game finds a short solution", "Comment le jeu cherche une solution courte"},
+            {"If the board has few enough possible states, the game searches all positions one tap away, then two taps away, and so on. The first time it reaches an all-white board, it has found the fewest taps possible.", "Quand le plateau a assez peu de configurations possibles, le jeu explore d’abord celles à un coup, puis celles à deux coups, et ainsi de suite. La première fois qu’il atteint un plateau tout blanc, il a trouvé le minimum de coups."},
+            {"For larger boards with a prime number of states per tile, the game row reduces Ax=-s. If there are few enough solutions to try, it compares them all and keeps one with the fewest taps. When an exact search is too large, including on large four-state boards, it uses a known solution whose length may be above the minimum.", "Pour les grands plateaux où le nombre d’états par tuile est premier, le jeu réduit le système Ax=-s par opérations sur les lignes. Si les solutions sont assez peu nombreuses, il les compare toutes et en garde une qui demande le moins de coups. Quand la recherche exacte est trop longue, notamment sur les grands plateaux à quatre états, il utilise une solution connue qui peut dépasser le minimum."},
+            {"Different tap-count vectors can tie for the minimum, and you can play the same vector in different orders. When the game proves a minimum, it always picks the same plan among those tied for shortest. It doesn’t tell you whether another plan ties with it.", "Plusieurs vecteurs des appuis peuvent atteindre le même minimum, et tu peux jouer un même vecteur dans des ordres différents. Quand le jeu établit le minimum, il choisit toujours le même plan parmi les plus courts. Il n’indique pas si un autre fait aussi bien."},
+            {"Locked tiles and holes in the matrix", "Les cadenas et les trous dans la matrice"},
+            {"To model a hole, leave that position out entirely. To model a lock, keep the tile’s entry in s and its row in A, since it still has to turn white. Leave out its column. The remaining columns tell you which other taps can change it.", "Pour représenter un trou, laisse cette position de côté. Pour un cadenas, garde la composante de la tuile dans s et sa ligne dans A, car elle doit devenir blanche. Supprime sa colonne. Les autres colonnes indiquent quels appuis peuvent encore la changer."},
+            {"How puzzles are made", "Comment les casse-têtes sont créés"},
+            {"The generator starts with a white board and scrambles it with allowed taps. It keeps track of how to undo their combined effect, so the starting board comes with a solution. When it can, the solver finds a shortest plan for the star targets. A hint plays one tap toward a solution and outlines the tiles it changed in red.", "Le jeu part d’un plateau blanc et le mélange avec des appuis autorisés. Il garde de quoi annuler leur effet cumulé. Le plateau obtenu a donc déjà une solution. Quand il le peut, le jeu trouve un plan de longueur minimale pour fixer les objectifs d’étoiles. Un indice joue un coup vers la solution et entoure en rouge les tuiles modifiées."},
+            {"What the symbols mean", "Que signifient les symboles ?"},
             {"modulus / tile states", "module / états des tuiles"},
             {"board vector in (Z/nZ)^m", "vecteur du plateau dans (Z/nZ)^m"},
             {"columns are effect vectors", "colonnes de vecteurs d'effet"},
@@ -3247,6 +3164,7 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"solution exists iff", "solution existe ssi"},
             {"solutions", "solutions"},
             {"is a field", "est un corps"},
+            {"You can now play in Korean. We also rewrote How to Play and the math guide, from your first tap to the equations behind a solution.", "Tu peux désormais jouer en coréen. Nous avons retravaillé les règles du jeu et le guide de mathématiques, du premier geste aux équations qui permettent de résoudre un plateau."},
             {"Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later.", "Amélioration de la compatibilité avec Android 16, du retour système et de la disposition de l'écran autour des barres système. L'application Android nécessite désormais Android 7 ou une version ultérieure."},
             {"Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility.", "Mise à jour des dépendances AndroidX Activity et Fragment vers les versions prises en charge actuelles pour Google Play."},
             {"Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand.", "L’application cible désormais Android 16, maintient un retour système fiable et clarifie l’objectif de rendre toutes les tuiles blanches, avec une aide sur l’effet de toucher disponible à la demande."},
@@ -3260,6 +3178,11 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"Release builds keep native debug symbols for Play Console crash reports.", "Les builds de publication conservent les symboles de débogage natifs pour les rapports de plantage Play Console."},
             {"The Math guide explains solution uniqueness and matrix invertibility.", "Le guide des maths explique quand une solution est unique et quand la matrice est inversible."}
     };
+    static const std::unordered_map<std::string, std::string> ko = {
+#include "korean_ui.inc"
+#include "korean_guide.inc"
+    };
+    if (language == "ko") return ko;
     if (language == "es") return es;
     if (language == "fr") return fr;
     static const std::unordered_map<std::string, std::string> empty;
@@ -3277,21 +3200,19 @@ std::string onOff(AppState *s, bool value) {
     return tr(s, value ? "ON" : "OFF");
 }
 
-int languageIndex(AppState *s) {
-    if (!s) return 0;
-    if (s->language == "es") return 1;
-    if (s->language == "fr") return 2;
+int languageIndex(const std::string &code) {
+    for (int i = 0; i < static_cast<int>(std::size(languages)); ++i) {
+        if (code == languages[i].code) return i;
+    }
     return 0;
-}
-
-std::string languageName(int index) {
-    if (index == 1) return "Español";
-    if (index == 2) return "Français";
-    return "English";
 }
 
 std::string localizedPatternLabel(AppState *s, const std::string &key) {
     return tr(s, patternLabel(key));
+}
+
+std::string localizedPatternBadge(AppState *s, const Pattern &pattern) {
+    return tr(s, pattern.badge);
 }
 
 std::string localizedDifficulty(AppState *s, const std::string &difficulty) {
@@ -3750,6 +3671,37 @@ void setPlaygroundStatus(AppState *s, const std::string &message) {
     s->playgroundStatusUntil = message.empty() ? 0 : nowMs() + 3200;
 }
 
+std::string preferredSystemLanguage(AppState *s) {
+    // LocaleList (API 24+) preserves the user's order, including secondary languages.
+    JavaVM *vm = s->native->activity->vm;
+    JNIEnv *env = nullptr;
+    bool detach = vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK;
+    if (detach && vm->AttachCurrentThread(&env, nullptr) != JNI_OK) return "en";
+    jclass listClass = env->FindClass("android/os/LocaleList");
+    jmethodID getDefault = listClass ? env->GetStaticMethodID(listClass, "getDefault", "()Landroid/os/LocaleList;") : nullptr;
+    jmethodID toTags = getDefault ? env->GetMethodID(listClass, "toLanguageTags", "()Ljava/lang/String;") : nullptr;
+    jobject list = toTags ? env->CallStaticObjectMethod(listClass, getDefault) : nullptr;
+    auto tags = list ? static_cast<jstring>(env->CallObjectMethod(list, toTags)) : nullptr;
+    const char *rawTags = tags ? env->GetStringUTFChars(tags, nullptr) : nullptr;
+    std::string preferred = rawTags ? rawTags : "";
+    if (rawTags) env->ReleaseStringUTFChars(tags, rawTags);
+    env->DeleteLocalRef(tags);
+    env->DeleteLocalRef(list);
+    env->DeleteLocalRef(listClass);
+    if (env->ExceptionCheck()) env->ExceptionClear();
+    if (detach) vm->DetachCurrentThread();
+
+    std::istringstream choices(preferred);
+    std::string tag;
+    while (std::getline(choices, tag, ',')) {
+        std::string base = tag.substr(0, tag.find('-'));
+        for (const auto &language : languages) {
+            if (base == language.code) return base;
+        }
+    }
+    return "en";
+}
+
 void loadPrefs(AppState *s) {
     s->freeSize = s->progress.getString("free_size", "5x5");
     s->customW = s->progress.getInt("free_custom_width", 5);
@@ -3768,8 +3720,8 @@ void loadPrefs(AppState *s) {
     s->vibration = s->progress.getBool("setting_vibration", true);
     s->hideNumbers = s->progress.getBool("setting_hide_numbers", true);
     s->showPlaygroundNumbers = s->progress.getBool("setting_show_playground_numbers", false);
-    s->language = s->progress.getString("setting_language", "en");
-    if (s->language != "en" && s->language != "es" && s->language != "fr") s->language = "en";
+    std::string savedLanguage = s->progress.getString("setting_language", "");
+    s->language = savedLanguage.empty() ? preferredSystemLanguage(s) : languages[languageIndex(savedLanguage)].code;
     s->guideTextSize = clampInt(s->progress.getInt("setting_guide_text_size", 0), 0, 2);
 }
 
@@ -4722,6 +4674,7 @@ struct HighlightRule {
     std::vector<std::string> terms;
     Color color;
     bool used = false;
+    bool allowKoreanParticle = false;
 };
 
 bool isHighlightWordByte(unsigned char c) {
@@ -4730,6 +4683,17 @@ bool isHighlightWordByte(unsigned char c) {
 
 bool isHighlightBoundary(const std::string &text, size_t index) {
     return index >= text.size() || !isHighlightWordByte(static_cast<unsigned char>(text[index]));
+}
+
+// Korean particles attach to nouns without a space. Keep the particle outside the highlight.
+bool endsWithKoreanParticle(const std::string &text, size_t offset) {
+    static const char *particles[] = {"은", "는", "이", "가", "을", "를", "에", "의", "과", "와", "도",
+                                      "로", "으로", "에서", "에는", "에도", "마다", "처럼", "만", "부터", "까지"};
+    for (const char *particle : particles) {
+        size_t length = std::strlen(particle);
+        if (text.compare(offset, length, particle) == 0 && isHighlightBoundary(text, offset + length)) return true;
+    }
+    return false;
 }
 
 void applyGuideHighlights(std::string const &line, std::vector<HighlightRule> *rules,
@@ -4751,9 +4715,13 @@ void applyGuideHighlights(std::string const &line, std::vector<HighlightRule> *r
                     if (found == std::string::npos) break;
                     size_t end = found + term.size();
                     bool startsClean = found == 0 || isHighlightBoundary(line, found - 1);
-                    bool endsClean = isHighlightBoundary(line, end);
-                    if (startsClean && endsClean &&
-                        (bestRule < 0 || found < bestStart || (found == bestStart && term.size() > bestLen))) {
+                    bool endsClean = isHighlightBoundary(line, end) ||
+                                     (rule.allowKoreanParticle && endsWithKoreanParticle(line, end));
+                    if (!startsClean || !endsClean) {
+                        from = end;
+                        continue;
+                    }
+                    if (bestRule < 0 || found < bestStart || (found == bestStart && term.size() > bestLen)) {
                         bestRule = static_cast<int>(i);
                         bestStart = found;
                         bestLen = term.size();
@@ -4771,6 +4739,19 @@ void applyGuideHighlights(std::string const &line, std::vector<HighlightRule> *r
 }
 
 std::vector<HighlightRule> guideHighlightRules(AppState *s, bool math) {
+    if (s && s->language == "ko") {
+        auto rules = math
+            ? std::vector<HighlightRule>{
+                  {{"칸"}, GREEN}, {{"상태"}, ORANGE}, {{"누르기", "누르면", "눌러", "누른"}, BLUE}, {{"효과 벡터"}, GREEN},
+                  {{"누름 횟수 벡터"}, GREEN}, {{"퍼즐판 벡터"}, GREEN}, {{"영벡터"}, GREEN},
+                  {{"행렬"}, ORANGE}, {{"나머지"}, PURPLE}, {{"유한체", "체"}, GREEN}, {{"나머지환", "환"}, PURPLE},
+                  {{"상"}, GREEN}, {{"핵"}, BLUE}, {{"가역", "가역행렬"}, ORANGE}}
+            : std::vector<HighlightRule>{
+                  {{"칸"}, GREEN}, {{"누르기", "누르면", "눌러", "누른"}, BLUE}, {{"상태"}, PURPLE}, {{"패턴"}, ORANGE},
+                  {{"잠긴 칸", "자물쇠"}, PURPLE}, {{"빈자리"}, ORANGE}, {{"힌트"}, GREEN}};
+        for (auto &rule : rules) rule.allowKoreanParticle = true;
+        return rules;
+    }
     if (!s || s->language == "es") {
         return math
             ? std::vector<HighlightRule>{
@@ -4786,24 +4767,24 @@ std::vector<HighlightRule> guideHighlightRules(AppState *s, bool math) {
             : std::vector<HighlightRule>{
                   {{"casilla", "casillas"}, GREEN}, {{"toque", "toques"}, BLUE}, {{"estado", "estados"}, PURPLE},
                   {{"patrón", "patrones"}, ORANGE}, {{"candado", "casillas con candado"}, PURPLE},
-                  {{"hueco vacío", "huecos vacíos"}, ORANGE}, {{"pista", "pistas"}, GREEN}};
+                  {{"hueco", "huecos"}, ORANGE}, {{"pista", "pistas"}, GREEN}};
     }
     if (s->language == "fr") {
         return math
             ? std::vector<HighlightRule>{
                   {{"modulaire"}, PURPLE}, {{"tuile", "tuiles"}, GREEN}, {{"état", "états"}, ORANGE},
-                  {{"Toucher", "toucher", "touchers"}, BLUE},
-                  {{"vecteur d'effet", "vecteurs d'effet"}, GREEN},
-                  {{"vecteur de touchers", "vecteurs de touchers"}, GREEN},
+                  {{"Toucher", "appui", "appuis"}, BLUE},
+                  {{"vecteur d’effet", "vecteurs d’effet"}, GREEN},
+                  {{"vecteur des appuis", "vecteurs des appuis"}, GREEN},
                   {{"vecteur du plateau"}, GREEN},
                   {{"vecteur zéro", "vecteur nul"}, GREEN},
                   {{"matrice"}, ORANGE},
                   {{"modulo"}, PURPLE}, {{"corps"}, GREEN}, {{"anneau", "anneaux"}, PURPLE},
                   {{"image"}, GREEN}, {{"noyau"}, BLUE}, {{"inversible", "inversibilité"}, ORANGE}}
             : std::vector<HighlightRule>{
-                  {{"tuile", "tuiles"}, GREEN}, {{"toucher", "touchers"}, BLUE}, {{"état", "états"}, PURPLE},
+                  {{"tuile", "tuiles"}, GREEN}, {{"appui", "appuis"}, BLUE}, {{"état", "états"}, PURPLE},
                   {{"motif", "motifs"}, ORANGE}, {{"cadenas", "tuiles avec cadenas"}, PURPLE},
-                  {{"trou vide", "trous vides"}, ORANGE}, {{"indice", "indices"}, GREEN}};
+                  {{"trou", "trous"}, ORANGE}, {{"indice", "indices"}, GREEN}};
     }
     return math
         ? std::vector<HighlightRule>{
@@ -4818,8 +4799,8 @@ std::vector<HighlightRule> guideHighlightRules(AppState *s, bool math) {
               {{"image"}, GREEN}, {{"kernel"}, BLUE}, {{"invertible"}, ORANGE}}
         : std::vector<HighlightRule>{
               {{"tile", "tiles"}, GREEN}, {{"Tapping", "Tap", "tap", "taps"}, BLUE}, {{"state", "states", "States"}, PURPLE},
-              {{"pattern", "patterns"}, ORANGE}, {{"lock icon", "lock icons"}, PURPLE},
-              {{"empty hole", "empty holes"}, ORANGE}, {{"hints", "hint", "Hint"}, GREEN}};
+              {{"pattern", "patterns"}, ORANGE}, {{"locked", "lock", "locks"}, PURPLE},
+              {{"hole", "holes"}, ORANGE}, {{"hints", "hint", "Hint"}, GREEN}};
 }
 
 std::vector<WrappedGuideLine> wrapGuideLines(AppState *s, const std::vector<std::string> &text,
@@ -5147,8 +5128,9 @@ void drawGuideSizeControl(AppState *s) {
     auto drawSizeGlyph = [&](Rect b, float scale, Color color, bool selected) {
         float cx = b.x + b.w * 0.5f;
         float glyphY = b.y + b.h * 0.5f - scale * 4.0f - dp(s, 0.6f);
-        r.textHeavy("A", cx, glyphY, scale, color, 1, selected ? 0.98f : 0.76f);
-        float underlineW = std::min(b.w * 0.48f, std::max(dp(s, 10), r.textWidth("A", scale) * 0.78f));
+        const char *sample = s->language == "ko" ? "가" : "A";
+        r.textHeavy(sample, cx, glyphY, scale, color, 1, selected ? 0.98f : 0.76f);
+        float underlineW = std::min(b.w * 0.48f, std::max(dp(s, 10), r.textWidth(sample, scale) * 0.78f));
         float underlineH = std::max(1.0f, dp(s, 1.15f));
         r.roundedRect(cx - underlineW * 0.5f, b.y + b.h - dp(s, 6), underlineW, underlineH, underlineH * 0.5f,
                       withAlpha(color, selected ? 0.58f : 0.36f));
@@ -5691,6 +5673,10 @@ float vectorLabelWidth(Renderer &r, const std::string &text, float textScale) {
 void drawVectorFittedText(AppState *s, const std::string &text, float x, float centerY, float maxWidth,
                           float textScale, Color color, int align = 0) {
     Renderer &r = s->renderer;
+    if (s->language == "ko") {
+        drawFittedText(s, text, x, centerY - textScale * 3.1f, maxWidth, textScale, color, align, true, 1.18f);
+        return;
+    }
     while (vectorLabelWidth(r, text, textScale) > maxWidth && textScale > dp(s, 1.18f)) {
         textScale *= 0.94f;
     }
@@ -5957,13 +5943,13 @@ void drawFreeplay(AppState *s) {
     if (s->freeSize == "Custom") {
         float controlH = dp(s, 44.0f + (textScale - 1.0f) * 8.0f);
         float labelScale = dp(s, 3.05f * textScale);
-        drawButton(s, {dp(s, 18), y, dp(s, 70), controlH}, "W-", Action::WidthMinus, 0, false, false, true, textScale);
+        drawButton(s, {dp(s, 18), y, dp(s, 70), controlH}, "-", Action::WidthMinus, 0, false, false, true, textScale);
         r.text(tr(s, "Width") + " " + std::to_string(s->customW), r.width * 0.5f, y + controlH * 0.5f - labelScale * 4.0f, labelScale, TEXT, 1);
-        drawButton(s, {r.width - dp(s, 88), y, dp(s, 70), controlH}, "W+", Action::WidthPlus, 0, false, false, true, textScale);
+        drawButton(s, {r.width - dp(s, 88), y, dp(s, 70), controlH}, "+", Action::WidthPlus, 0, false, false, true, textScale);
         y += controlH + dp(s, 10);
-        drawButton(s, {dp(s, 18), y, dp(s, 70), controlH}, "H-", Action::HeightMinus, 0, false, false, true, textScale);
+        drawButton(s, {dp(s, 18), y, dp(s, 70), controlH}, "-", Action::HeightMinus, 0, false, false, true, textScale);
         r.text(tr(s, "Height") + " " + std::to_string(s->customH), r.width * 0.5f, y + controlH * 0.5f - labelScale * 4.0f, labelScale, TEXT, 1);
-        drawButton(s, {r.width - dp(s, 88), y, dp(s, 70), controlH}, "H+", Action::HeightPlus, 0, false, false, true, textScale);
+        drawButton(s, {r.width - dp(s, 88), y, dp(s, 70), controlH}, "+", Action::HeightPlus, 0, false, false, true, textScale);
         y += controlH + dp(s, 18);
     }
     r.text(tr(s, "States"), dp(s, 18), y, headingScale, TEXT); y += headingH;
@@ -6212,7 +6198,8 @@ void drawPlayground(AppState *s) {
     drawPlaygroundToolbelt(s, y);
     std::vector<std::tuple<Rect, std::string, std::string>> sectionLabels;
 
-    std::string statesValue = std::to_string(config.states) + " " + tr(s, "states");
+    std::string statesValue = s->language == "ko" ? "상태 " + std::to_string(config.states) + "개" :
+                              std::to_string(config.states) + " " + tr(s, "states");
     sectionLabels.push_back({drawPlaygroundSectionHeader(s, y, "States", statesValue, 0, s->playgroundStatesOpen, false),
                              "States", statesValue});
     if (s->playgroundStatesOpen) {
@@ -6861,9 +6848,8 @@ void drawHowToIntro(AppState *s, float &y, std::vector<HighlightRule> *highlight
     float diagramGap = dp(s, 12) * std::min(1.12f, scale);
     std::vector<std::string> titleLines = wrapTextLines(s, tr(s, "Clear the board"), titleScale, maxTextW);
     std::vector<WrappedGuideLine> bodyLines = wrapGuideLines(s, std::vector<std::string>{
-        "Clear every tile by turning it white.",
-        "Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.",
-        "Use previews and level clues to plan calmly before each tap."
+        "Turn every tile white. A single tap can change several tiles at once.",
+        "Before you tap, hold a tile to see where its pattern reaches."
     }, bodyScale, maxTextW, 0.0f, highlights);
     Rect panel{dp(s, 18), y, panelW,
                pad * 2.0f + titleLineH * static_cast<float>(titleLines.size()) + dp(s, 12) +
@@ -6894,43 +6880,43 @@ void drawHowTo(AppState *s) {
     float y = beginScrollContent(s, guideContentTop(s));
     std::vector<HighlightRule> highlights = guideHighlightRules(s, false);
     drawHowToIntro(s, y, &highlights);
-    drawGuideBlock(s, y, "1. Make every tile white",
-                   {"- A white tile is solved.",
-                    "- Colored tiles are not wrong. They just need to keep advancing until they return to white.",
-                    "- The puzzle ends only when every tile is white at the same time."},
+    drawGuideBlock(s, y, "1. Read the colors",
+                   {"- White is the color you want every tile to reach.",
+                    "- A white tile can still change color if another tap reaches it.",
+                    "- You solve the puzzle when all the tiles are white at once."},
                    GREEN, GuideDiagramKind::Read, &highlights);
-    drawGuideBlock(s, y, "2. Tap and cycle",
-                   {"- Tap an available tile to apply the level's tap pattern.",
-                    "- Every tile reached by the pattern advances one state.",
-                    "- States cycle: after the last colored state, the next advance returns that tile to white."},
+    drawGuideBlock(s, y, "2. Follow the color cycle",
+                   {"- Tap an unlocked tile. Its pattern tells you which tiles will change.",
+                    "- Each tile in the pattern moves on to its next color.",
+                    "- After the last color comes white again."},
                    BLUE, GuideDiagramKind::Tap, &highlights);
-    drawGuideBlock(s, y, "3. Use the pattern preview",
-                   {"- A level can use a cross, diagonal, square, horizontal, vertical, knight, or mixed pattern.",
-                    "- Hold or hover a tile to see exactly which tiles will change before you tap."},
+    drawGuideBlock(s, y, "3. Check the pattern",
+                   {"- Look for crosses, diagonals, squares, rows, columns and even chess knight moves. Some boards mix several patterns.",
+                    "- Hold a tile to preview its pattern. Lift your finger when you’re done looking."},
                    ORANGE, GuideDiagramKind::Pattern, &highlights);
-    drawGuideBlock(s, y, "4. Handle special tiles",
-                   {"- A tile with a lock icon still needs to become white and can change when a nearby tap reaches it.",
-                    "- You cannot tap a tile with a lock icon directly.",
-                    "- An empty hole is outside the board. Tap patterns skip empty holes."},
+    drawGuideBlock(s, y, "4. Locks and holes",
+                   {"- A locked tile still has to turn white.",
+                    "- To change it, tap another tile whose pattern reaches it.",
+                    "- A hole is just a gap in the board. Tap patterns skip it."},
                    PURPLE, GuideDiagramKind::Special, &highlights);
-    drawGuideBlock(s, y, "Modes: Choose your puzzle",
-	                   {"- Campaign: Pick groups on a 5x5 map. Earn 15 stars in a group to open adjacent groups.",
-	                    "- Custom Level: Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.",
-	                    "- Playground: Build a board by hand, share its puzzle code, and play without a completion modal.",
-	                    "- Daily Challenge: Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score."},
+    drawGuideBlock(s, y, "Choose your puzzle",
+                   {"- Campaign: Pick a group on the 5 × 5 map. Earn 15 stars there to unlock the groups directly beside it, above it and below it.",
+                    "- Custom Level: Choose the board size, number of colors, pattern and difficulty. You can add locks and holes. The game looks for a puzzle with a unique solution when it can.",
+                    "- Playground: Build your own board and share it with a puzzle code. You can keep experimenting even after every tile turns white.",
+                    "- Daily Challenge: Everyone gets the same three puzzles each day. Each one keeps its own best score."},
                    GREEN, GuideDiagramKind::Modes, &highlights);
     drawGuideBlock(s, y, "Taps, stars, and hints",
-                   {"- The tap counter counts every tap you commit.",
-                    "- Three stars mean you matched the generator's minimum found tap count.",
-                    "- Two-star and one-star targets allow extra taps.",
-                    "- Undo rewinds one tap, and Reset restores the starting board.",
-                    "- Hint applies the next tap from a solver plan. A hinted try can still complete the puzzle, but it no longer earns stars.",
-                    "- Tiles changed by a hint are outlined in red."},
+                   {"- Previewing a pattern is free. Your tap counts when the tiles change.",
+                    "- For three stars, solve the puzzle in as few taps as the game’s best known solution, or fewer.",
+                    "- The one- and two-star targets leave room for extra taps.",
+                    "- Undo takes back your last tap. Reset puts the board back the way it started.",
+                    "- A hint plays one tap for you. You can still finish that attempt, but it earns no stars.",
+                    "- Look for the red outlines to see which tiles the hint changed."},
                    BLUE, GuideDiagramKind::Moves, &highlights);
     drawGuideBlock(s, y, "Settings",
-                   {"- Sound toggles audio effects.",
-                    "- Show numbers on tiles displays state values when you want a more exact view.",
-                    "- Android also includes haptic feedback controls."},
+                   {"- Turn sound effects on or off in Settings.",
+                    "- If you prefer numbers, turn them on to see each tile’s state alongside its color.",
+                    "- On Android, you can also turn vibration on or off."},
                    ORANGE, GuideDiagramKind::Options, &highlights);
     finishScrollContent(s, y);
     drawGuideHeader(s, "How to Play");
@@ -7008,13 +6994,9 @@ void drawMathIntro(AppState *s, float &y, std::vector<HighlightRule> *highlights
     float titleLineH = dp(s, 31) * scale;
     float lineH = dp(s, 22) * scale;
     float demoH = dp(s, 108) * std::min(1.16f, scale);
-    std::vector<std::string> titleLines = wrapTextLines(s, tr(s, "Invert the Matrix is a modular linear-algebra puzzle."), titleScale, maxTextW);
+    std::vector<std::string> titleLines = wrapTextLines(s, tr(s, "What happens when you add up the taps?"), titleScale, maxTextW);
     std::vector<WrappedGuideLine> bodyLines = wrapGuideLines(s, std::vector<std::string>{
-        "To play, think of each tile as having a state, shown by its color.",
-        "A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile.",
-        "After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all tiles white at the same time.",
-        "Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap.",
-        "But later on, everything gets much more complicated."
+        "Take a board with just two colors. Tap the center of a cross and every tile in the cross switches between white and blue. Tap the same spot again and you’re back where you started. The same rule works with other patterns. With more colors, it takes more taps to go all the way around the cycle."
     }, bodyScale, maxTextW, 0.0f, highlights);
     Rect panel{dp(s, 18), y, panelW,
                pad * 2.0f + titleLineH * static_cast<float>(titleLines.size()) + dp(s, 10) +
@@ -7073,127 +7055,65 @@ void drawMath(AppState *s) {
     float y = beginScrollContent(s, guideContentTop(s));
     std::vector<HighlightRule> highlights = guideHighlightRules(s, true);
     drawMathIntro(s, y, &highlights);
-    drawGuideBlock(s, y, "Modeling The Game",
-                   {"Turn the board into one equation.",
-                    "First list the active board positions in a fixed order.",
-                    "Then the displayed board is a vector s in (Z/nZ)^m.",
-                    "Each allowed tap has an effect vector recording which tiles it advances.",
-                    "The columns of A are those effect vectors, and a tap-count vector x solves the puzzle when s + A x = 0 modulo n.",
-                    "Values are read modulo n, so after n - 1 the next value is 0."},
+    drawGuideBlock(s, y, "The board in one equation",
+                   {"Give white the number 0 and count up through the colors. On a board with n colors, the next step after n-1 is 0 again. This is arithmetic modulo n, written in the ring R=Z/nZ.",
+                    "Now read the tiles in a fixed order. Their numbers form the board vector s. Put the effect of each possible tap in a column of a matrix A. If x records how often you tap each unlocked tile, Ax gives the total change. You win when s+Ax=0."},
                    GREEN, GuideDiagramKind::None, &highlights);
-    drawGuideBlock(s, y, "From Lights Out",
-                   {"Classical Lights Out is the n = 2 case: tiles are 0 or 1.",
-                    "Tapping a tile changes the same shape of nearby tiles every time.",
-                    "Usually that shape is the tapped tile plus the tiles above, below, left, and right.",
-                    "Changing a tile is adding 1 modulo 2, so tapping the same tile twice gives no net change.",
-                    "Invert the Matrix keeps that add-the-effects rule while allowing n states over Z/nZ.",
-                    "Empty holes are not included in the board vector. Tiles with lock icons stay in it because they must become white.",
-                    "Tiles with lock icons do not get tap choices because they cannot be tapped directly.",
-                    "The mathematical question is precise: can the allowed taps add up to the target change -s?"},
+    drawGuideBlock(s, y, "From two states to many",
+                   {"In the classic Lights Out puzzle, a tap flips the chosen tile and its neighbors above, below, left and right. Each flip adds 1 modulo 2. Two taps in the same spot cancel because 1+1=0 modulo 2.",
+                    "Invert the Matrix adds more states and patterns, but tap effects still add together. Skip holes when you list the tiles. Include locked tiles, since a tap on another tile can change them.",
+                    "Can you combine the available taps to cancel the starting board? The change you need is -s."},
                    BLUE, GuideDiagramKind::None, &highlights);
-    drawMathBlock(s, y, "1. The Board Is A Vector",
-                  {"Let P = {p_1, ..., p_m} be the set of active board positions, in a fixed order.",
-                   "A configuration is the vector s = (s_1, ..., s_m) in (Z/nZ)^m.",
-                   "Value s_i is the state value shown at p_i, read modulo n.",
-                   "The solved board is the zero vector."},
-                  FormulaKind::Remainder, GREEN, 70.0f, &highlights);
-    drawMathBlock(s, y, "2. Each Tap Has An Effect Vector",
-                  {"Let q_1, ..., q_r be the positions that can be tapped.",
-                   "The effect vector of the tap at q_j is v_j in (Z/nZ)^m.",
-                   "Value (v_j)_i is 1 when that tap advances p_i, and 0 otherwise.",
-                   "The tap matrix is A = [v_1 ... v_r].",
-                   "A row tracks a board position. A column tracks an allowed tap.",
-                   "A tile with a lock icon gets a row, but no column, because it must become white and cannot be tapped directly."},
-                  FormulaKind::Column, ORANGE, 78.0f, &highlights);
-    drawMathBlock(s, y, "3. The Tap Vector",
-                  {"The tap-count vector x = (x_1, ..., x_r) lies in (Z/nZ)^r.",
-                   "Value x_j records how many times the tap at q_j is used, modulo n.",
-                   "Executing x adds sum_j x_j v_j, which is A x.",
-                   "Tap order does not enter the algebra."},
-                  FormulaKind::Plan, PURPLE, 60.0f, &highlights);
-    drawMathBlock(s, y, "Goal: Find A Tap-Count Vector",
-                  {"After applying x, the board vector is s + A x.",
-                   "The target is the zero vector in (Z/nZ)^m.",
-                   "So a solution satisfies A x = -s modulo n.",
-                   "This is a set of linear equations with arithmetic modulo n."},
-                  FormulaKind::Goal, BLUE, 60.0f, &highlights);
-    drawMathBlock(s, y, "When Does A Solution Exist?",
-                  {"The columns of A describe all board changes reachable by allowed taps.",
-                   "Equivalently, Im(A) = {A x : x in (Z/nZ)^r}.",
-                   "There is a solution exactly when the target -s lies in Im(A).",
-                   "Over prime n, simplify the rows of the system [A | -s].",
-                   "A row [0 ... 0 | c] with c not 0 proves that no solution exists.",
-                   "If no impossible row appears, the simplified system gives at least one tap plan."},
-                  FormulaKind::Image, GREEN, 70.0f, &highlights);
-    drawMathBlock(s, y, "Prime n: Fields",
-                  {"For n = 2, 3, or 5, Z/nZ is a field.",
-                   "Every value different from 0 has an inverse, so simplifying rows can divide by it.",
-                   "Simplifying rows works like ordinary linear algebra, only with modular arithmetic.",
-                   "When simplification leaves a choice open, that choice gives another solving plan."},
-                  FormulaKind::Prime, GREEN, 54.0f, &highlights);
-    drawMathBlock(s, y, "Composite n: Rings",
-                  {"For composite n, Z/nZ is a ring rather than a field.",
-                   "For n = 4, the number 2 is different from 0 but has no inverse.",
-                   "So division by 2 is not a valid row operation.",
-                   "The rule is unchanged: -s must lie in Im(A) over Z/nZ.",
-                   "Verification must use operations that are valid in the ring, or smaller modulo checks that agree with each other."},
-                  FormulaKind::Four, PURPLE, 54.0f, &highlights);
-    drawMathBlock(s, y, "When Is It Unique?",
-                  {"If x0 solves the puzzle, every other solution is x0 plus a tap-count vector z with A z = 0.",
-                   "The equation A z = 0 means that z causes no net board change.",
-                   "The set of all such z is ker(A), the kernel of the tap matrix.",
-                   "Tapping one tile n extra times adds n e_j, the zero vector in (Z/nZ)^r.",
-                   "That represents the same tap-count vector, not a new tap-count solution.",
-                   "Thus the full solution set is x0 + ker(A).",
-                   "The solution is unique exactly when ker(A) contains only the zero vector.",
-                   "If a tap-count vector z is not zero and has A z = 0, then x0 and x0 + z solve the same board."},
-                  FormulaKind::Kernel, BLUE, 58.0f, &highlights);
-    // Android 1.0.5: clarify matrix invertibility and modulo uniqueness.
-    drawGuideBlock(s, y, "When Is A Invertible?",
-                   {"A true inverse matrix can exist only when A is square, meaning it has the same number of rows and columns.",
-                    "This happens on a w by h board with no tiles with lock icons and no empty holes.",
-                    "In that case, A sends vectors in (Z/nZ)^(w h) to vectors in (Z/nZ)^(w h).",
-                    "An inverse means every starting board has one unique tap-count vector.",
-                    "Over Z/nZ, this happens exactly when det(A) has a multiplicative inverse modulo n.",
-                    "For prime n, this means det(A) is not equal to 0 modulo n.",
-                    "For n = 4, det(A) must be odd.",
-                    "If this fails in the square case, some starting boards cannot be solved and ker(A) contains tap-count vectors different from zero.",
-                    "With tiles with lock icons or empty holes, A may have different numbers of rows and columns.",
-                    "Then the useful tests are whether the target change can be reached and whether ker(A) contains tap-count vectors different from zero."},
+    drawMathBlock(s, y, "1. The board is a vector",
+                   {"Number the m tiles p_1,…,p_m in any fixed order. Write their states in that same order to get s=(s_1,…,s_m) ∈ R^m. Each entry s_i is the color of tile p_i. An all-white board is the zero vector."},
+                   FormulaKind::Remainder, GREEN, 70.0f, &highlights);
+    drawMathBlock(s, y, "2. Each tap contributes a column",
+                   {"Label the r tiles you can tap q_1,…,q_r. Tap q_j once and record a 1 for each tile that changes and a 0 for each tile that stays the same. The result is its effect vector v_j, column j of A.",
+                    "Read across a row to see which taps affect one tile. Read down a column to see which tiles one tap affects. A locked tile has a row of its own, but you can’t tap it, so it has no column."},
+                   FormulaKind::Column, ORANGE, 78.0f, &highlights);
+    drawMathBlock(s, y, "How many times should you tap each tile?",
+                   {"The tap-count vector x=(x_1,…,x_r) records how often you tap each unlocked tile, modulo n. Each tap on q_j adds the same v_j, so together the taps add Ax=∑_j x_jv_j. You can play them in any order."},
+                   FormulaKind::Plan, PURPLE, 60.0f, &highlights);
+    drawMathBlock(s, y, "Goal",
+                   {"The final board is s+Ax. To make it all white, look for a vector x that solves Ax=-s in R."},
+                   FormulaKind::Goal, BLUE, 60.0f, &highlights);
+    drawMathBlock(s, y, "When does a solution exist?",
+                   {"Every tap-count vector produces a change Ax. All those changes together form the image of A, written Im(A). A board has a solution exactly when -s belongs to this image.",
+                    "When n is prime, you can check by row reducing the augmented matrix [A | -s] to echelon form. A row saying 0=c with c ≠ 0 rules out a solution. If no such row appears, you can read off at least one solution by back substitution."},
+                   FormulaKind::Image, GREEN, 70.0f, &highlights);
+    drawMathBlock(s, y, "Prime numbers and fields",
+                   {"With 2, 3 or 5 states, R is a field. Every nonzero element has a multiplicative inverse, so you can divide by it. With four states, even a simple division by 2 can go wrong. We’ll see why below."},
+                   FormulaKind::Prime, GREEN, 54.0f, &highlights);
+    drawMathBlock(s, y, "What changes with four states?",
+                   {"When n is composite, R is still a ring, but some nonzero elements have no multiplicative inverse. For example, modulo 4, twice any number is even, so 2a can never equal 1. You can’t divide a row by 2 here.",
+                    "The test for a solution is still -s ∈ Im(A). Use row operations valid in the ring. If n factors into coprime prime powers, you can also solve modulo each of those powers and combine the results."},
+                   FormulaKind::Four, PURPLE, 54.0f, &highlights);
+    drawMathBlock(s, y, "When is the solution unique?",
+                   {"Suppose x_0 solves the board. If a tap-count vector z leaves the board unchanged, then Az=0 and x_0+z also solves it. These vectors z form the kernel of A, written ker(A). Adding each of them to x_0 gives all the solutions.",
+                    "Remember that counts are taken modulo n. Tapping one tile n extra times takes its whole pattern around the color cycle. It leaves both the board and the tap-count vector unchanged.",
+                    "So a solvable board has exactly one tap-count vector when ker(A)={0}. Over a field, this means the columns of A are linearly independent. The kernel test also works in the four-state ring."},
+                   FormulaKind::Kernel, BLUE, 58.0f, &highlights);
+    drawGuideBlock(s, y, "When is A invertible?",
+                   {"If you can tap every tile, A has one row and one column per tile, so it is square. Holes leave that count balanced. A lock removes a column and keeps the row. When a square A is invertible, every starting board has exactly one tap-count solution.",
+                    "A square A is invertible exactly when its determinant has a multiplicative inverse in R. For prime n, the determinant must be nonzero modulo n. For n=4, it must be odd. If this test fails, some starting boards have no solution and others have several. For a rectangular matrix, use the image to test existence and the kernel to test uniqueness."},
                    GREEN, GuideDiagramKind::None, &highlights);
-    drawMathBlock(s, y, "Why The Minimum Matters",
-                  {"Linear algebra may give many valid tap-count vectors.",
-                   "For each tap count x_j, use the number from 0 through n - 1 that represents it.",
-                   "The physical length is the sum of those chosen numbers.",
-                   "The three-star target is based on a shortest solution found for that board."},
-                  FormulaKind::Minimum, ORANGE, 64.0f, &highlights);
-    drawGuideBlock(s, y, "How The Shortest Solver Works",
-                   {"Small boards search by tap count: first one tap, then two taps, and so on.",
-                    "The first solved state reached gives the true minimum.",
-                    "Larger prime-state boards simplify the rows of A x = -s.",
-                    "If the simplified system leaves choices that are not forced, the solutions are x0 + ker(A).",
-                    "When that search is small enough, the app enumerates those tap-count vectors.",
-                    "It chooses the vector with the smallest sum of tap counts from 0 through n - 1.",
-                    "If exact search is too large, or composite n is too large for this search, the game uses a known solving plan.",
-                    "The shortest tap-count vector need not be unique. Ties are possible.",
-                    "The app keeps the same shortest plan every time when it can prove the minimum."},
+    drawMathBlock(s, y, "Counting the taps in a solution",
+                   {"To play a solution, take each count x_j as a number from 0 to n-1. Call that number t_j. Add these numbers as ordinary integers to get the number of taps, ℓ(x). The shortest solution the game has found sets the three-star target."},
+                   FormulaKind::Minimum, ORANGE, 64.0f, &highlights);
+    drawGuideBlock(s, y, "How the game finds a short solution",
+                   {"If the board has few enough possible states, the game searches all positions one tap away, then two taps away, and so on. The first time it reaches an all-white board, it has found the fewest taps possible.",
+                    "For larger boards with a prime number of states per tile, the game row reduces Ax=-s. If there are few enough solutions to try, it compares them all and keeps one with the fewest taps. When an exact search is too large, including on large four-state boards, it uses a known solution whose length may be above the minimum.",
+                    "Different tap-count vectors can tie for the minimum, and you can play the same vector in different orders. When the game proves a minimum, it always picks the same plan among those tied for shortest. It doesn’t tell you whether another plan ties with it."},
                    ORANGE, GuideDiagramKind::None, &highlights);
-    drawGuideBlock(s, y, "Tiles With Lock Icons And Empty Holes",
-                   {"A tile with a lock icon stays in the board vector because its value must become zero, and nearby taps may still change it.",
-                    "It does not get its own tap choice in x because it cannot be tapped directly.",
-                    "An empty hole is left out of the ordered list P, so the equation only tracks active board positions.",
-                    "This is how the same equation adapts to irregular boards."},
+    drawGuideBlock(s, y, "Locked tiles and holes in the matrix",
+                   {"To model a hole, leave that position out entirely. To model a lock, keep the tile’s entry in s and its row in A, since it still has to turn white. Leave out its column. The remaining columns tell you which other taps can change it."},
                    PURPLE, GuideDiagramKind::Special, &highlights);
-    drawGuideBlock(s, y, "How The Generator Uses This",
-                   {"The generator uses the same ingredients: board shape, tiles with lock icons, empty holes, tap pattern, and effect vectors.",
-                    "It chooses or verifies a starting vector s with some x satisfying s + A x = 0.",
-                    "When the exact solver is available, it searches the solution set for a short tap-count vector.",
-                    "Hints follow a stored solving plan one tap at a time.",
-                    "The red outline marks exactly the tiles changed by that hint tap."},
+    drawGuideBlock(s, y, "How puzzles are made",
+                   {"The generator starts with a white board and scrambles it with allowed taps. It keeps track of how to undo their combined effect, so the starting board comes with a solution. When it can, the solver finds a shortest plan for the star targets. A hint plays one tap toward a solution and outlines the tiles it changed in red."},
                    GREEN, GuideDiagramKind::None, &highlights);
-    drawMathBlock(s, y, "What The Symbols Mean",
-                  {"These are the compact labels used by the equations and solver."},
-                  FormulaKind::Symbols, BLUE, 166.0f, &highlights);
+    drawMathBlock(s, y, "What the symbols mean",
+                   {},
+                   FormulaKind::Symbols, BLUE, 166.0f, &highlights);
     finishScrollContent(s, y);
     drawGuideHeader(s, "The Math");
 }
@@ -7213,7 +7133,9 @@ void drawSettings(AppState *s) {
     float contentTop = std::min(std::max((static_cast<float>(r.height) - stackH) * 0.5f, minTop), maxTop);
     float y = beginScrollContent(s, contentTop);
     r.text(tr(s, "Language"), dp(s, 18), y, dp(s, 3.0f * textScale), TEXT); y += labelH;
-    drawChips(s, y, {languageName(0), languageName(1), languageName(2)}, "", Action::Language, 3, languageIndex(s));
+    std::vector<std::string> names;
+    for (const auto &language : languages) names.emplace_back(language.name);
+    drawChips(s, y, names, "", Action::Language, static_cast<int>(names.size()), languageIndex(s->language));
     y += gap;
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "Sound") + " " + onOff(s, s->sound), Action::ToggleSetting, 0, false, s->sound, true, textScale); y += buttonH + gap;
     drawButton(s, {dp(s, 18), y, r.width - dp(s, 36), buttonH}, tr(s, "Vibration") + " " + onOff(s, s->vibration), Action::ToggleSetting, 1, false, s->vibration, true, textScale); y += buttonH + gap;
@@ -7394,7 +7316,8 @@ void drawAbout(AppState *s) {
     y += version.h + gap;
 
     drawGuideBlock(s, y, "Changelog",
-                   {"- 1.0.16 - 2026-10-24: " + tr(s, "Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later."),
+                   {"- 1.0.17 - 2026-11-12: " + tr(s, "You can now play in Korean. We also rewrote How to Play and the math guide, from your first tap to the equations behind a solution."),
+                    "- 1.0.16 - 2026-10-24: " + tr(s, "Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later."),
                     "- 1.0.15 - 2026-09-01: " + tr(s, "Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility."),
                     "- 1.0.14 - 2026-09-01: " + tr(s, "Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand."),
                     "- 1.0.13 - 2026-05-30: " + tr(s, "The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress."),
@@ -7595,7 +7518,7 @@ void drawPatternInfoPreview(AppState *s, Rect area, const std::vector<std::strin
             Rect badge{x + side - badgeW - dp(s, 2.5f), y + dp(s, 2.5f), badgeW, badgeH};
             s->renderer.roundedRect(badge.x, badge.y, badge.w, badge.h, badge.h * 0.5f,
                                     rgba(9, 11, 18, 0.88f));
-            s->renderer.text(pattern.badge, badge.x + badge.w * 0.5f, badge.y + badge.h * 0.08f,
+            s->renderer.text(localizedPatternBadge(s, pattern), badge.x + badge.w * 0.5f, badge.y + badge.h * 0.08f,
                              std::max(dp(s, 1.35f), badgeH / 7.2f), TEXT, 1);
         }
     }
@@ -7666,16 +7589,16 @@ void drawPatternInfoPopup(AppState *s) {
     r.roundedRect(modal.x, modal.y, modal.w, modal.h, dp(s, 8), LINE_STRONG);
     r.roundedRect(modal.x + 1.2f, modal.y + 1.2f, modal.w - 2.4f, modal.h - 2.4f, dp(s, 7), PANEL_2);
     drawBackIcon(s, {modal.x + dp(s, 10), modal.y + dp(s, 10), dp(s, 42), dp(s, 38)}, Action::ClosePatternInfo);
+    float demoY = modal.y + pad + titleH;
+    float demoW = mixed ? textW : std::min(textW, demoH);
+    drawPatternInfoPreview(s, {modal.x + (modal.w - demoW) * 0.5f, demoY, demoW, demoH},
+                           patternKeys, patternReveal);
+
     drawFittedText(s, tr(s, "Tap effect (not the goal)"), modal.x + dp(s, 64), modal.y + dp(s, compact ? 11.0f : 14.0f),
                    modal.w - dp(s, 86), dp(s, 2.08f), GREEN, 0, true, 1.18f);
     std::string patternName = mixed ? tr(s, "Mixed tap effects") : localizedPatternLabel(s, patternKeys.front());
     drawFittedText(s, patternName, modal.x + dp(s, 64), modal.y + dp(s, compact ? 36.0f : 43.0f),
                    modal.w - dp(s, 82), dp(s, compact ? 2.80f : 3.44f), TEXT, 0, true, 1.50f);
-
-    float demoY = modal.y + pad + titleH;
-    float demoW = mixed ? textW : std::min(textW, demoH);
-    drawPatternInfoPreview(s, {modal.x + (modal.w - demoW) * 0.5f, demoY, demoW, demoH},
-                           patternKeys, patternReveal);
 
     float textY = demoY + demoH + bodyGap;
     for (const std::string &line : lines) {
@@ -7918,7 +7841,7 @@ void drawBoard(AppState *s) {
                 Pattern pat = patternFor(patternIt == p.tilePatterns.end() ? p.defaultPattern : patternIt->second);
                 Rect badge{tile.x + tile.w * 0.07f, tile.y + tile.h * 0.07f, tile.w * 0.25f, tile.h * 0.24f};
                 r.roundedRect(badge.x, badge.y, badge.w, badge.h, badge.h * 0.5f, rgba(9, 11, 18, 0.72f));
-                r.text(pat.badge, badge.x + badge.w * 0.5f, badge.y + badge.h * 0.08f, std::max(1.7f, tile.w / 40.0f), TEXT, 1);
+                r.text(localizedPatternBadge(s, pat), badge.x + badge.w * 0.5f, badge.y + badge.h * 0.08f, std::max(1.7f, tile.w / 40.0f), TEXT, 1);
             }
             std::string label;
             bool showNumbers = s->session.mode == "playground" ? s->showPlaygroundNumbers : !s->hideNumbers;
@@ -8604,8 +8527,7 @@ void handleAction(AppState *s, const Button &b) {
             break;
         case Action::Language: {
             playSound(s, SoundCue::Ui);
-            std::vector<std::string> values = {"en", "es", "fr"};
-            s->language = values[static_cast<size_t>(clampInt(b.value, 0, 2))];
+            s->language = languages[clampInt(b.value, 0, static_cast<int>(std::size(languages)) - 1)].code;
             s->progress.setString("setting_language", s->language);
             break;
         }

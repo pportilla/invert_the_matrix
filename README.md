@@ -21,6 +21,9 @@ puzzle generation, custom puzzle options, hints, unlocks, settings, copy, and
 visual game states should be changed in both implementations in the same task.
 Platform services such as Play Games leaderboards should remain Android-only.
 
+Both versions offer English, Spanish, French, and Korean in Settings. Keep the
+instructions, math guide, menus, and gameplay messages aligned in all four languages.
+
 ## Features
 
 - Campaign mode with ordered unlocks, star targets, personal bests, and hint
@@ -136,7 +139,7 @@ node tools/play-games-achievements.mjs export-android-xml --write
 ```
 
 The import ZIP includes generated 512x512 PNG icons, one unique icon per
-achievement, plus English, Spanish, and French text.
+achievement, plus English, Spanish, French, and Korean text.
 
 The service account JSON is expected at
 `.secrets/play-games-service-account.json`, which is ignored by git.

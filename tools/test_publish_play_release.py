@@ -108,8 +108,8 @@ class PlayReleaseTests(unittest.TestCase):
             release.track_payload(current, 18, "1.0.16", NOTES)
 
     def test_changelog_notes_are_complete_for_current_version(self):
-        notes = release.notes_for_version((release.ROOT / "CHANGELOG.md").read_text(), 18)
-        self.assertEqual([item["language"] for item in notes], ["en-US", "es-ES", "fr-FR"])
+        notes = release.notes_for_version((release.ROOT / "CHANGELOG.md").read_text(), 19)
+        self.assertEqual([item["language"] for item in notes], ["en-US", "es-ES", "fr-FR", "ko-KR"])
         self.assertTrue(all(item["text"] and ";" not in item["text"] for item in notes))
 
     def test_cannot_reuse_bundle_with_same_version_and_different_bytes(self):

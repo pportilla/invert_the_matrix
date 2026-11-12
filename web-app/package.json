@@ -3,7 +3,8 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check": "tsc -p tsconfig.json --noEmit",
+    "check": "tsc -p tsconfig.json --noEmit && npm run check:translations",
+    "check:translations": "python3 ../scripts/check-translations.py",
     "generate:campaign": "node ../scripts/generate-campaign-data.mjs"
   },
   "devDependencies": {

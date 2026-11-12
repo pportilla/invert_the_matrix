@@ -56,7 +56,8 @@ def notes_for_version(text, version_code):
     require('Localized Play Store "What\'s new":' in matches[0], "Missing localized Play release notes")
     localized = matches[0].split('Localized Play Store "What\'s new":', 1)[1]
     notes = []
-    for language in ("en-US", "es-ES", "fr-FR"):
+    languages = ("en-US", "es-ES", "fr-FR") + (("ko-KR",) if version_code >= 19 else ())
+    for language in languages:
         match = re.search(rf"(?ms)^{language}:\s*(.*?)(?=\n\n|\Z)", localized)
         require(match is not None, f"Missing {language} release notes")
         value = " ".join(match[1].split())

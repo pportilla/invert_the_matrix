@@ -2,6 +2,23 @@
 
 Summarized release notes for Invert the Matrix.
 
+## 1.0.17 - 2026-11-12
+
+Version code: 19
+
+- Added Korean to the web and Android games.
+- Revised How to Play and the math guide in every language.
+
+Localized Play Store "What's new":
+
+en-US: You can now play in Korean. We also rewrote How to Play and the math guide, from your first tap to the equations behind a solution.
+
+es-ES: Ya puedes jugar en coreano. Hemos revisado las instrucciones y la guía de matemáticas, desde tu primer toque hasta las ecuaciones que explican cómo resolver un tablero.
+
+fr-FR: Tu peux désormais jouer en coréen. Nous avons retravaillé les règles du jeu et le guide de mathématiques, du premier geste aux équations qui permettent de résoudre un plateau.
+
+ko-KR: 이제 한국어로 플레이할 수 있어요. 첫 칸을 누르는 법부터 풀이에 쓰이는 방정식까지, 게임 방법과 퍼즐 속 수학의 설명을 다듬었어요.
+
 ## 1.0.16 - 2026-10-24
 
 Version code: 18

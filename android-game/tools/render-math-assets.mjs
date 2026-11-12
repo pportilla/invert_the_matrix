@@ -19,7 +19,7 @@ const formulas = [
   },
   {
     id: "remainder",
-    tex: String.raw`s_i\in \mathbb Z/n\mathbb Z=\{0,1,\ldots,n-1\}`,
+    tex: String.raw`s=(s_1,\ldots,s_m),\qquad s_i\in\mathbb Z/n\mathbb Z`,
   },
   {
     id: "wrap",
@@ -27,11 +27,11 @@ const formulas = [
   },
   {
     id: "column",
-    tex: String.raw`A_{ij}=\begin{cases}1&\text{tap }j\text{ changes tile }i,\\0&\text{otherwise.}\end{cases}`,
+    tex: String.raw`A=[v_1\ \cdots\ v_r],\qquad A_{ij}=(v_j)_i\in\{0,1\}`,
   },
   {
     id: "plan",
-    tex: String.raw`x_j=\text{number of taps on tile }j`,
+    tex: String.raw`Ax=\sum_{j=1}^r x_j v_j`,
   },
   {
     id: "goal",
@@ -39,7 +39,7 @@ const formulas = [
   },
   {
     id: "image",
-    tex: String.raw`\text{solution exists}\Longleftrightarrow -s\in\operatorname{Im}(A)`,
+    tex: String.raw`(\exists x\in R^r:\ Ax=-s)\Longleftrightarrow -s\in\operatorname{Im}(A)`,
   },
   {
     id: "kernel",
@@ -47,11 +47,11 @@ const formulas = [
   },
   {
     id: "minimum",
-    tex: String.raw`\min\|x\|_1=\min\sum_j x_j`,
+    tex: String.raw`\ell(x)=\sum_j t_j,\qquadt_j\in\{0,\ldots,n-1\}`,
   },
   {
     id: "prime",
-    tex: String.raw`n\in\{2,3,5\}\Longrightarrow\mathbb Z/n\mathbb Z\text{ is a field}`,
+    tex: String.raw`n\in\{2,3,5\}\Longrightarrow\mathbb Z/n\mathbb Z\cong\mathbb F_n`,
   },
   {
     id: "four",

@@ -495,6 +495,16 @@ input:focus-visible {
   transform: translateY(-1px);
 }
 
+html:lang(ko) .guide-size-button::before {
+  content: "가";
+  font-family: inherit;
+}
+
+html:lang(ko) :is(p, li, dd, h2, h3, summary) {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
 .guide-size-button::after {
   content: "";
   position: absolute;

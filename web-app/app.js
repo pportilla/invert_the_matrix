@@ -6,10 +6,15 @@
 (function () {
     "use strict";
     var STORAGE_KEY = "resonance-grid-progress-v1";
-    var APP_VERSION = "1.0.16";
+    var APP_VERSION = "1.0.17";
     var CAMPAIGN_DATA_URL = "campaign-levels.json";
     var MATHJAX_URL = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js";
     var CHANGELOG_ENTRIES = [
+        {
+            version: "1.0.17",
+            date: "2026-11-12",
+            text: "You can now play in Korean. We also rewrote How to Play and the math guide, from your first tap to the equations behind a solution."
+        },
         {
             version: "1.0.16",
             date: "2026-10-24",
@@ -74,10 +79,350 @@
     var LANGUAGE_OPTIONS = [
         { key: "en", label: "English" },
         { key: "es", label: "Español" },
-        { key: "fr", label: "Français" }
+        { key: "fr", label: "Français" },
+        { key: "ko", label: "한국어" }
     ];
     var TEXT_TRANSLATIONS = {
+        ko: {
+            "Mixed patterns": "혼합 패턴",
+            "Options": "옵션",
+            "Edit tool": "편집 도구",
+            "pportilla on GitHub": "pportilla의 GitHub 프로필",
+            "{n} states": "상태 {n}개",
+            "{n} star": "별 {n}개",
+            "{n} stars": "별 {n}개",
+            "{n} out of 3 stars": "별 3개 중 {n}개",
+            "{n} tap": "{n}회",
+            "{n} taps": "{n}회",
+            "{n}+ taps": "{n}회 이상",
+            "Row {row}, column {column}": "{row}행 {column}열",
+            "Paint color {n}": "{n}번 색으로 칠하기",
+            "A modular tile puzzle": "칸마다 색이 순환하는 퍼즐",
+            "Main menu": "메인 메뉴",
+            "Campaign": "캠페인",
+            "Custom Level": "맞춤 레벨",
+            "Playground": "실험실",
+            "Daily Challenge": "일일 도전",
+            "Daily Challenges": "일일 도전",
+            "Leaderboards": "순위표",
+            "Leaderboard": "순위표",
+            "Achievements": "업적",
+            "Campaign achievements": "캠페인 업적",
+            "Clear": "그룹 완료",
+            "Master": "별 수집가",
+            "Unlocked": "달성",
+            "Locked": "미달성",
+            "Complete every level in this group.": "이 그룹의 모든 레벨을 완료하세요.",
+            "Earn every star in this group.": "이 그룹의 별을 모두 모으세요.",
+            "Global": "종합",
+            "All daily tiers": "일일 도전 전체 난이도",
+            "How to Play": "게임 방법",
+            "The Math": "퍼즐 속 수학",
+            "Settings": "설정",
+            "Back": "뒤로",
+            "Campaign chapters": "캠페인 챕터",
+            "Campaign groups": "캠페인 그룹",
+            "Group": "그룹",
+            "Earn 15 stars in a nearby group.": "이웃한 그룹에서 별 15개를 모으세요.",
+            "Custom Puzzle": "맞춤 퍼즐",
+            "Playground setup": "실험실 설정",
+            "Playground controls": "실험실 도구",
+            "Playground board": "실험실 퍼즐판",
+            "Custom level setup": "맞춤 레벨 설정",
+            "Grid Size": "격자 크기",
+            "Grid size": "격자 크기",
+            "Width": "가로",
+            "Height": "세로",
+            "States": "상태 수",
+            "Number of states": "상태 수",
+            "Tap Pattern": "누르기 패턴",
+            "Tap pattern": "누르기 패턴",
+            "Difficulty": "난이도",
+            "Edit Tool": "편집 도구",
+            "Tap Tiles": "칸 누르기",
+            "Paint White": "흰색으로 칠하기",
+            "Paint Color": "색칠하기",
+            "Paint States": "상태 칠하기",
+            "Lock Tiles": "칸 잠그기",
+            "Place Holes": "빈자리 만들기",
+            "Starting Board": "시작 퍼즐판",
+            "Playground board editor": "실험실 퍼즐판 편집기",
+            "Puzzle Code": "퍼즐 코드",
+            "Puzzle code": "퍼즐 코드",
+            "Share": "공유",
+            "Load Code": "코드 불러오기",
+            "Copy Code": "코드 복사",
+            "Clear Board": "퍼즐판 비우기",
+            "Play": "시작",
+            "Sandbox": "자유 실험",
+            "No goal": "목표 없음",
+            "Puzzle code copied.": "퍼즐 코드를 복사했어요.",
+            "Puzzle code loaded.": "퍼즐 코드를 불러왔어요.",
+            "Puzzle code not recognized.": "퍼즐 코드를 확인해 주세요.",
+            "Keep at least one tile.": "적어도 한 칸은 남겨 주세요.",
+            "Hints are off in Playground.": "실험실에서는 힌트를 사용할 수 없어요.",
+            "Tiles with lock icons": "잠긴 칸",
+            "Irregular board": "불규칙한 퍼즐판",
+            "Extras": "추가 옵션",
+            "Unique solution preferred": "풀이가 하나인 퍼즐 우선",
+            "Create Puzzle": "퍼즐 만들기",
+            "Daily": "일일 도전",
+            "Daily puzzle tiers": "일일 도전 난이도",
+            "Puzzle status": "퍼즐 진행 상황",
+            "Taps": "누른 횟수",
+            "Star ranking": "별 획득 기준",
+            "Time": "시간",
+            "Puzzle details": "퍼즐 정보",
+            "Pattern": "패턴",
+            "Tap pattern info": "누르기 패턴 설명",
+            "Personal Best": "개인 최고 기록",
+            "Board actions": "퍼즐 도구",
+            "Undo": "되돌리기",
+            "Reset": "처음부터",
+            "Hint": "힌트",
+            "Puzzle board": "퍼즐판",
+            "Guide": "안내",
+            "Text size": "글자 크기",
+            "Small text": "작은 글자",
+            "Medium text": "보통 글자",
+            "Large text": "큰 글자",
+            "Play overview": "게임 방법 개요",
+            "Turn every tile white. A single tap can change several tiles at once.": "모든 칸을 흰색으로 바꿔 보세요. 한 칸만 눌러도 여러 칸의 색이 함께 바뀔 수 있어요.",
+            "Before you tap, hold a tile to see where its pattern reaches.": "칸을 누르기 전에 길게 눌러 보세요. 어느 칸까지 영향을 받는지 볼 수 있어요.",
+            "Rules": "게임 규칙",
+            "1. Read the colors": "1. 색깔 살펴보기",
+            "White is the color you want every tile to reach.": "마지막에는 모든 칸이 흰색이어야 해요.",
+            "A white tile can still change color if another tap reaches it.": "이미 흰색인 칸도 다른 칸을 누르면 다시 색이 바뀔 수 있어요.",
+            "You solve the puzzle when all the tiles are white at once.": "모든 칸이 동시에 흰색이 되면 퍼즐이 풀려요.",
+            "2. Follow the color cycle": "2. 색이 바뀌는 순서",
+            "Tap an unlocked tile. Its pattern tells you which tiles will change.": "잠기지 않은 칸을 눌러 보세요. 어느 칸의 색이 바뀔지는 누른 칸의 패턴에 따라 달라요.",
+            "Each tile in the pattern moves on to its next color.": "패턴에 포함된 칸은 저마다 다음 색으로 넘어가요.",
+            "After the last color comes white again.": "마지막 색 다음에는 다시 흰색이 돼요.",
+            "3. Check the pattern": "3. 패턴 확인하기",
+            "Look for crosses, diagonals, squares, rows, columns and even chess knight moves. Some boards mix several patterns.": "십자, 대각선, 정사각형, 가로줄, 세로줄, 체스의 나이트처럼 뛰는 패턴이 있어요. 한 퍼즐판에 여러 패턴이 섞이기도 해요.",
+            "Hold a tile to preview its pattern. Lift your finger when you’re done looking.": "칸을 길게 누르면 패턴을 미리 볼 수 있어요. 다 봤으면 손을 떼세요.",
+            "4. Locks and holes": "4. 잠긴 칸과 빈자리",
+            "A locked tile still has to turn white.": "잠긴 칸도 흰색으로 바꿔야 해요.",
+            "To change it, tap another tile whose pattern reaches it.": "잠긴 칸은 직접 누를 수 없어요. 패턴이 그 칸까지 닿는 다른 칸을 눌러 보세요.",
+            "A hole is just a gap in the board. Tap patterns skip it.": "빈자리에는 칸이 없어서 패턴이 그대로 건너뛰어요.",
+            "Modes": "게임 모드",
+            "Choose your puzzle": "퍼즐 고르기",
+            "Campaign:": "캠페인:",
+            "Solve fixed levels in order. Each solve opens the next level.": "정해진 순서대로 레벨을 풀어 보세요. 한 레벨을 풀면 다음 레벨이 열려요.",
+            "Pick a group on the 5 × 5 map. Earn 15 stars there to unlock the groups directly beside it, above it and below it.": "5 × 5 지도에서 그룹을 고르세요. 그 그룹에서 별 15개를 모으면 상하좌우로 바로 붙어 있는 그룹이 열려요.",
+            "Custom Level:": "맞춤 레벨:",
+            "Choose the board size, number of colors, pattern and difficulty. You can add locks and holes. The game looks for a puzzle with a unique solution when it can.": "퍼즐판 크기, 색의 개수, 패턴, 난이도를 고르세요. 잠긴 칸과 빈자리도 넣을 수 있어요. 게임은 가능한 한 해가 하나인 퍼즐을 찾아요.",
+            "Playground:": "실험실:",
+            "Build your own board and share it with a puzzle code. You can keep experimenting even after every tile turns white.": "직접 만든 퍼즐판을 퍼즐 코드로 공유하세요. 모든 칸을 흰색으로 바꾼 뒤에도 계속 눌러 볼 수 있어요.",
+            "Daily Challenge:": "일일 도전:",
+            "Everyone gets the same three puzzles each day. Each one keeps its own best score.": "매일 모두에게 같은 퍼즐 세 개가 주어져요. 최고 기록은 퍼즐마다 따로 저장돼요.",
+            "Tools and options": "도구 및 설정",
+            "Taps, stars, and hints": "누른 횟수, 별, 힌트",
+            "Previewing a pattern is free. Your tap counts when the tiles change.": "미리 보기만 하면 횟수에 들어가지 않아요. 칸의 색이 바뀔 때 한 번으로 세요.",
+            "For three stars, solve the puzzle in as few taps as the game’s best known solution, or fewer.": "게임이 찾은 가장 짧은 풀이와 같은 횟수로 풀거나 더 적게 누르면 별 세 개를 받아요.",
+            "The one- and two-star targets leave room for extra taps.": "조금 더 눌러도 기준 횟수 안에 풀면 별 한두 개를 받을 수 있어요.",
+            "Undo takes back your last tap. Reset puts the board back the way it started.": "‘되돌리기’를 누르면 방금 둔 수를 되돌려요. ‘처음부터’를 누르면 퍼즐판이 처음 상태로 돌아가요.",
+            "A hint plays one tap for you. You can still finish that attempt, but it earns no stars.": "힌트를 쓰면 게임이 한 수를 대신 둬요. 그 시도에서는 끝까지 풀어도 별을 받을 수 없어요.",
+            "Look for the red outlines to see which tiles the hint changed.": "힌트로 바뀐 칸에는 빨간 테두리가 생겨요.",
+            "When you tap a tile, this pattern is centered on that tile. Every tile inside the pattern changes state.": "누른 칸을 중심으로 패턴이 펼쳐져요. 패턴에 닿는 칸은 모두 다음 상태로 바뀌어요.",
+            "The green outline matches the preview you see when you hold a tile.": "칸을 길게 누르면 같은 범위에 초록색 테두리가 나타나요.",
+            "Turn sound effects on or off in Settings.": "설정에서 효과음을 켜거나 끌 수 있어요.",
+            "If you prefer numbers, turn them on to see each tile’s state alongside its color.": "색과 함께 상태를 숫자로 보고 싶다면 칸에 숫자를 표시하는 옵션을 켜세요.",
+            "On Android, you can also turn vibration on or off.": "안드로이드에서는 진동도 켜거나 끌 수 있어요.",
+            "Math overview": "퍼즐 속 수학 개요",
+            "What happens when you add up the taps?": "여러 번 누른 효과를 더하면 어떻게 될까요?",
+            "Take a board with just two colors. Tap the center of a cross and every tile in the cross switches between white and blue. Tap the same spot again and you’re back where you started. The same rule works with other patterns. With more colors, it takes more taps to go all the way around the cycle.": "흰색과 파란색만 있는 퍼즐판을 떠올려 보세요. 십자 패턴의 가운데를 누르면 그 안의 칸들이 흰색에서 파란색으로, 파란색에서 흰색으로 바뀌어요. 같은 자리를 한 번 더 누르면 처음 상태로 돌아와요. 패턴이 달라져도 원리는 같아요. 색이 많아지면 한 바퀴를 도는 데 더 많이 눌러야 해요.",
+            "Modeling the game": "게임의 수학적 모형",
+            "The board in one equation": "방정식 하나로 나타낸 퍼즐판",
+            "Give white the number \\(0\\) and count up through the colors. On a board with \\(n\\) colors, the next step after \\(n-1\\) is \\(0\\) again. This is arithmetic modulo \\(n\\), written in the ring \\(R=\\mathbb Z/n\\mathbb Z\\).": "흰색을 \\(0\\)으로 놓고 나머지 색에 차례로 번호를 붙여요. 색이 \\(n\\)개라면 \\(n-1\\) 다음은 다시 \\(0\\)이에요. 이렇게 \\(n\\)으로 나눈 나머지로 계산하는 수 체계가 나머지환 \\(R=\\mathbb Z/n\\mathbb Z\\)예요.",
+            "Now read the tiles in a fixed order. Their numbers form the board vector \\(s\\). Put the effect of each possible tap in a column of a matrix \\(A\\). If \\(x\\) records how often you tap each unlocked tile, \\(Ax\\) gives the total change. You win when \\(s+Ax=0\\).": "칸을 일정한 순서로 읽으면 상태를 나타내는 퍼즐판 벡터 \\(s\\)를 얻어요. 누를 수 있는 각 칸을 한 번 눌렀을 때 생기는 변화를 행렬 \\(A\\)의 열로 적어요. 각 칸을 누른 횟수를 \\(x\\)로 나타내면 전체 변화는 \\(Ax\\)이고, \\(s+Ax=0\\)이 되면 퍼즐이 풀려요.",
+            "With \\(2\\), \\(3\\) or \\(5\\) states, \\(R\\) is a field. Every nonzero element has a multiplicative inverse, so you can divide by it. With four states, even a simple division by \\(2\\) can go wrong. We’ll see why below.": "상태가 \\(2\\), \\(3\\), \\(5\\)개일 때 \\(R\\)은 체예요. 0이 아닌 모든 원소에 곱셈의 역원이 있으므로 그 원소로 나눌 수 있어요. 상태가 네 개일 때는 왜 \\(2\\)로 나눌 수 없는지도 아래에서 살펴봐요.",
+            "Lights Out generalization": "라이트 아웃에서 확장한 퍼즐",
+            "From Lights Out": "라이트 아웃에서 출발한 퍼즐",
+            "From two states to many": "두 가지 상태에서 여러 상태로",
+            "In the classic Lights Out puzzle, a tap flips the chosen tile and its neighbors above, below, left and right. Each flip adds \\(1\\) modulo \\(2\\). Two taps in the same spot cancel because \\(1+1=0\\) modulo \\(2\\).": "고전 퍼즐 라이트 아웃에서는 한 칸을 누르면 그 칸과 상하좌우의 이웃 칸이 뒤집혀요. 한 번 뒤집는 건 \\(2\\)를 법으로 \\(1\\)을 더하는 것과 같아요. \\(2\\)를 법으로 하면 \\(1+1=0\\)이므로 같은 곳을 두 번 누른 효과는 서로 상쇄돼요.",
+            "Invert the Matrix adds more states and patterns, but tap effects still add together. Skip holes when you list the tiles. Include locked tiles, since a tap on another tile can change them.": "이 게임에는 상태와 패턴이 더 많지만 누른 효과를 더하는 원리는 같아요. 칸을 셀 때 빈자리는 빼고, 잠긴 칸은 포함해요. 다른 칸을 누르면 잠긴 칸도 바뀔 수 있으니까요.",
+            "Can you combine the available taps to cancel the starting board? The change you need is \\(-s\\).": "누를 수 있는 칸을 조합해 처음 상태를 상쇄할 수 있을까요? 필요한 변화는 \\(-s\\)예요.",
+            "1. The board is a vector": "1. 퍼즐판을 벡터로 나타내기",
+            "Number the \\(m\\) tiles \\(p_1,\\ldots,p_m\\) in any fixed order. Write their states in that same order to get \\(s=(s_1,\\ldots,s_m)\\in R^m\\). Each entry \\(s_i\\) is the color of tile \\(p_i\\). An all-white board is the zero vector.": "칸 \\(m\\)개에 순서를 정해 \\(p_1,\\ldots,p_m\\)이라고 이름을 붙여요. 그 순서대로 상태를 적으면 \\(s=(s_1,\\ldots,s_m)\\in R^m\\)이 돼요. 성분 \\(s_i\\)는 칸 \\(p_i\\)의 색을 나타내요. 모든 칸이 흰 퍼즐판은 영벡터예요.",
+            "2. Each tap contributes a column": "2. 누를 수 있는 칸마다 열 하나",
+            "Label the \\(r\\) tiles you can tap \\(q_1,\\ldots,q_r\\). Tap \\(q_j\\) once and record a \\(1\\) for each tile that changes and a \\(0\\) for each tile that stays the same. The result is its effect vector \\(v_j\\), column \\(j\\) of \\(A\\).": "누를 수 있는 칸 \\(r\\)개를 \\(q_1,\\ldots,q_r\\)이라고 해요. 칸 \\(q_j\\)를 한 번 눌렀을 때 바뀌는 칸에 \\(1\\), 그대로인 칸에 \\(0\\)을 적어요. 이렇게 얻은 효과 벡터 \\(v_j\\)가 행렬 \\(A\\)의 \\(j\\)번째 열이에요.",
+            "Read across a row to see which taps affect one tile. Read down a column to see which tiles one tap affects. A locked tile has a row of its own, but you can’t tap it, so it has no column.": "한 행을 가로로 읽으면 어떤 칸을 눌러야 그 칸이 바뀌는지 알 수 있어요. 한 열을 세로로 읽으면 한 번 눌러서 어떤 칸이 바뀌는지 알 수 있어요. 잠긴 칸에는 행은 있지만 직접 누를 수 없어서 열은 없어요.",
+            "Solving equation": "퍼즐을 푸는 방정식",
+            "Goal": "목표",
+            "How many times should you tap each tile?": "각 칸을 몇 번씩 눌러야 할까요?",
+            "The tap-count vector \\(x=(x_1,\\ldots,x_r)\\) records how often you tap each unlocked tile, modulo \\(n\\). Each tap on \\(q_j\\) adds the same \\(v_j\\), so together the taps add \\(Ax=\\sum_j x_jv_j\\). You can play them in any order.": "누름 횟수 벡터 \\(x=(x_1,\\ldots,x_r)\\)는 잠기지 않은 각 칸을 누른 횟수를 \\(n\\)으로 나눈 나머지로 기록해요. \\(q_j\\)를 누를 때마다 같은 \\(v_j\\)가 더해지므로 전체 변화는 \\(Ax=\\sum_j x_jv_j\\)예요. 누르는 순서는 자유로워요.",
+            "The final board is \\(s+Ax\\). To make it all white, look for a vector \\(x\\) that solves \\(Ax=-s\\) in \\(R\\).": "다 누른 뒤의 퍼즐판은 \\(s+Ax\\)예요. 퍼즐판을 흰색으로 만들려면 \\(R\\)에서 \\(Ax=-s\\)를 만족하는 벡터 \\(x\\)를 찾아야 해요.",
+            "When does a solution exist?": "해는 언제 존재할까요?",
+            "Every tap-count vector produces a change \\(Ax\\). All those changes together form the image of \\(A\\), written \\(\\operatorname{Im}(A)\\). A board has a solution exactly when \\(-s\\) belongs to this image.": "누름 횟수 벡터 하나가 퍼즐판에 만드는 변화는 \\(Ax\\)예요. 이렇게 만들 수 있는 모든 변화의 집합을 \\(A\\)의 상이라고 하고 \\(\\operatorname{Im}(A)\\)로 써요. \\(-s\\)가 이 상에 속하면 퍼즐을 풀 수 있고, 속하지 않으면 풀 수 없어요.",
+            "When \\(n\\) is prime, you can check by row reducing the augmented matrix \\([A\\mid -s]\\) to echelon form. A row saying \\(0=c\\) with \\(c\\ne0\\) rules out a solution. If no such row appears, you can read off at least one solution by back substitution.": "\\(n\\)이 소수라면 첨가행렬 \\([A\\mid -s]\\)에 기본 행 연산을 적용해 사다리꼴로 만들어요. \\(c\\ne0\\)인데 \\(0=c\\)라는 행이 나오면 해가 없어요. 그런 행이 없으면 마지막 식부터 거꾸로 대입해 해를 하나 구할 수 있어요.",
+            "What changes with four states?": "상태가 네 개면 무엇이 달라질까요?",
+            "When \\(n\\) is composite, \\(R\\) is still a ring, but some nonzero elements have no multiplicative inverse. For example, modulo \\(4\\), twice any number is even, so \\(2a\\) can never equal \\(1\\). You can’t divide a row by \\(2\\) here.": "\\(n\\)이 합성수일 때도 \\(R\\)은 환이지만, 0이 아닌 원소 중에도 곱셈의 역원이 없는 것이 있어요. 예를 들어 \\(4\\)를 법으로 할 때 어떤 수를 두 배 해도 짝수이므로 \\(2a\\)는 \\(1\\)이 될 수 없어요. 따라서 행을 \\(2\\)로 나눌 수 없어요.",
+            "The test for a solution is still \\(-s\\in\\operatorname{Im}(A)\\). Use row operations valid in the ring. If \\(n\\) factors into coprime prime powers, you can also solve modulo each of those powers and combine the results.": "해가 존재할 조건은 여전히 \\(-s\\in\\operatorname{Im}(A)\\)예요. 다만 이 환에서 허용되는 행 연산을 써야 해요. \\(n\\)이 서로 다른 소수의 거듭제곱들의 곱이라면 각 거듭제곱을 법으로 따로 푼 뒤 결과를 합칠 수도 있어요.",
+            "When is the solution unique?": "해가 하나뿐인 경우는 언제일까요?",
+            "Suppose \\(x_0\\) solves the board. If a tap-count vector \\(z\\) leaves the board unchanged, then \\(Az=0\\) and \\(x_0+z\\) also solves it. These vectors \\(z\\) form the kernel of \\(A\\), written \\(\\ker(A)\\). Adding each of them to \\(x_0\\) gives all the solutions.": "\\(x_0\\)가 해라고 해 볼게요. 퍼즐판을 그대로 두는 누름 횟수 벡터 \\(z\\)는 \\(Az=0\\)을 만족하므로 \\(x_0+z\\)도 해예요. 이런 \\(z\\)의 집합을 \\(A\\)의 핵이라고 하고 \\(\\ker(A)\\)로 써요. 핵의 각 원소를 \\(x_0\\)에 더하면 모든 해를 얻어요.",
+            "Remember that counts are taken modulo \\(n\\). Tapping one tile \\(n\\) extra times takes its whole pattern around the color cycle. It leaves both the board and the tap-count vector unchanged.": "누른 횟수는 \\(n\\)으로 나눈 나머지로 세요. 한 칸을 \\(n\\)번 더 누르면 패턴 안의 모든 칸이 색의 순환을 한 바퀴 돌아요. 퍼즐판도 누름 횟수 벡터도 그대로예요.",
+            "So a solvable board has exactly one tap-count vector when \\(\\ker(A)=\\{0\\}\\). Over a field, this means the columns of \\(A\\) are linearly independent. The kernel test also works in the four-state ring.": "따라서 풀 수 있는 퍼즐판의 누름 횟수 벡터가 하나뿐일 필요충분조건은 \\(\\ker(A)=\\{0\\}\\)이에요. 체에서는 \\(A\\)의 열들이 선형 독립이라는 뜻이에요. 핵을 보는 이 판정법은 상태가 네 개인 환에서도 통해요.",
+            "When is \\(A\\) invertible?": "\\(A\\)에 역행렬이 있는 경우는 언제일까요?",
+            "If you can tap every tile, \\(A\\) has one row and one column per tile, so it is square. Holes leave that count balanced. A lock removes a column and keeps the row. When a square \\(A\\) is invertible, every starting board has exactly one tap-count solution.": "모든 칸을 누를 수 있다면 칸마다 행과 열이 하나씩 있어서 \\(A\\)는 정사각행렬이에요. 빈자리는 행과 열의 수를 똑같이 줄이지만, 칸을 잠그면 행은 남고 열만 빠져요. 정사각행렬 \\(A\\)에 역행렬이 있으면 어떤 퍼즐판에서 시작하든 누름 횟수 벡터로 나타낸 해가 하나뿐이에요.",
+            "A square \\(A\\) is invertible exactly when its determinant has a multiplicative inverse in \\(R\\). For prime \\(n\\), the determinant must be nonzero modulo \\(n\\). For \\(n=4\\), it must be odd. If this test fails, some starting boards have no solution and others have several. For a rectangular matrix, use the image to test existence and the kernel to test uniqueness.": "정사각행렬 \\(A\\)에 역행렬이 있을 필요충분조건은 그 행렬식이 \\(R\\)에서 곱셈의 역원을 갖는 거예요. \\(n\\)이 소수이면 행렬식이 \\(n\\)을 법으로 0이 아니어야 하고, \\(n=4\\)이면 홀수여야 해요. 조건을 만족하지 않으면 어떤 퍼즐판은 해가 없고 어떤 퍼즐판은 여러 개예요. 직사각행렬에서는 상으로 해의 존재 여부를, 핵으로 해의 유일성을 확인해요.",
+            "Counting the taps in a solution": "풀이에 필요한 횟수 세기",
+            "To play a solution, take each count \\(x_j\\) as a number from \\(0\\) to \\(n-1\\). Call that number \\(t_j\\). Add these numbers as ordinary integers to get the number of taps, \\(\\ell(x)\\). The shortest solution the game has found sets the three-star target.": "풀이를 실제로 따라갈 때는 각 성분 \\(x_j\\)를 \\(0\\)부터 \\(n-1\\)까지의 수로 나타내요. 이 수를 \\(t_j\\)라고 해요. 이 값들을 보통 정수처럼 더한 \\(\\ell(x)\\)가 실제로 눌러야 하는 횟수예요. 게임이 찾은 가장 짧은 풀이가 별 세 개의 기준이 돼요.",
+            "How the game finds a short solution": "게임이 짧은 풀이를 찾는 방법",
+            "If the board has few enough possible states, the game searches all positions one tap away, then two taps away, and so on. The first time it reaches an all-white board, it has found the fewest taps possible.": "가능한 퍼즐판 상태가 충분히 적으면 한 번 눌러 갈 수 있는 상태부터 살펴보고, 이어서 두 번, 세 번 누른 상태를 살펴봐요. 처음으로 흰 퍼즐판에 도달한 횟수가 가능한 최솟값이에요.",
+            "For larger boards with a prime number of states per tile, the game row reduces \\(Ax=-s\\). If there are few enough solutions to try, it compares them all and keeps one with the fewest taps. When an exact search is too large, including on large four-state boards, it uses a known solution whose length may be above the minimum.": "퍼즐판이 크고 칸마다 상태의 개수가 소수이면 \\(Ax=-s\\)를 행 연산으로 풀어요. 해를 모두 비교할 수 있을 만큼 수가 적으면 가장 적게 누르는 해를 하나 골라요. 네 가지 상태를 쓰는 큰 퍼즐판처럼 정확한 탐색이 너무 크면 이미 알고 있는 풀이를 써요. 그 풀이가 최단이라는 보장은 없어요.",
+            "Different tap-count vectors can tie for the minimum, and you can play the same vector in different orders. When the game proves a minimum, it always picks the same plan among those tied for shortest. It doesn’t tell you whether another plan ties with it.": "서로 다른 누름 횟수 벡터가 같은 최소 횟수를 낼 수 있고, 같은 벡터도 여러 순서로 누를 수 있어요. 최솟값을 확인한 경우 게임은 최단 풀이 중에서 늘 같은 하나를 골라요. 똑같이 짧은 다른 풀이가 있는지는 표시하지 않아요.",
+            "Locked tiles and holes in the matrix": "잠긴 칸과 빈자리를 행렬로 나타내기",
+            "To model a hole, leave that position out entirely. To model a lock, keep the tile’s entry in \\(s\\) and its row in \\(A\\), since it still has to turn white. Leave out its column. The remaining columns tell you which other taps can change it.": "빈자리는 모형에서 아예 빼요. 잠긴 칸은 흰색으로 바꿔야 하므로 \\(s\\)의 성분과 \\(A\\)의 행을 남겨 두고 열만 빼요. 나머지 열을 보면 어떤 칸을 눌러야 잠긴 칸이 바뀌는지 알 수 있어요.",
+            "How puzzles are made": "퍼즐을 만드는 방법",
+            "The generator starts with a white board and scrambles it with allowed taps. It keeps track of how to undo their combined effect, so the starting board comes with a solution. When it can, the solver finds a shortest plan for the star targets. A hint plays one tap toward a solution and outlines the tiles it changed in red.": "퍼즐을 만들 때는 흰 퍼즐판에서 시작해 누를 수 있는 칸을 눌러 색을 섞어요. 그 변화를 되돌리는 방법을 기록해 두므로 처음 퍼즐판에는 이미 풀이가 있어요. 가능하면 최단 풀이를 찾아 별의 기준을 정해요. 힌트는 풀이를 따라 한 수를 대신 두고, 바뀐 칸에 빨간 테두리를 표시해요.",
+            "What the symbols mean": "기호의 뜻",
+            "The number of states per tile. It can be \\(2\\), \\(3\\), \\(4\\) or \\(5\\) and is the modulus for this board.": "칸 하나가 가질 수 있는 상태의 개수. \\(2\\), \\(3\\), \\(4\\), \\(5\\) 중 하나이며, 이 퍼즐판에서 나머지를 계산할 때의 법이에요.",
+            "The board vector. Each entry is the state of one tile.": "퍼즐판 벡터. 각 성분은 한 칸의 상태를 나타내요.",
+            "The tap matrix. Column \\(j\\) shows what changes when you tap \\(q_j\\).": "효과 행렬. \\(j\\)번째 열은 \\(q_j\\)를 누를 때 무엇이 바뀌는지 나타내요.",
+            "The tap-count vector. Entry \\(x_j\\) counts taps on \\(q_j\\) modulo \\(n\\).": "누름 횟수 벡터. 성분 \\(x_j\\)는 \\(q_j\\)를 누른 횟수를 \\(n\\)으로 나눈 나머지예요.",
+            "The image of \\(A\\). It contains every board change you can make with taps.": "\\(A\\)의 상. 칸을 눌러 만들 수 있는 모든 변화의 집합이에요.",
+            "The kernel of \\(A\\). It contains every tap-count vector whose combined effect is zero.": "\\(A\\)의 핵. 전체 효과가 0인 누름 횟수 벡터들의 집합이에요.",
+            "Language": "언어",
+            "Sound": "효과음",
+            "Show numbers on tiles": "칸에 숫자 표시",
+            "Show numbers in Playground": "실험실에서 숫자 표시",
+            "About": "게임 정보",
+            "About Invert the Matrix": "Invert the Matrix 게임 정보",
+            "Changelog": "업데이트 내역",
+            "Complete": "완료",
+            "Level Complete": "레벨 완료",
+            "Daily Complete": "일일 도전 완료",
+            "Stars earned": "획득한 별",
+            "Taps Used": "누른 횟수",
+            "Minimum": "최소 횟수",
+            "Best Taps": "최고 기록",
+            "Star thresholds": "별 획득 기준",
+            "Next Level": "다음 레벨",
+            "Replay": "다시 하기",
+            "Menu": "메뉴",
+            "New Puzzle": "새 퍼즐",
+            "Version": "버전",
+            "Best": "최고 기록",
+            "Chapter": "챕터",
+            "Inversion": "뒤집기",
+            "You can now play in Korean. We also rewrote How to Play and the math guide, from your first tap to the equations behind a solution.": "이제 한국어로 플레이할 수 있어요. 첫 칸을 누르는 법부터 풀이에 쓰이는 방정식까지, 게임 방법과 퍼즐 속 수학의 설명을 다듬었어요.",
+            "Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later.": "Android 16 호환성을 높이고 시스템 뒤로 가기와 상태 표시줄 및 탐색 메뉴 주변의 화면 배치를 개선했어요. 이제 Android 7 이상에서 플레이할 수 있어요.",
+            "Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility.": "Google Play와 호환되도록 AndroidX의 Activity와 Fragment 라이브러리를 업데이트했어요.",
+            "Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand.": "Android 16에 맞춰 시스템 뒤로 가기를 개선했어요. 모든 칸을 흰색으로 만드는 목표를 더 쉽게 확인할 수 있고, 필요할 때 누르기 패턴 설명을 열어 볼 수 있어요.",
+            "The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress.": "메인 메뉴에 업적을 추가하고 움직이는 퍼즐판을 키웠어요. Android에서는 Play 게임즈 업적을, 웹에서는 캠페인 업적 달성 현황을 볼 수 있어요.",
+            "First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements.": "첫 정식 버전이에요. 캠페인과 일일 도전, 맞춤 퍼즐, 실험실을 즐기고 힌트를 쓰거나 별과 Play 게임즈 업적을 모을 수 있어요.",
+            "Added a separate setting for Playground tile numbers, keeping Playground boards number-free unless it is turned on.": "실험실의 숫자 표시를 따로 설정할 수 있어요. 설정에서 켜면 칸에 숫자가 나타나요.",
+            "The Android release is prepared with version code 12, native debug symbols for Play Console crash reports, and refreshed changelog notes for the latest Play Store build.": "Android 버전 코드를 12로 올렸어요. Play Console에서 비정상 종료의 원인을 파악할 수 있도록 디버그 기호를 포함하고 최신 Play 스토어 버전의 업데이트 내역을 정리했어요.",
+            "Playground adds shareable puzzle codes, campaign now uses a 5x5 group map, and the Playground logo is now a tile-colored basketball. Menu headers, locks, and text-size controls were polished across web and Android.": "실험실 퍼즐을 코드로 공유할 수 있어요. 캠페인의 그룹을 5×5 지도에 배치하고 실험실 아이콘을 칸 색깔로 꾸민 농구공으로 바꿨어요. 웹과 Android의 메뉴 제목, 자물쇠, 글자 크기 버튼도 다듬었어요.",
+            "Daily challenges now separate puzzle cards from leaderboards, custom setup uses visual pattern chips with unique generation always on, and game/result screens are clearer.": "일일 도전에서 퍼즐과 순위표를 나눴어요. 맞춤 레벨에서는 그림으로 패턴을 고를 수 있고 풀이가 하나인 퍼즐을 우선해서 만들어요. 퍼즐 화면과 결과 화면도 읽기 쉽게 바꿨어요.",
+            "Settings now hide platform-specific controls, animation and colorblind-symbol toggles were removed, and About shows version history with the GitHub link.": "설정에는 기기에서 쓸 수 있는 옵션만 보여요. 애니메이션과 색 구분용 기호 설정을 없애고 게임 정보에 버전 기록과 GitHub 링크를 추가했어요.",
+            "Release builds keep native debug symbols for Play Console crash reports.": "Play Console에서 비정상 종료의 원인을 파악할 수 있도록 배포 버전에 네이티브 디버그 기호를 포함했어요.",
+            "The Math guide explains solution uniqueness and matrix invertibility.": "퍼즐 속 수학에서 해가 유일할 조건과 행렬이 가역일 조건을 설명해요.",
+            "Cross": "십자",
+            "Diagonal": "대각선",
+            "Square": "정사각형",
+            "Horizontal line": "가로줄",
+            "Vertical line": "세로줄",
+            "Self only": "누른 칸만",
+            "Knight": "나이트",
+            "Random mixed": "무작위 조합",
+            "Mixed": "혼합",
+            "Easy": "쉬움",
+            "Medium": "보통",
+            "Hard": "어려움",
+            "Expert": "전문가",
+            "Custom": "직접 입력",
+            "Loading campaign": "캠페인 불러오는 중",
+            "Preparing the level list.": "레벨 목록을 준비하고 있어요.",
+            "Loading the fixed campaign levels from the bundled JSON.": "캠페인 레벨을 불러오고 있어요.",
+            "Campaign data unavailable": "캠페인을 불러올 수 없어요",
+            "The bundled campaign asset could not be loaded. Reload the app or check that campaign-levels.json is included.": "캠페인 데이터를 읽을 수 없어요. 게임을 다시 열어 주세요.",
+            "No campaign levels found": "캠페인 레벨이 없어요",
+            "The campaign could not be prepared. Reload the app to rebuild the level list.": "캠페인을 준비하지 못했어요. 게임을 다시 열어 레벨 목록을 불러와 주세요.",
+            "The fixed campaign data is missing. Reload the app or check the bundled asset.": "캠페인 데이터가 없어요. 게임을 다시 열어 주세요.",
+            "No daily puzzles available": "일일 도전을 불러올 수 없어요",
+            "Daily puzzles are generated from the current date. Reload the app to try again.": "일일 도전은 날짜에 맞춰 만들어요. 게임을 다시 열어 주세요.",
+            "Lock icons on": "잠긴 칸 사용",
+            "Lock icons off": "잠긴 칸 사용 안 함",
+            "Empty hole": "빈자리",
+            "Empty holes on": "빈자리 사용",
+            "Empty holes off": "빈자리 사용 안 함",
+            "Not played today": "오늘 기록 없음",
+            "not completed today": "오늘 미완료",
+            "First try counts": "첫 시도만 기록",
+            "Replays open": "다시 도전 가능",
+            "daily challenge": "일일 도전",
+            "state": "상태",
+            "states": "상태",
+            "tap": "회",
+            "taps": "회",
+            "star": "별",
+            "stars": "별",
+            "out of 3 stars": "별 3개 중",
+            "current best": "현재 최고 기록",
+            "Level": "레벨",
+            "locked": "잠김",
+            "complete": "완료",
+            "earned": "획득",
+            "hint used": "힌트 사용",
+            "not complete": "미완료",
+            "Row": "행",
+            "column": "열",
+            "pattern": "패턴",
+            "Previewing this tap.": "누르면 바뀌는 칸을 미리 보고 있어요.",
+            "No useful tap is available.": "적용할 수 있는 힌트가 없어요.",
+            "Hint applied. Red tiles changed. This try is worth 0 stars.": "힌트로 바뀐 칸에 빨간 테두리가 생겼어요. 이번에는 별을 얻을 수 없어요.",
+            "Binary Beginnings": "두 가지 색의 시작",
+            "Fourfold Flips": "네 줄 뒤집기",
+            "Fourfold Focus": "네 줄에 집중",
+            "Fourfold Mastery": "네 줄의 달인",
+            "Lights With Lock Icons": "잠긴 불빛",
+            "Lockstep Squares": "나란히 놓인 네모",
+            "First Empty Holes": "첫 빈자리",
+            "Binary Breakaways": "두 가지 색의 탈출",
+            "Fivefold Binary": "다섯 줄, 두 가지 색",
+            "Three-Color Start": "세 가지 색의 시작",
+            "Triple Grid": "세 가지 색의 격자",
+            "Three Lock-Icon Tiles": "세 가지 색과 자물쇠",
+            "Three Empty Holes": "세 가지 색과 빈자리",
+            "Triple Combine": "세 가지 색의 조합",
+            "Pattern Primer": "패턴 첫걸음",
+            "Patterns With Lock Icons": "패턴과 자물쇠",
+            "Color Gauntlet": "색깔 도전",
+            "Four-State Start": "네 가지 상태의 시작",
+            "Four-State Grid": "네 가지 상태의 격자",
+            "Four-State Lock-Icon Tiles": "네 가지 상태와 자물쇠",
+            "Four-State Empty Holes": "네 가지 상태와 빈자리",
+            "Four-State Patterns": "네 가지 상태의 패턴",
+            "Four-State Matrix": "네 가지 상태의 행렬",
+            "Five-State Start": "다섯 가지 상태의 시작",
+            "Five-State Grid": "다섯 가지 상태의 격자",
+            "Five-State Matrix": "다섯 가지 상태의 행렬",
+            "Five-State Lock-Icon Tiles": "다섯 가지 상태와 자물쇠",
+            "Five-State Empty Holes": "다섯 가지 상태와 빈자리",
+            "Five-State Patterns": "다섯 가지 상태의 패턴",
+            "Dense Dimensions": "빽빽한 격자",
+            "Prime Pressure": "소수의 도전",
+            "Modular Maze": "나머지의 미로",
+            "Wide Matrix": "넓은 행렬",
+            "Endgame Circuit": "마지막 회로",
+            "Final Inversion": "마지막 뒤집기"
+        },
         es: {
+            "Mixed patterns": "Patrones mixtos",
+            "Options": "Opciones",
+            "Edit tool": "Herramienta de edición",
+            "pportilla on GitHub": "pportilla en GitHub",
+            "{n} states": "{n} estados",
+            "{n} star": "{n} estrella",
+            "{n} stars": "{n} estrellas",
+            "{n} out of 3 stars": "{n} de 3 estrellas",
+            "{n} tap": "{n} toque",
+            "{n} taps": "{n} toques",
+            "{n}+ taps": "{n} toques o más",
+            "Row {row}, column {column}": "Fila {row}, columna {column}",
+            "Paint color {n}": "Pintar con el color {n}",
             "A modular tile puzzle": "Un rompecabezas modular",
             "Main menu": "Menú principal",
             "Campaign": "Campaña",
@@ -168,102 +513,102 @@
             "Medium text": "Texto mediano",
             "Large text": "Texto grande",
             "Play overview": "Resumen del juego",
-            "Clear every tile by turning it white. Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.": "Deja en blanco todas las casillas. Un toque en una casilla aplica su patrón de toque al tablero, y cada casilla alcanzada avanza un estado.",
-            "Use previews and level clues to plan calmly before each tap.": "Mira la vista previa y las pistas del nivel para jugar con calma antes de cada toque.",
+            "Turn every tile white. A single tap can change several tiles at once.": "Deja todo el tablero en blanco. Con un solo toque puedes cambiar varias casillas a la vez.",
+            "Before you tap, hold a tile to see where its pattern reaches.": "Antes de tocar una casilla, mantenla pulsada para ver hasta dónde llega su patrón.",
             "Rules": "Reglas",
-            "1. Make every tile white": "1. Deja todas las casillas en blanco",
-            "A white tile is solved.": "Una casilla blanca ya está resuelta.",
-            "Colored tiles are not wrong. They just need to keep advancing until they return to white.": "Las casillas de color no están mal. Solo tienen que seguir avanzando hasta volver al blanco.",
-            "The puzzle ends only when every tile is white at the same time.": "El nivel se completa cuando todas las casillas están blancas al mismo tiempo.",
-            "2. Tap and cycle": "2. Toca y haz avanzar",
-            "Tap an available tile to apply the level's tap pattern.": "Toca una casilla disponible para aplicar el patrón de toque del nivel.",
-            "Every tile reached by the pattern advances one state.": "Cada casilla alcanzada por el patrón avanza un estado.",
-            "States cycle: after the last colored state, the next advance returns that tile to white.": "Los estados van en ciclo: después del último color, el siguiente avance devuelve la casilla al blanco.",
-            "3. Use the pattern preview": "3. Usa la vista previa del patrón",
-            "A level can use a cross, diagonal, square, horizontal, vertical, knight, or mixed pattern.": "Un nivel puede usar patrón de cruz, diagonal, cuadrado, horizontal, vertical, caballo o mixto.",
-            "Hold or hover a tile to see exactly which tiles will change before you tap.": "Mantén presionada una casilla, o pasa el cursor por encima, para ver exactamente cuáles cambiarán antes de tocar.",
-            "4. Handle special tiles": "4. Ten en cuenta las casillas especiales",
-            "A tile with a lock icon still needs to become white and can change when a nearby tap reaches it.": "Una casilla con candado también debe quedar blanca y puede cambiar cuando la alcanza un toque cercano.",
-            "You cannot tap a tile with a lock icon directly.": "No puedes tocar directamente una casilla con candado.",
-            "An empty hole is outside the board. Tap patterns skip empty holes.": "Un hueco vacío está fuera del tablero. Los patrones de toque saltan los huecos vacíos.",
+            "1. Read the colors": "1. Fíjate en los colores",
+            "White is the color you want every tile to reach.": "El blanco es el color al que deben llegar todas las casillas.",
+            "A white tile can still change color if another tap reaches it.": "Una casilla blanca puede volver a cambiar de color si la alcanza otro toque.",
+            "You solve the puzzle when all the tiles are white at once.": "Resuelves el nivel cuando todas las casillas están blancas a la vez.",
+            "2. Follow the color cycle": "2. Sigue el ciclo de colores",
+            "Tap an unlocked tile. Its pattern tells you which tiles will change.": "Toca una casilla sin candado. Su patrón indica qué casillas cambiarán.",
+            "Each tile in the pattern moves on to its next color.": "Cada casilla que alcanza el patrón pasa al siguiente color.",
+            "After the last color comes white again.": "Después del último color vuelve el blanco.",
+            "3. Check the pattern": "3. Comprueba el patrón",
+            "Look for crosses, diagonals, squares, rows, columns and even chess knight moves. Some boards mix several patterns.": "Hay cruces, diagonales, cuadrados, filas, columnas y hasta saltos de caballo de ajedrez. Algunos tableros combinan varios patrones.",
+            "Hold a tile to preview its pattern. Lift your finger when you’re done looking.": "Mantén pulsada una casilla para ver su patrón. Cuando termines de mirarlo, levanta el dedo.",
+            "4. Locks and holes": "4. Candados y huecos",
+            "A locked tile still has to turn white.": "Las casillas con candado también tienen que quedar blancas.",
+            "To change it, tap another tile whose pattern reaches it.": "Para cambiar una casilla con candado, toca otra cuyo patrón la alcance.",
+            "A hole is just a gap in the board. Tap patterns skip it.": "Donde hay un hueco no hay casilla. Los patrones de toque se lo saltan.",
             "Modes": "Modos",
-            "Choose your puzzle": "Elige partida",
+            "Choose your puzzle": "Elige tu rompecabezas",
             "Campaign:": "Campaña:",
             "Solve fixed levels in order. Each solve opens the next level.": "Resuelve niveles fijos en orden. Cada victoria abre el siguiente nivel.",
-            "Pick groups on a 5x5 map. Earn 15 stars in a group to open adjacent groups.": "Elige grupos en un mapa 5x5. Gana 15 estrellas en un grupo para abrir grupos adyacentes.",
+            "Pick a group on the 5 × 5 map. Earn 15 stars there to unlock the groups directly beside it, above it and below it.": "Elige un grupo en el mapa de 5 × 5. Consigue 15 estrellas en él para desbloquear los grupos que tenga a la izquierda, a la derecha, arriba y abajo.",
             "Custom Level:": "Nivel personalizado:",
-            "Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.": "Elige tamaño, estados, patrón, dificultad, casillas con candado y huecos vacíos. El generador siempre intenta crear una solución única.",
+            "Choose the board size, number of colors, pattern and difficulty. You can add locks and holes. The game looks for a puzzle with a unique solution when it can.": "Elige el tamaño del tablero, el número de colores, el patrón y la dificultad. Puedes añadir candados y huecos. El juego procura crear un rompecabezas con una única solución.",
             "Playground:": "Zona de pruebas:",
-            "Build a board by hand, share its puzzle code, and play without a completion modal.": "Crea un tablero a mano, comparte su código de rompecabezas y juega sin pantalla de finalización.",
+            "Build your own board and share it with a puzzle code. You can keep experimenting even after every tile turns white.": "Crea tu propio tablero y comparte su código. Puedes seguir probando toques incluso cuando todo el tablero esté en blanco.",
             "Daily Challenge:": "Reto diario:",
-            "Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.": "Juega los mismos tres niveles generados que el resto para la fecha de hoy. Cada uno guarda su mejor resultado.",
+            "Everyone gets the same three puzzles each day. Each one keeps its own best score.": "Cada día hay tres rompecabezas iguales para todos. Tu mejor resultado se guarda por separado en cada uno.",
             "Tools and options": "Herramientas y opciones",
             "Taps, stars, and hints": "Toques, estrellas y pistas",
-            "The tap counter counts every tap you commit.": "El contador suma cada toque que haces.",
-            "Three stars mean you matched the generator's minimum found tap count.": "Consigues tres estrellas si igualas el mínimo de toques encontrado por el generador.",
-            "Two-star and one-star targets allow extra taps.": "Los objetivos de dos y una estrella admiten algunos toques extra.",
-            "Undo rewinds one tap, and Reset restores the starting board.": "Deshacer vuelve un toque atrás, y Reiniciar recupera el tablero inicial.",
-            "Hint applies the next tap from a solver plan. A hinted try can still complete the puzzle, but it no longer earns stars.": "La pista aplica el siguiente toque de un plan de resolución. Puedes completar el nivel con pistas, pero ese intento ya no gana estrellas.",
-            "Tiles changed by a hint are outlined in red.": "Las casillas cambiadas por una pista aparecen con borde rojo.",
+            "Previewing a pattern is free. Your tap counts when the tiles change.": "Ver el patrón no cuesta ningún toque. El toque cuenta cuando cambian las casillas.",
+            "For three stars, solve the puzzle in as few taps as the game’s best known solution, or fewer.": "Para ganar tres estrellas, iguala o mejora el número de toques de la mejor solución que ha encontrado el juego.",
+            "The one- and two-star targets leave room for extra taps.": "Los objetivos de una y dos estrellas dejan margen para más toques.",
+            "Undo takes back your last tap. Reset puts the board back the way it started.": "Deshacer anula tu último toque. Reiniciar te devuelve al tablero inicial.",
+            "A hint plays one tap for you. You can still finish that attempt, but it earns no stars.": "Una pista da un toque por ti. Puedes terminar ese intento, aunque no ganarás estrellas.",
+            "Look for the red outlines to see which tiles the hint changed.": "El borde rojo señala las casillas que ha cambiado la pista.",
             "When you tap a tile, this pattern is centered on that tile. Every tile inside the pattern changes state.": "Al tocar una casilla, este patrón se centra en esa casilla. Cada casilla dentro del patrón cambia de estado.",
             "The green outline matches the preview you see when you hold a tile.": "El borde verde coincide con la vista previa que ves al mantener presionada una casilla.",
-            "Sound toggles audio effects.": "Sonido activa o desactiva los efectos.",
-            "Show numbers on tiles displays state values when you want a more exact view.": "Mostrar números en las casillas enseña los valores cuando quieres ver el estado exacto.",
-            "Android also includes haptic feedback controls.": "En Android también hay controles de vibración.",
+            "Turn sound effects on or off in Settings.": "En Ajustes puedes activar o desactivar los efectos de sonido.",
+            "If you prefer numbers, turn them on to see each tile’s state alongside its color.": "Si prefieres guiarte por números, actívalos para ver el estado de cada casilla además de su color.",
+            "On Android, you can also turn vibration on or off.": "En Android también puedes activar o desactivar la vibración.",
             "Math overview": "Resumen matemático",
-            "Invert the Matrix is a modular linear-algebra puzzle.": "Invert the Matrix es un rompecabezas de álgebra lineal modular.",
-            "To play, think of each tile as having a state, shown by its color. A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile. After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all tiles white at the same time. Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap. But later on, everything gets much more complicated.": "Para jugar, piensa que cada casilla tiene un estado, mostrado por su color. Un toque a una casilla no cambia solo la casilla que tocas, sino que cambia todas las casillas que se encuentran en un patrón centrado en la casilla elegida. Después del último estado (color), una casilla vuelve al blanco. El objetivo es encontrar una secuencia de toques para que todas las casillas terminen siendo blancas al mismo tiempo. Algunos tableros tienen solo dos estados posibles: blanco y azul, y solo un patrón: una cruz centrada en la casilla que tocas. ¡Pero más adelante todo se complica mucho más!",
-            "Modeling the game": "Modelo del juego",
-            "Turn the board into one equation": "Convertir el tablero en una ecuación",
-            "To model a level, first list the active board positions in a fixed order. Once that list is fixed, a displayed board becomes a vector \\(s\\in R^m\\). Here \\(R=\\mathbb Z/n\\mathbb Z\\) means values are read modulo \\(n\\), \\(n\\) is the number of tile states, and \\(m\\) is the number of active positions.": "Para modelar un nivel, primero enumeramos las casillas en un orden fijo. Cuando esa lista queda fijada, el tablero mostrado pasa a ser un vector \\(s\\in R^m\\). Aquí \\(R=\\mathbb Z/n\\mathbb Z\\) significa que los valores se leen módulo \\(n\\), \\(n\\) es el número de estados de una casilla y \\(m\\) es el número de casillas.",
-            "Each allowed tap has an effect vector in \\(R^m\\). For a tappable position \\(q_j\\), the vector \\(v_j\\) has value \\(1\\) exactly at the active positions advanced by that tap, and \\(0\\) elsewhere. The matrix \\(A\\) is built by placing these effect vectors as its columns. A tap-count vector \\(x\\in R^r\\) records how many times each allowed tap is used, modulo \\(n\\), and solving means choosing \\(x\\) with \\(s+Ax=0\\).": "Cada toque permitido tiene un vector de efecto en \\(R^m\\). Para una casilla que se puede tocar, \\(q_j\\), el vector \\(v_j\\) tiene valor \\(1\\) exactamente en las casillas que ese toque hace avanzar, y \\(0\\) en las demás. La matriz \\(A\\) se construye colocando esos vectores de efecto como columnas. Un vector de toques \\(x\\in R^r\\) cuenta cuántas veces se usa cada toque permitido, módulo \\(n\\). Resolver el nivel consiste en elegir \\(x\\) con \\(s+Ax=0\\).",
-            "All arithmetic is performed modulo \\(n\\), so the value after \\(n-1\\) is \\(0\\). Prime state counts such as \\(2,3,\\) and \\(5\\) give finite fields, where every value different from \\(0\\) has a multiplicative inverse. The four-state mode uses the ring \\(\\mathbb Z/4\\mathbb Z\\), where some values different from \\(0\\) cannot be used for division.": "Toda la aritmética se hace módulo \\(n\\), así que después de \\(n-1\\) viene \\(0\\). Los números de estados primos como \\(2,3,\\) y \\(5\\) dan cuerpos finitos, donde todo valor distinto de \\(0\\) tiene inverso multiplicativo. El modo de cuatro estados usa el anillo \\(\\mathbb Z/4\\mathbb Z\\), donde algunos valores distintos de \\(0\\) no se pueden usar para dividir.",
+            "What happens when you add up the taps?": "¿Qué pasa cuando sumas los efectos de los toques?",
+            "Take a board with just two colors. Tap the center of a cross and every tile in the cross switches between white and blue. Tap the same spot again and you’re back where you started. The same rule works with other patterns. With more colors, it takes more taps to go all the way around the cycle.": "Imagina un tablero de dos colores. Toca el centro de una cruz y todas sus casillas pasan de blanco a azul o de azul a blanco. Toca el mismo sitio otra vez y vuelves al punto de partida. La idea también funciona con otros patrones y con más colores. Si hay más colores, harán falta más toques para recorrer el ciclo.",
+            "Modeling the game": "El modelo matemático",
+            "The board in one equation": "El tablero en una ecuación",
+            "Give white the number \\(0\\) and count up through the colors. On a board with \\(n\\) colors, the next step after \\(n-1\\) is \\(0\\) again. This is arithmetic modulo \\(n\\), written in the ring \\(R=\\mathbb Z/n\\mathbb Z\\).": "Asigna el \\(0\\) al blanco y numera los demás colores en orden. Si hay \\(n\\) colores, después de \\(n-1\\) vuelves al \\(0\\). Así funciona la aritmética módulo \\(n\\) en el anillo \\(R=\\mathbb Z/n\\mathbb Z\\).",
+            "Now read the tiles in a fixed order. Their numbers form the board vector \\(s\\). Put the effect of each possible tap in a column of a matrix \\(A\\). If \\(x\\) records how often you tap each unlocked tile, \\(Ax\\) gives the total change. You win when \\(s+Ax=0\\).": "Lee las casillas siempre en el mismo orden. Sus números forman el vector del tablero \\(s\\). Escribe el efecto de cada toque posible en una columna de la matriz \\(A\\). Si \\(x\\) recoge el número de toques que das en cada casilla, \\(Ax\\) es el cambio total. Ganas cuando \\(s+Ax=0\\).",
+            "With \\(2\\), \\(3\\) or \\(5\\) states, \\(R\\) is a field. Every nonzero element has a multiplicative inverse, so you can divide by it. With four states, even a simple division by \\(2\\) can go wrong. We’ll see why below.": "Con \\(2\\), \\(3\\) o \\(5\\) estados, \\(R\\) es un cuerpo. Cada elemento distinto de cero tiene inverso multiplicativo, así que puedes dividir por él. Con cuatro estados, hasta una división por \\(2\\) puede dar problemas. Más abajo veremos por qué.",
             "Lights Out generalization": "Generalización de Lights Out",
-            "From Lights Out": "Desde Lights Out",
-            "The same question, in modular form": "La misma pregunta, en versión modular",
-            "In ordinary Lights Out, every tile is either \\(0\\) or \\(1\\). Tapping a tile changes the same shape of tiles around it every time, usually the tapped tile plus the tiles directly above, below, left, and right. Changing a tile is adding \\(1\\) modulo \\(2\\), so tapping the same tile twice gives no net change. This is the simplest version of adding tap effects together.": "En el Lights Out clásico, cada casilla vale \\(0\\) o \\(1\\). Tocar una casilla cambia siempre el mismo grupo de casillas alrededor, normalmente la casilla tocada y las casillas de arriba, abajo, izquierda y derecha. Cambiar una casilla equivale a sumar \\(1\\) módulo \\(2\\), por eso tocar la misma casilla dos veces no cambia nada en total. Esta es la versión más simple de sumar los efectos de los toques.",
-            "This game keeps that add-the-effects rule while allowing \\(n\\) states, so values are read in \\(R=\\mathbb Z/n\\mathbb Z\\). Empty holes are not included in the board vector. Tiles with lock icons stay in the board vector because they must become white, but they do not get tap choices. Tap patterns determine the columns of \\(A\\).": "Este juego conserva esa regla de sumar efectos, pero permite \\(n\\) estados, así que los valores se leen en \\(R=\\mathbb Z/n\\mathbb Z\\). Un hueco no es una casilla. Las casillas con candado permanecen en el vector del tablero porque deben quedar blancas, pero no tienen opción propia de toque. Los patrones de toque determinan las columnas de \\(A\\).",
-            "The mathematical question is precise: can the allowed taps add up to the target change \\(-s\\)?": "La pregunta matemática es precisa: ¿pueden los toques permitidos sumar el cambio objetivo \\(-s\\)?",
+            "From Lights Out": "Del juego Lights Out",
+            "From two states to many": "De dos estados a varios",
+            "In the classic Lights Out puzzle, a tap flips the chosen tile and its neighbors above, below, left and right. Each flip adds \\(1\\) modulo \\(2\\). Two taps in the same spot cancel because \\(1+1=0\\) modulo \\(2\\).": "En el clásico Lights Out, un toque cambia la casilla elegida y sus vecinas de arriba, abajo, izquierda y derecha. Cada cambio suma \\(1\\) módulo \\(2\\). Dos toques en el mismo sitio se anulan porque \\(1+1=0\\) módulo \\(2\\).",
+            "Invert the Matrix adds more states and patterns, but tap effects still add together. Skip holes when you list the tiles. Include locked tiles, since a tap on another tile can change them.": "Invert the Matrix añade más estados y patrones, pero los efectos de los toques se siguen sumando. Al enumerar las casillas, omite los huecos e incluye las casillas con candado, que pueden cambiar con un toque en otra casilla.",
+            "Can you combine the available taps to cancel the starting board? The change you need is \\(-s\\).": "¿Puedes combinar los toques disponibles para anular el tablero inicial? El cambio que buscas es \\(-s\\).",
             "1. The board is a vector": "1. El tablero es un vector",
-            "Let \\(P=\\{p_1,\\ldots,p_m\\}\\) be the list of active board positions, in a fixed order. A configuration is the vector \\(s=(s_1,\\ldots,s_m)\\in R^m\\), where \\(s_i\\) is the state value shown on tile \\(p_i\\), read modulo \\(n\\). The solved board is the zero vector \\(0\\in R^m\\).": "Sea \\(P=\\{p_1,\\ldots,p_m\\}\\) la lista de casillas, en un orden fijo. Una configuración es el vector \\(s=(s_1,\\ldots,s_m)\\in R^m\\), donde \\(s_i\\) es el valor de estado que muestra la casilla \\(p_i\\), leído módulo \\(n\\). El tablero resuelto es el vector cero \\(0\\in R^m\\).",
-            "2. Every allowed tap has an effect vector": "2. Cada toque permitido tiene un vector de efecto",
-            "Let \\(q_1,\\ldots,q_r\\) be the positions that can be tapped. The effect vector of the tap at \\(q_j\\) is \\(v_j\\in R^m\\). Its \\(i\\)-th value is \\(1\\) when that tap advances tile \\(p_i\\), and \\(0\\) otherwise. The tap matrix is \\(A=[v_1\\ \\cdots\\ v_r]\\), so the \\(j\\)-th column of \\(A\\) is \\(v_j\\).": "Sean \\(q_1,\\ldots,q_r\\) las casillas que se pueden tocar. El vector de efecto del toque en \\(q_j\\) es \\(v_j\\in R^m\\). Su valor \\(i\\)-ésimo es \\(1\\) si ese toque hace avanzar la casilla \\(p_i\\), y \\(0\\) en caso contrario. La matriz de toques es \\(A=[v_1\\ \\cdots\\ v_r]\\), así que la columna \\(j\\)-ésima de \\(A\\) es \\(v_j\\).",
-            "In the matrix, a row tracks a board position and a column tracks an allowed tap. A tile with a lock icon still gets a row because its value must become zero, and nearby taps may change it. It does not get a column because it cannot be tapped directly.": "En la matriz, una fila sigue una casilla y una columna sigue un toque permitido. Una casilla con candado sigue teniendo una fila porque su valor debe llegar a cero, y los toques cercanos pueden cambiarla. No tiene columna porque no se puede tocar directamente.",
+            "Number the \\(m\\) tiles \\(p_1,\\ldots,p_m\\) in any fixed order. Write their states in that same order to get \\(s=(s_1,\\ldots,s_m)\\in R^m\\). Each entry \\(s_i\\) is the color of tile \\(p_i\\). An all-white board is the zero vector.": "Numera las \\(m\\) casillas como \\(p_1,\\ldots,p_m\\) en el orden que prefieras. Escribe sus estados en ese mismo orden para obtener \\(s=(s_1,\\ldots,s_m)\\in R^m\\). Cada componente \\(s_i\\) indica el color de la casilla \\(p_i\\). Un tablero en blanco es el vector cero.",
+            "2. Each tap contributes a column": "2. Cada toque aporta una columna",
+            "Label the \\(r\\) tiles you can tap \\(q_1,\\ldots,q_r\\). Tap \\(q_j\\) once and record a \\(1\\) for each tile that changes and a \\(0\\) for each tile that stays the same. The result is its effect vector \\(v_j\\), column \\(j\\) of \\(A\\).": "Llama \\(q_1,\\ldots,q_r\\) a las \\(r\\) casillas que puedes tocar. Toca \\(q_j\\) una vez y anota un \\(1\\) por cada casilla que cambie y un \\(0\\) por cada una que quede igual. Así obtienes su vector de efecto \\(v_j\\), la columna \\(j\\) de \\(A\\).",
+            "Read across a row to see which taps affect one tile. Read down a column to see which tiles one tap affects. A locked tile has a row of its own, but you can’t tap it, so it has no column.": "Lee una fila para ver qué toques afectan a una casilla. Lee una columna para ver qué casillas cambia un toque. Una casilla con candado tiene su propia fila, pero como no puedes tocarla, no tiene columna.",
             "Solving equation": "Ecuación de resolución",
             "Goal": "Objetivo",
-            "Find a tap-count vector": "Encontrar el vector de toques",
-            "A tap-count vector is an element \\(x=(x_1,\\ldots,x_r)\\in R^r\\). Its coordinate \\(x_j\\) counts how many times the tap at \\(q_j\\) is used, modulo \\(n\\). Executing \\(x\\) adds \\(\\sum_j x_jv_j=Ax\\) to the board. Thus tap order is irrelevant to the algebra. Only each tap count modulo \\(n\\) matters.": "Un vector de toques es un elemento \\(x=(x_1,\\ldots,x_r)\\in R^r\\). Su coordenada \\(x_j\\) cuenta cuántas veces se usa el toque en \\(q_j\\), módulo \\(n\\). Al ejecutar \\(x\\), se suma \\(\\sum_j x_jv_j=Ax\\) al tablero. Por eso el orden de los toques no importa para el álgebra. Solo importa cada número de toques módulo \\(n\\).",
-            "After applying the plan, the board is \\(s+Ax\\). Solving the puzzle means making this vector equal to the zero vector, equivalently solving \\(Ax\\equiv -s\\pmod n\\).": "Después de aplicar el plan, el tablero es \\(s+Ax\\). Resolver el nivel significa hacer que ese vector sea el vector cero, lo que equivale a resolver \\(Ax\\equiv -s\\pmod n\\).",
+            "How many times should you tap each tile?": "¿Cuántas veces hay que tocar cada casilla?",
+            "The tap-count vector \\(x=(x_1,\\ldots,x_r)\\) records how often you tap each unlocked tile, modulo \\(n\\). Each tap on \\(q_j\\) adds the same \\(v_j\\), so together the taps add \\(Ax=\\sum_j x_jv_j\\). You can play them in any order.": "El vector de toques \\(x=(x_1,\\ldots,x_r)\\) recoge cuántas veces tocas cada casilla sin candado, módulo \\(n\\). Cada toque en \\(q_j\\) suma el mismo vector \\(v_j\\), así que el cambio total es \\(Ax=\\sum_j x_jv_j\\). Puedes dar los toques en el orden que quieras.",
+            "The final board is \\(s+Ax\\). To make it all white, look for a vector \\(x\\) that solves \\(Ax=-s\\) in \\(R\\).": "El tablero final es \\(s+Ax\\). Para dejarlo en blanco, busca un vector \\(x\\) que resuelva \\(Ax=-s\\) en \\(R\\).",
             "When does a solution exist?": "¿Cuándo existe una solución?",
-            "The columns of \\(A\\) generate the set of all board changes obtainable by allowed taps. Call this set the image of \\(A\\), written \\(\\operatorname{Im}(A)=\\{Ax:x\\in R^r\\}\\). A solution exists exactly when the target vector \\(-s\\) is in that set.": "Las columnas de \\(A\\) generan todos los cambios de tablero que se pueden conseguir con los toques permitidos. Llamamos a este conjunto la imagen de \\(A\\), escrita \\(\\operatorname{Im}(A)=\\{Ax:x\\in R^r\\}\\). Existe una solución exactamente cuando el vector objetivo \\(-s\\) está en ese conjunto.",
-            "Over a field, such as \\(\\mathbb F_2,\\mathbb F_3,\\mathbb F_5\\), this can be checked by simplifying the rows of the system \\([A\\mid -s]\\). A row of the form \\([0\\ \\cdots\\ 0\\mid c]\\), where \\(c\\) is not \\(0\\), proves that no solution exists. If no such row appears, the simplified system gives at least one tap plan.": "Sobre un cuerpo, como \\(\\mathbb F_2,\\mathbb F_3,\\mathbb F_5\\), esto se comprueba simplificando las filas del sistema \\([A\\mid -s]\\). Una fila de la forma \\([0\\ \\cdots\\ 0\\mid c]\\), donde \\(c\\) no es \\(0\\), demuestra que no existe solución. Si no aparece una fila así, el sistema simplificado da al menos un plan de toques.",
-            "What changes for non-prime \\(n\\)?": "¿Qué cambia para \\(n\\) no primo?",
-            "For composite \\(n\\), \\(\\mathbb Z/n\\mathbb Z\\) is a ring but not a field. You may add and multiply as usual, but division is valid only by values with a multiplicative inverse. For \\(n=4\\), the value \\(2\\) is different from \\(0\\) and has no inverse: no value \\(a\\) satisfies \\(2a\\equiv 1\\pmod 4\\).": "Para \\(n\\) compuesto, \\(\\mathbb Z/n\\mathbb Z\\) es un anillo pero no un cuerpo. Se puede sumar y multiplicar como siempre, pero la división solo es válida por valores con inverso multiplicativo. Para \\(n=4\\), el valor \\(2\\) es distinto de \\(0\\) y no tiene inverso: ningún valor \\(a\\) satisface \\(2a\\equiv 1\\pmod 4\\).",
-            "The rule does not change: there is still a solution exactly when \\(-s\\) is in \\(\\operatorname{Im}(A)\\), but the check must respect ring arithmetic. Row operations that divide by values with no inverse are not valid. For larger composite \\(n\\), the check can be split into smaller modulo checks that must all agree.": "La regla no cambia: hay solución exactamente cuando \\(-s\\) está en \\(\\operatorname{Im}(A)\\), pero la comprobación debe respetar la aritmética del anillo. Las operaciones de fila que dividen por valores sin inverso no son válidas. Para \\(n\\) compuesto más grande, la comprobación puede dividirse en comprobaciones módulo más pequeñas que deben ser compatibles entre sí.",
+            "Every tap-count vector produces a change \\(Ax\\). All those changes together form the image of \\(A\\), written \\(\\operatorname{Im}(A)\\). A board has a solution exactly when \\(-s\\) belongs to this image.": "Cada vector de toques produce un cambio \\(Ax\\). El conjunto de todos esos cambios es la imagen de \\(A\\), que se escribe \\(\\operatorname{Im}(A)\\). Un tablero tiene solución si y solo si \\(-s\\) pertenece a esa imagen.",
+            "When \\(n\\) is prime, you can check by row reducing the augmented matrix \\([A\\mid -s]\\) to echelon form. A row saying \\(0=c\\) with \\(c\\ne0\\) rules out a solution. If no such row appears, you can read off at least one solution by back substitution.": "Si \\(n\\) es primo, puedes escalonar la matriz ampliada \\([A\\mid -s]\\) mediante operaciones por filas. Una fila que diga \\(0=c\\) con \\(c\\ne0\\) descarta toda solución. Si no aparece ninguna, puedes obtener una solución por sustitución hacia atrás.",
+            "What changes with four states?": "¿Qué cambia con cuatro estados?",
+            "When \\(n\\) is composite, \\(R\\) is still a ring, but some nonzero elements have no multiplicative inverse. For example, modulo \\(4\\), twice any number is even, so \\(2a\\) can never equal \\(1\\). You can’t divide a row by \\(2\\) here.": "Si \\(n\\) es compuesto, \\(R\\) sigue siendo un anillo, pero algunos elementos distintos de cero carecen de inverso multiplicativo. Por ejemplo, módulo \\(4\\), el doble de cualquier número es par, así que \\(2a\\) nunca puede valer \\(1\\). Aquí no puedes dividir una fila por \\(2\\).",
+            "The test for a solution is still \\(-s\\in\\operatorname{Im}(A)\\). Use row operations valid in the ring. If \\(n\\) factors into coprime prime powers, you can also solve modulo each of those powers and combine the results.": "El criterio sigue siendo \\(-s\\in\\operatorname{Im}(A)\\). Usa operaciones por filas válidas en el anillo. Si \\(n\\) se descompone en potencias de primos distintos, también puedes resolver el sistema módulo cada potencia y combinar los resultados.",
             "When is the solution unique?": "¿Cuándo es única la solución?",
-            "If \\(x_0\\) is one solution, then every other solution is \\(x_0+z\\), where \\(z\\in R^r\\) is a tap-count vector with \\(Az=0\\). The equation \\(Az=0\\) means that using the taps in \\(z\\) causes no net change on the board. The set of all such \\(z\\) is the kernel of the tap matrix, written \\(\\ker(A)\\).": "Si \\(x_0\\) es una solución, cualquier otra solución tiene la forma \\(x_0+z\\), donde \\(z\\in R^r\\) es un vector de toques con \\(Az=0\\). La ecuación \\(Az=0\\) significa que usar los toques de \\(z\\) no produce ningún cambio neto en el tablero. El conjunto de todos esos \\(z\\) es el núcleo de la matriz de toques y se escribe \\(\\ker(A)\\).",
-            "Tap counts already live modulo \\(n\\), so tapping one tile \\(n\\) additional times adds \\(n e_j=0\\), the zero vector in \\(R^r\\). That represents the same tap-count vector, not a new tap-count solution.": "Los números de toques ya se toman módulo \\(n\\), así que tocar una casilla \\(n\\) veces más suma \\(n e_j=0\\), el vector cero en \\(R^r\\). Eso representa el mismo vector de toques, no una solución nueva como vector de toques.",
-            "Uniqueness fails exactly when there is a tap-count vector \\(z\\ne 0\\), meaning \\(z\\) is not the zero vector, with \\(Az=0\\). In that case \\(x_0\\) and \\(x_0+z\\) are distinct tap-count vectors that solve the same board. Thus the solution as a tap-count vector is unique precisely when \\(\\ker(A)=\\{0\\}\\). Over fields this is equivalent to saying that no combination using at least one allowed tap adds the effect vectors to zero. Over rings, the same kernel condition is the correct statement over \\(\\mathbb Z/n\\mathbb Z\\).": "La unicidad falla exactamente cuando existe un vector de toques \\(z\\ne 0\\), es decir, cuando \\(z\\) no es el vector cero, con \\(Az=0\\). En ese caso, \\(x_0\\) y \\(x_0+z\\) son vectores de toques distintos que resuelven el mismo tablero. Por tanto, la solución como vector de toques es única exactamente cuando \\(\\ker(A)=\\{0\\}\\). Sobre cuerpos esto equivale a decir que ninguna combinación que use al menos un toque permitido suma los vectores de efecto hasta cero. Sobre anillos, la misma condición del núcleo es la formulación correcta sobre \\(\\mathbb Z/n\\mathbb Z\\).",
+            "Suppose \\(x_0\\) solves the board. If a tap-count vector \\(z\\) leaves the board unchanged, then \\(Az=0\\) and \\(x_0+z\\) also solves it. These vectors \\(z\\) form the kernel of \\(A\\), written \\(\\ker(A)\\). Adding each of them to \\(x_0\\) gives all the solutions.": "Supón que \\(x_0\\) resuelve el tablero. Si un vector de toques \\(z\\) deja el tablero igual, entonces \\(Az=0\\) y \\(x_0+z\\) también es solución. Estos vectores \\(z\\) forman el núcleo de \\(A\\), que se escribe \\(\\ker(A)\\). Al sumar cada uno a \\(x_0\\) obtienes todas las soluciones.",
+            "Remember that counts are taken modulo \\(n\\). Tapping one tile \\(n\\) extra times takes its whole pattern around the color cycle. It leaves both the board and the tap-count vector unchanged.": "Recuerda que los toques se cuentan módulo \\(n\\). Si tocas una casilla \\(n\\) veces más, todas las casillas de su patrón completan el ciclo de colores. Tanto el tablero como el vector de toques quedan igual.",
+            "So a solvable board has exactly one tap-count vector when \\(\\ker(A)=\\{0\\}\\). Over a field, this means the columns of \\(A\\) are linearly independent. The kernel test also works in the four-state ring.": "Así, un tablero con solución tiene un único vector de toques si y solo si \\(\\ker(A)=\\{0\\}\\). Sobre un cuerpo, esto significa que las columnas de \\(A\\) son linealmente independientes. El criterio del núcleo también vale en el anillo de cuatro estados.",
             "When is \\(A\\) invertible?": "¿Cuándo es invertible \\(A\\)?",
-            "A true inverse matrix can exist only when \\(A\\) is square, meaning it has the same number of rows and columns. This happens on a \\(w\\times h\\) board with no tiles with lock icons and no empty holes, when there is exactly one allowed tap for each tile. In that case \\(A\\) sends vectors in \\(R^{wh}\\) to vectors in \\(R^{wh}\\), and invertibility means every starting board has one unique tap-count solution.": "Una matriz inversa de verdad solo puede existir cuando \\(A\\) es cuadrada, es decir, cuando tiene el mismo número de filas y columnas. Esto ocurre en un tablero de \\(w\\times h\\) sin casillas con candado ni huecos vacíos, cuando hay exactamente un toque permitido por cada casilla. En ese caso \\(A\\) transforma vectores de \\(R^{wh}\\) en vectores de \\(R^{wh}\\), y que sea invertible significa que todo tablero inicial tiene una única solución como vector de toques.",
-            "Equivalently, \\(\\det A\\) must have a multiplicative inverse modulo \\(n\\). For prime state counts \\(n=2,3,5\\), this means \\(\\det A\\not\\equiv0\\pmod n\\). Equivalently, simplifying rows can choose a value different from \\(0\\) in every column. For \\(n=4\\), it means \\(\\det A\\) is odd. If this fails in the square case, some board vectors are unreachable and some tap-count vectors different from zero lie in \\(\\ker(A)\\). With tiles with lock icons or empty holes, \\(A\\) may have different numbers of rows and columns. Then the useful tests are whether the target change is reachable and whether \\(\\ker(A)\\) contains tap-count vectors different from zero.": "De forma equivalente, \\(\\det A\\) debe tener inverso multiplicativo módulo \\(n\\). Para números de estados primos \\(n=2,3,5\\), esto significa \\(\\det A\\not\\equiv0\\pmod n\\). De forma equivalente, simplificar filas puede elegir un valor distinto de \\(0\\) en cada columna. Para \\(n=4\\), significa que \\(\\det A\\) es impar. Si esto falla en el caso cuadrado, algunos vectores de tablero no se pueden alcanzar y hay vectores de toques distintos de cero en \\(\\ker(A)\\). Con casillas con candado o huecos vacíos, \\(A\\) puede tener distinto número de filas y columnas. Entonces las pruebas útiles son si el cambio objetivo se puede alcanzar y si \\(\\ker(A)\\) contiene vectores de toques distintos de cero.",
-            "Why the minimum matters": "Por qué importa el mínimo",
-            "If there are several tap-count solutions, the game can still ask for the most efficient one. For each tap count \\(x_j\\in R\\), choose the number \\(\\tilde{x}_j\\in\\{0,\\ldots,n-1\\}\\) that represents it. The physical length of a plan is \\(\\ell(x)=\\sum_j\\tilde{x}_j\\), and the star target is based on a solution with minimal length among the solutions found.": "Si hay varias soluciones como vectores de toques, el juego aún puede pedir la más eficiente. Para cada número de toques \\(x_j\\in R\\), elige el número \\(\\tilde{x}_j\\in\\{0,\\ldots,n-1\\}\\) que lo representa. La longitud física de un plan es \\(\\ell(x)=\\sum_j\\tilde{x}_j\\), y el objetivo de estrellas se basa en una solución de longitud mínima entre las soluciones encontradas.",
-            "How the shortest solver works": "Cómo funciona el solucionador más corto",
-            "For small boards the app searches by tap count: first boards one tap away, then two taps away, and so on. The first time it reaches the zero board, that number is the true minimum number of physical taps.": "En tableros pequeños, el juego busca por número de toques: primero los tableros a un toque, luego los tableros a dos toques, y así sucesivamente. La primera vez que llega al tablero cero, ese número es el mínimo real de toques físicos.",
-            "For larger boards with prime state counts \\(n=2,3,5\\), it simplifies the rows of \\(Ax=-s\\). If the simplified system leaves choices that are not forced, the solutions are \\(x_0+\\ker(A)\\). When the search over those extra tap-count vectors is small enough, the app enumerates them and chooses the one minimizing \\(\\ell(x)\\). If that exact search is too large, or \\(n\\) is composite and the board is too large for that search, the game falls back to a known solving plan instead of claiming a proof of minimality.": "En tableros más grandes con \\(n=2,3,5\\), el juego simplifica las filas de \\(Ax=-s\\). Si el sistema simplificado deja elecciones que no están forzadas, las soluciones son \\(x_0+\\ker(A)\\). Cuando la búsqueda entre esos vectores de toques extra es lo bastante pequeña, el juego los enumera y elige el que minimiza \\(\\ell(x)\\). Si esa búsqueda exacta es demasiado grande, o si \\(n\\) es compuesto y el tablero es demasiado grande para esa búsqueda, el juego usa un plan de resolución conocido en lugar de afirmar que tiene una prueba del mínimo.",
-            "The shortest tap-count vector is not necessarily unique. Distinct solutions can tie for the same \\(\\ell(x)\\), and a single vector can be played in many tap orders. The app keeps the same shortest plan every time when it can prove the minimum. It does not currently mark whether all shortest plans are unique.": "El vector de toques más corto no tiene por qué ser único. Varias soluciones pueden empatar con la misma \\(\\ell(x)\\), y un solo vector puede jugarse en muchos órdenes. El juego guarda el mismo plan más corto cada vez cuando puede probar el mínimo. Actualmente no indica si todos los planes más cortos son únicos.",
-            "Tiles with lock icons and empty holes": "Casillas con candado y huecos vacíos",
-            "A tile with a lock icon stays in the board vector because its value must become zero, and nearby taps may still change it. It does not get its own tap choice in \\(x\\) because it cannot be tapped directly. An empty hole is left out of the ordered list \\(P\\), so the equation only tracks active board positions. This is how the same equation adapts to irregular boards.": "Una casilla con candado permanece en el vector del tablero porque su valor debe llegar a cero, y los toques cercanos todavía pueden cambiarla. No tiene su propia opción de toque en \\(x\\) porque no se puede tocar directamente. Un hueco no es una casilla, así que se queda fuera de la lista ordenada \\(P\\). La ecuación solo sigue las casillas. Así se adapta la misma ecuación a tableros irregulares.",
-            "How the generator uses this": "Cómo usa esto el generador",
-            "The generator uses the same ingredients: board shape, tiles with lock icons, empty holes, tap pattern, and effect vectors. It chooses or verifies a starting vector \\(s\\) together with a tap-count vector \\(x\\) satisfying \\(s+Ax=0\\). When the exact solver is available, it searches the solution set for a short tap-count vector so the star thresholds have a mathematical basis. Hints use a stored plan one tap at a time.": "El generador usa los mismos ingredientes: forma del tablero, casillas con candado, huecos vacíos, patrón de toque y vectores de efecto. Elige o comprueba un vector inicial \\(s\\) junto con un vector de toques \\(x\\) que satisface \\(s+Ax=0\\). Cuando el solucionador exacto está disponible, busca en el conjunto de soluciones un vector de toques corto para que los umbrales de estrellas tengan una base matemática. Las pistas siguen un plan guardado, toque a toque.",
+            "If you can tap every tile, \\(A\\) has one row and one column per tile, so it is square. Holes leave that count balanced. A lock removes a column and keeps the row. When a square \\(A\\) is invertible, every starting board has exactly one tap-count solution.": "Si puedes tocar todas las casillas, \\(A\\) tiene una fila y una columna por casilla, así que es cuadrada. Los huecos no alteran esa igualdad. Un candado elimina una columna y conserva la fila. Si la matriz cuadrada \\(A\\) es invertible, cada tablero inicial tiene un único vector de toques que lo resuelve.",
+            "A square \\(A\\) is invertible exactly when its determinant has a multiplicative inverse in \\(R\\). For prime \\(n\\), the determinant must be nonzero modulo \\(n\\). For \\(n=4\\), it must be odd. If this test fails, some starting boards have no solution and others have several. For a rectangular matrix, use the image to test existence and the kernel to test uniqueness.": "Una matriz cuadrada \\(A\\) es invertible si y solo si su determinante tiene inverso multiplicativo en \\(R\\). Para \\(n\\) primo, el determinante debe ser distinto de cero módulo \\(n\\). Para \\(n=4\\), debe ser impar. Si falla este criterio, hay tableros sin solución y otros con varias. Para una matriz rectangular, la imagen indica si hay solución y el núcleo si es única.",
+            "Counting the taps in a solution": "Cómo contar los toques de una solución",
+            "To play a solution, take each count \\(x_j\\) as a number from \\(0\\) to \\(n-1\\). Call that number \\(t_j\\). Add these numbers as ordinary integers to get the number of taps, \\(\\ell(x)\\). The shortest solution the game has found sets the three-star target.": "Para jugar una solución, representa cada componente \\(x_j\\) con un número entre \\(0\\) y \\(n-1\\), que llamaremos \\(t_j\\). Suma esos números como enteros para obtener el total de toques, \\(\\ell(x)\\). La solución más corta que ha encontrado el juego fija el objetivo de tres estrellas.",
+            "How the game finds a short solution": "Cómo busca el juego una solución corta",
+            "If the board has few enough possible states, the game searches all positions one tap away, then two taps away, and so on. The first time it reaches an all-white board, it has found the fewest taps possible.": "Si el tablero tiene pocas configuraciones posibles, el juego explora primero las que están a un toque, luego las que están a dos y así sucesivamente. La primera vez que llega a un tablero en blanco, ha encontrado el mínimo de toques.",
+            "For larger boards with a prime number of states per tile, the game row reduces \\(Ax=-s\\). If there are few enough solutions to try, it compares them all and keeps one with the fewest taps. When an exact search is too large, including on large four-state boards, it uses a known solution whose length may be above the minimum.": "En tableros más grandes con un número primo de estados por casilla, el juego reduce el sistema \\(Ax=-s\\) por filas. Si hay pocas soluciones, las compara todas y guarda una de las que requieren menos toques. Cuando la búsqueda exacta resulta demasiado grande, como en los tableros grandes de cuatro estados, usa una solución conocida que puede superar el mínimo.",
+            "Different tap-count vectors can tie for the minimum, and you can play the same vector in different orders. When the game proves a minimum, it always picks the same plan among those tied for shortest. It doesn’t tell you whether another plan ties with it.": "Distintos vectores de toques pueden empatar en el mínimo, y puedes jugar un mismo vector en órdenes distintos. Cuando el juego comprueba el mínimo, elige siempre el mismo plan entre los más cortos. No indica si hay otro igual de corto.",
+            "Locked tiles and holes in the matrix": "Candados y huecos en la matriz",
+            "To model a hole, leave that position out entirely. To model a lock, keep the tile’s entry in \\(s\\) and its row in \\(A\\), since it still has to turn white. Leave out its column. The remaining columns tell you which other taps can change it.": "Para representar un hueco, omite esa posición por completo. Para un candado, conserva la componente de la casilla en \\(s\\) y su fila en \\(A\\), porque también debe quedar blanca. Omite su columna. Las demás columnas indican qué otros toques pueden cambiarla.",
+            "How puzzles are made": "Cómo se crean los rompecabezas",
+            "The generator starts with a white board and scrambles it with allowed taps. It keeps track of how to undo their combined effect, so the starting board comes with a solution. When it can, the solver finds a shortest plan for the star targets. A hint plays one tap toward a solution and outlines the tiles it changed in red.": "El generador empieza con un tablero en blanco y lo mezcla con toques permitidos. Guarda cómo anular el efecto conjunto de esos toques, así que el tablero inicial ya tiene solución. Cuando es posible, busca un plan de longitud mínima para fijar los objetivos de estrellas. Cada pista da un toque hacia la solución y marca en rojo las casillas que cambia.",
             "What the symbols mean": "Qué significan los símbolos",
-            "The number of tile states and the modulus used by the level. The app uses \\(2,3,4,\\) or \\(5\\) states.": "El número de estados de las casillas y el módulo usado por el nivel. El juego usa \\(2,3,4,\\) o \\(5\\) estados.",
-            "The current board configuration as a vector in \\(R^m\\).": "La configuración actual del tablero como vector en \\(R^m\\).",
-            "The tap matrix. Its \\(j\\)-th column is the effect vector \\(v_j\\) of the allowed tap at \\(q_j\\).": "La matriz de toques. Su columna \\(j\\)-ésima es el vector de efecto \\(v_j\\) del toque permitido en \\(q_j\\).",
-            "The tap-count vector in \\(R^r\\). Its coordinate \\(x_j\\) counts how many times the tap at \\(q_j\\) is used modulo \\(n\\).": "El vector de toques en \\(R^r\\). Su coordenada \\(x_j\\) cuenta cuántas veces se usa el toque en \\(q_j\\), módulo \\(n\\).",
-            "All board-change vectors obtainable by allowed taps.": "Todos los vectores de cambio del tablero que se pueden conseguir con toques permitidos.",
-            "Tap-count vectors that produce zero board change.": "Vectores de toques que no producen ningún cambio en el tablero.",
+            "The number of states per tile. It can be \\(2\\), \\(3\\), \\(4\\) or \\(5\\) and is the modulus for this board.": "El número de estados por casilla. Puede ser \\(2\\), \\(3\\), \\(4\\) o \\(5\\) y es el módulo del tablero.",
+            "The board vector. Each entry is the state of one tile.": "El vector del tablero. Cada componente indica el estado de una casilla.",
+            "The tap matrix. Column \\(j\\) shows what changes when you tap \\(q_j\\).": "La matriz de toques. La columna \\(j\\) muestra qué cambia al tocar \\(q_j\\).",
+            "The tap-count vector. Entry \\(x_j\\) counts taps on \\(q_j\\) modulo \\(n\\).": "El vector de toques. La componente \\(x_j\\) cuenta los toques en \\(q_j\\) módulo \\(n\\).",
+            "The image of \\(A\\). It contains every board change you can make with taps.": "La imagen de \\(A\\). Contiene todos los cambios que puedes producir con toques.",
+            "The kernel of \\(A\\). It contains every tap-count vector whose combined effect is zero.": "El núcleo de \\(A\\). Contiene todos los vectores de toques cuyo efecto total es cero.",
             "Language": "Idioma",
             "Sound": "Sonido",
             "Show numbers on tiles": "Mostrar números en las casillas",
@@ -287,6 +632,7 @@
             "Best": "Mejor",
             "Chapter": "Capítulo",
             "Inversion": "Inversión",
+            "You can now play in Korean. We also rewrote How to Play and the math guide, from your first tap to the equations behind a solution.": "Ya puedes jugar en coreano. Hemos revisado las instrucciones y la guía de matemáticas, desde tu primer toque hasta las ecuaciones que explican cómo resolver un tablero.",
             "Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later.": "Se mejoraron la compatibilidad con Android 16, la navegación Atrás del sistema y la distribución de la pantalla junto a las barras del sistema. La aplicación de Android requiere ahora Android 7 o posterior.",
             "Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility.": "Se actualizaron las dependencias AndroidX Activity y Fragment a versiones compatibles actuales para Google Play.",
             "Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand.": "La app ahora está orientada a Android 16, mantiene fiable la navegación Atrás del sistema y deja claro el objetivo de poner todas las casillas en blanco, con ayuda del efecto de toque disponible cuando se necesite.",
@@ -390,6 +736,19 @@
             "Final Inversion": "Inversión final"
         },
         fr: {
+            "Mixed patterns": "Motifs mixtes",
+            "Options": "Options",
+            "Edit tool": "Outil de modification",
+            "pportilla on GitHub": "pportilla sur GitHub",
+            "{n} states": "{n} états",
+            "{n} star": "{n} étoile",
+            "{n} stars": "{n} étoiles",
+            "{n} out of 3 stars": "{n} sur 3 étoiles",
+            "{n} tap": "{n} appui",
+            "{n} taps": "{n} appuis",
+            "{n}+ taps": "{n} appuis ou plus",
+            "Row {row}, column {column}": "Ligne {row}, colonne {column}",
+            "Paint color {n}": "Peindre avec la couleur {n}",
             "A modular tile puzzle": "Un casse-tête de tuiles modulaires",
             "Main menu": "Menu principal",
             "Campaign": "Campagne",
@@ -480,102 +839,102 @@
             "Medium text": "Texte moyen",
             "Large text": "Grand texte",
             "Play overview": "Aperçu du jeu",
-            "Clear every tile by turning it white. Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.": "Rends chaque tuile blanche. Un toucher sur une tuile applique son motif de toucher au plateau, et chaque tuile atteinte avance d'un état.",
-            "Use previews and level clues to plan calmly before each tap.": "Utilise les aperçus et les indices du niveau pour planifier calmement avant chaque toucher.",
+            "Turn every tile white. A single tap can change several tiles at once.": "Le but est de rendre toutes les tuiles blanches. Un seul appui peut en changer plusieurs à la fois.",
+            "Before you tap, hold a tile to see where its pattern reaches.": "Avant de jouer, garde le doigt sur une tuile pour voir quelles tuiles son motif atteint.",
             "Rules": "Règles",
-            "1. Make every tile white": "1. Rends toutes les tuiles blanches",
-            "A white tile is solved.": "Une tuile blanche est résolue.",
-            "Colored tiles are not wrong. They just need to keep advancing until they return to white.": "Les tuiles colorées ne sont pas fausses. Elles doivent simplement continuer à avancer jusqu'à revenir au blanc.",
-            "The puzzle ends only when every tile is white at the same time.": "Le casse-tête se termine seulement quand toutes les tuiles sont blanches en même temps.",
-            "2. Tap and cycle": "2. Touche et fais cycler",
-            "Tap an available tile to apply the level's tap pattern.": "Touche une tuile disponible pour appliquer le motif de toucher du niveau.",
-            "Every tile reached by the pattern advances one state.": "Chaque tuile atteinte par le motif avance d'un état.",
-            "States cycle: after the last colored state, the next advance returns that tile to white.": "Les états forment un cycle: après le dernier état coloré, l'avancée suivante ramène cette tuile au blanc.",
-            "3. Use the pattern preview": "3. Utilise l'aperçu du motif",
-            "A level can use a cross, diagonal, square, horizontal, vertical, knight, or mixed pattern.": "Un niveau peut utiliser un motif croix, diagonale, carré, horizontal, vertical, cavalier ou mixte.",
-            "Hold or hover a tile to see exactly which tiles will change before you tap.": "Maintiens ou survole une tuile pour voir exactement lesquelles changeront avant de toucher.",
-            "4. Handle special tiles": "4. Gère les tuiles spéciales",
-            "A tile with a lock icon still needs to become white and can change when a nearby tap reaches it.": "Une tuile avec cadenas doit aussi devenir blanche et peut changer quand un toucher voisin l'atteint.",
-            "You cannot tap a tile with a lock icon directly.": "Tu ne peux pas toucher directement une tuile avec cadenas.",
-            "An empty hole is outside the board. Tap patterns skip empty holes.": "Un trou vide est hors du plateau. Les motifs de toucher ignorent les trous vides.",
+            "1. Read the colors": "1. Repère les couleurs",
+            "White is the color you want every tile to reach.": "Chaque tuile doit finir sur le blanc.",
+            "A white tile can still change color if another tap reaches it.": "Une tuile déjà blanche peut reprendre une couleur si un autre appui l’atteint.",
+            "You solve the puzzle when all the tiles are white at once.": "Tu as gagné quand toutes les tuiles sont blanches en même temps.",
+            "2. Follow the color cycle": "2. Suis le cycle des couleurs",
+            "Tap an unlocked tile. Its pattern tells you which tiles will change.": "Appuie sur une tuile sans cadenas. Son motif indique quelles tuiles vont changer.",
+            "Each tile in the pattern moves on to its next color.": "Chaque tuile touchée par le motif passe à la couleur suivante.",
+            "After the last color comes white again.": "Après la dernière couleur, on revient au blanc.",
+            "3. Check the pattern": "3. Regarde le motif",
+            "Look for crosses, diagonals, squares, rows, columns and even chess knight moves. Some boards mix several patterns.": "Tu trouveras des croix, des diagonales, des carrés, des lignes, des colonnes et même des sauts de cavalier comme aux échecs. Certains plateaux combinent plusieurs motifs.",
+            "Hold a tile to preview its pattern. Lift your finger when you’re done looking.": "Garde le doigt sur une tuile pour voir son motif, puis relève-le quand tu as fini de regarder.",
+            "4. Locks and holes": "4. Cadenas et trous",
+            "A locked tile still has to turn white.": "Les tuiles avec un cadenas doivent elles aussi devenir blanches.",
+            "To change it, tap another tile whose pattern reaches it.": "Pour changer une tuile verrouillée, appuie sur une autre tuile dont le motif l’atteint.",
+            "A hole is just a gap in the board. Tap patterns skip it.": "Un trou est une place vide sur le plateau. Les motifs passent par-dessus.",
             "Modes": "Modes",
             "Choose your puzzle": "Choisis ton casse-tête",
             "Campaign:": "Campagne :",
             "Solve fixed levels in order. Each solve opens the next level.": "Résous les niveaux fixes dans l'ordre. Chaque résolution ouvre le niveau suivant.",
-            "Pick groups on a 5x5 map. Earn 15 stars in a group to open adjacent groups.": "Choisis des groupes sur une carte 5x5. Gagne 15 étoiles dans un groupe pour ouvrir les groupes adjacents.",
+            "Pick a group on the 5 × 5 map. Earn 15 stars there to unlock the groups directly beside it, above it and below it.": "Choisis un groupe sur la carte de 5 × 5. Gagne 15 étoiles dans ce groupe pour débloquer ses voisins de gauche, de droite, du haut et du bas.",
             "Custom Level:": "Niveau personnalisé :",
-            "Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.": "Choisis la taille du plateau, les états, le motif, la difficulté, les tuiles avec cadenas et les trous vides. Le générateur préfère toujours une solution unique.",
+            "Choose the board size, number of colors, pattern and difficulty. You can add locks and holes. The game looks for a puzzle with a unique solution when it can.": "Choisis la taille du plateau, le nombre de couleurs, le motif et la difficulté. Tu peux ajouter des cadenas et des trous. Le jeu essaie de te proposer un casse-tête à solution unique.",
             "Playground:": "Bac à sable :",
-            "Build a board by hand, share its puzzle code, and play without a completion modal.": "Crée un plateau à la main, partage son code de casse-tête et joue sans écran de fin.",
+            "Build your own board and share it with a puzzle code. You can keep experimenting even after every tile turns white.": "Crée ton propre plateau et partage-le grâce à son code. Tu peux continuer à essayer des coups même quand tout le plateau est blanc.",
             "Daily Challenge:": "Défi quotidien :",
-            "Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.": "Joue les mêmes trois casse-têtes générés que tout le monde pour la date. Chaque casse-tête garde son meilleur score.",
+            "Everyone gets the same three puzzles each day. Each one keeps its own best score.": "Chaque jour, tout le monde reçoit les trois mêmes casse-têtes. Ton meilleur score est enregistré pour chacun.",
             "Tools and options": "Outils et options",
-            "Taps, stars, and hints": "Touchers, étoiles et indices",
-            "The tap counter counts every tap you commit.": "Le compteur de touchers compte chaque toucher que tu valides.",
-            "Three stars mean you matched the generator's minimum found tap count.": "Trois étoiles signifient que tu as égalé le minimum de touchers trouvé par le générateur.",
-            "Two-star and one-star targets allow extra taps.": "Les objectifs à deux et une étoile autorisent quelques touchers en plus.",
-            "Undo rewinds one tap, and Reset restores the starting board.": "Annuler revient d'un toucher, et Réinitialiser restaure le plateau de départ.",
-            "Hint applies the next tap from a solver plan. A hinted try can still complete the puzzle, but it no longer earns stars.": "Indice applique le toucher suivant d'un plan de résolution. Un essai avec indice peut quand même terminer le casse-tête, mais il ne gagne plus d'étoiles.",
-            "Tiles changed by a hint are outlined in red.": "Les tuiles changées par un indice sont entourées en rouge.",
+            "Taps, stars, and hints": "Coups, étoiles et indices",
+            "Previewing a pattern is free. Your tap counts when the tiles change.": "Tu peux regarder un motif sans dépenser de coup. Le coup compte quand les tuiles changent.",
+            "For three stars, solve the puzzle in as few taps as the game’s best known solution, or fewer.": "Pour gagner trois étoiles, termine en autant de coups que la meilleure solution trouvée par le jeu, ou en moins.",
+            "The one- and two-star targets leave room for extra taps.": "Les objectifs à une et deux étoiles te laissent quelques coups de plus.",
+            "Undo takes back your last tap. Reset puts the board back the way it started.": "Annuler retire ton dernier coup. Réinitialiser remet le plateau dans son état de départ.",
+            "A hint plays one tap for you. You can still finish that attempt, but it earns no stars.": "Un indice joue un coup pour toi. Tu peux terminer cet essai, mais tu n’y gagneras pas d’étoiles.",
+            "Look for the red outlines to see which tiles the hint changed.": "Un contour rouge indique les tuiles que l’indice a changées.",
             "When you tap a tile, this pattern is centered on that tile. Every tile inside the pattern changes state.": "Quand tu touches une tuile, ce motif se centre sur cette tuile. Chaque tuile dans le motif change d'état.",
             "The green outline matches the preview you see when you hold a tile.": "Le contour vert correspond à l'aperçu visible quand tu gardes une tuile appuyée.",
-            "Sound toggles audio effects.": "Son active ou désactive les effets audio.",
-            "Show numbers on tiles displays state values when you want a more exact view.": "Afficher les nombres sur les tuiles montre les valeurs d'état quand tu veux une vue plus exacte.",
-            "Android also includes haptic feedback controls.": "Android inclut aussi des contrôles de retour haptique.",
+            "Turn sound effects on or off in Settings.": "Dans les paramètres, tu peux activer ou couper les sons du jeu.",
+            "If you prefer numbers, turn them on to see each tile’s state alongside its color.": "Si tu préfères les chiffres, affiche-les pour lire l’état des tuiles en plus de leur couleur.",
+            "On Android, you can also turn vibration on or off.": "Sur Android, tu peux aussi activer ou couper les vibrations.",
             "Math overview": "Aperçu mathématique",
-            "Invert the Matrix is a modular linear-algebra puzzle.": "Invert the Matrix est un casse-tête d'algèbre linéaire modulaire.",
-            "To play, think of each tile as having a state, shown by its color. A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile. After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all tiles white at the same time. Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap. But later on, everything gets much more complicated.": "Pour jouer, imagine que chaque tuile possède un état, indiqué par sa couleur. Un toucher sur une tuile ne change pas seulement cette tuile, mais toutes les tuiles qui se trouvent dans un motif centré sur la tuile choisie. Après le dernier état, ou couleur, une tuile revient au blanc. Le but est de trouver une suite de touchers pour que toutes les tuiles soient blanches en même temps. Certains plateaux n'ont que deux états possibles : blanc et bleu, et un seul motif : une croix centrée sur la tuile que tu touches. Mais plus tard, tout se complique beaucoup plus.",
-            "Modeling the game": "Modéliser le jeu",
-            "Turn the board into one equation": "Transformer le plateau en une équation",
-            "To model a level, first list the active board positions in a fixed order. Once that list is fixed, a displayed board becomes a vector \\(s\\in R^m\\). Here \\(R=\\mathbb Z/n\\mathbb Z\\) means values are read modulo \\(n\\), \\(n\\) is the number of tile states, and \\(m\\) is the number of active positions.": "Pour modéliser un niveau, liste d'abord les positions actives du plateau dans un ordre fixe. Une fois cette liste fixée, un plateau affiché devient un vecteur \\(s\\in R^m\\). Ici, \\(R=\\mathbb Z/n\\mathbb Z\\) signifie que les valeurs sont lues modulo \\(n\\), \\(n\\) est le nombre d'états d'une tuile et \\(m\\) le nombre de positions actives.",
-            "Each allowed tap has an effect vector in \\(R^m\\). For a tappable position \\(q_j\\), the vector \\(v_j\\) has value \\(1\\) exactly at the active positions advanced by that tap, and \\(0\\) elsewhere. The matrix \\(A\\) is built by placing these effect vectors as its columns. A tap-count vector \\(x\\in R^r\\) records how many times each allowed tap is used, modulo \\(n\\), and solving means choosing \\(x\\) with \\(s+Ax=0\\).": "Chaque toucher autorisé a un vecteur d'effet dans \\(R^m\\). Pour une position que l'on peut toucher, \\(q_j\\), le vecteur \\(v_j\\) vaut \\(1\\) exactement aux positions actives avancées par ce toucher, et \\(0\\) ailleurs. La matrice \\(A\\) se construit en plaçant ces vecteurs d'effet comme colonnes. Un vecteur de touchers \\(x\\in R^r\\) indique combien de fois chaque toucher autorisé est utilisé, modulo \\(n\\). Résoudre le casse-tête revient à choisir \\(x\\) avec \\(s+Ax=0\\).",
-            "All arithmetic is performed modulo \\(n\\), so the value after \\(n-1\\) is \\(0\\). Prime state counts such as \\(2,3,\\) and \\(5\\) give finite fields, where every value different from \\(0\\) has a multiplicative inverse. The four-state mode uses the ring \\(\\mathbb Z/4\\mathbb Z\\), where some values different from \\(0\\) cannot be used for division.": "Toute l'arithmétique se fait modulo \\(n\\), donc la valeur après \\(n-1\\) est \\(0\\). Les nombres d'états premiers comme \\(2,3,\\) et \\(5\\) donnent des corps finis, où toute valeur différente de \\(0\\) a un inverse multiplicatif. Le mode à quatre états utilise l'anneau \\(\\mathbb Z/4\\mathbb Z\\), où certaines valeurs différentes de \\(0\\) ne permettent pas de diviser.",
+            "What happens when you add up the taps?": "Que se passe-t-il quand on additionne les effets des coups ?",
+            "Take a board with just two colors. Tap the center of a cross and every tile in the cross switches between white and blue. Tap the same spot again and you’re back where you started. The same rule works with other patterns. With more colors, it takes more taps to go all the way around the cycle.": "Imagine un plateau à deux couleurs. Appuie au centre d’une croix et chacune de ses tuiles passe du blanc au bleu ou du bleu au blanc. Appuie une seconde fois au même endroit et tu retrouves le plateau de départ. Le principe vaut aussi pour d’autres motifs ou d’autres couleurs. Avec plus de couleurs, le cycle est simplement plus long.",
+            "Modeling the game": "Le modèle mathématique",
+            "The board in one equation": "Le plateau en une équation",
+            "Give white the number \\(0\\) and count up through the colors. On a board with \\(n\\) colors, the next step after \\(n-1\\) is \\(0\\) again. This is arithmetic modulo \\(n\\), written in the ring \\(R=\\mathbb Z/n\\mathbb Z\\).": "Associe le nombre \\(0\\) au blanc, puis numérote les autres couleurs dans l’ordre. Avec \\(n\\) couleurs, après \\(n-1\\) on revient à \\(0\\). C’est l’arithmétique modulo \\(n\\), dans l’anneau \\(R=\\mathbb Z/n\\mathbb Z\\).",
+            "Now read the tiles in a fixed order. Their numbers form the board vector \\(s\\). Put the effect of each possible tap in a column of a matrix \\(A\\). If \\(x\\) records how often you tap each unlocked tile, \\(Ax\\) gives the total change. You win when \\(s+Ax=0\\).": "Lis les tuiles dans un ordre fixe. Leurs valeurs forment le vecteur du plateau \\(s\\). Place l’effet de chaque appui possible dans une colonne d’une matrice \\(A\\). Si \\(x\\) compte les appuis sur chaque tuile, \\(Ax\\) donne le changement total. Tu gagnes quand \\(s+Ax=0\\).",
+            "With \\(2\\), \\(3\\) or \\(5\\) states, \\(R\\) is a field. Every nonzero element has a multiplicative inverse, so you can divide by it. With four states, even a simple division by \\(2\\) can go wrong. We’ll see why below.": "Avec \\(2\\), \\(3\\) ou \\(5\\) états, \\(R\\) est un corps. Tout élément non nul a un inverse pour la multiplication, ce qui permet de diviser par cet élément. Avec quatre états, même une division par \\(2\\) pose problème. On verra pourquoi un peu plus loin.",
             "Lights Out generalization": "Généralisation de Lights Out",
-            "From Lights Out": "Depuis Lights Out",
-            "The same question, in modular form": "La même question, en version modulaire",
-            "In ordinary Lights Out, every tile is either \\(0\\) or \\(1\\). Tapping a tile changes the same shape of tiles around it every time, usually the tapped tile plus the tiles directly above, below, left, and right. Changing a tile is adding \\(1\\) modulo \\(2\\), so tapping the same tile twice gives no net change. This is the simplest version of adding tap effects together.": "Dans Lights Out classique, chaque tuile vaut \\(0\\) ou \\(1\\). Toucher une tuile change toujours le même groupe de tuiles autour d'elle, en général la tuile touchée plus les tuiles directement au-dessus, en dessous, à gauche et à droite. Changer une tuile revient à ajouter \\(1\\) modulo \\(2\\), donc toucher deux fois la même tuile ne produit aucun changement net. C'est la version la plus simple de l'addition des effets de toucher.",
-            "This game keeps that add-the-effects rule while allowing \\(n\\) states, so values are read in \\(R=\\mathbb Z/n\\mathbb Z\\). Empty holes are not included in the board vector. Tiles with lock icons stay in the board vector because they must become white, but they do not get tap choices. Tap patterns determine the columns of \\(A\\).": "Ce jeu conserve cette règle d'addition des effets, mais permet \\(n\\) états, donc les valeurs sont lues dans \\(R=\\mathbb Z/n\\mathbb Z\\). Les trous vides ne sont pas inclus dans le vecteur du plateau. Les tuiles avec cadenas restent dans le vecteur du plateau parce qu'elles doivent devenir blanches, mais elles n'ont pas leur propre choix de toucher. Les motifs de toucher déterminent les colonnes de \\(A\\).",
-            "The mathematical question is precise: can the allowed taps add up to the target change \\(-s\\)?": "La question mathématique est précise : les touchers autorisés peuvent-ils produire le changement cible \\(-s\\) ?",
+            "From Lights Out": "Aux origines du jeu",
+            "From two states to many": "De deux états à plusieurs",
+            "In the classic Lights Out puzzle, a tap flips the chosen tile and its neighbors above, below, left and right. Each flip adds \\(1\\) modulo \\(2\\). Two taps in the same spot cancel because \\(1+1=0\\) modulo \\(2\\).": "Dans le jeu Lights Out, un appui inverse la tuile choisie et ses voisines du haut, du bas, de gauche et de droite. Chaque changement ajoute \\(1\\) modulo \\(2\\). Deux appuis au même endroit s’annulent, car \\(1+1=0\\) modulo \\(2\\).",
+            "Invert the Matrix adds more states and patterns, but tap effects still add together. Skip holes when you list the tiles. Include locked tiles, since a tap on another tile can change them.": "Invert the Matrix ajoute des états et des motifs, mais les effets des appuis s’additionnent toujours. Dans la liste des tuiles, laisse de côté les trous et garde les tuiles verrouillées, puisqu’un appui ailleurs peut les changer.",
+            "Can you combine the available taps to cancel the starting board? The change you need is \\(-s\\).": "Peux-tu combiner les appuis possibles pour annuler le plateau de départ ? Le changement à obtenir est \\(-s\\).",
             "1. The board is a vector": "1. Le plateau est un vecteur",
-            "Let \\(P=\\{p_1,\\ldots,p_m\\}\\) be the list of active board positions, in a fixed order. A configuration is the vector \\(s=(s_1,\\ldots,s_m)\\in R^m\\), where \\(s_i\\) is the state value shown on tile \\(p_i\\), read modulo \\(n\\). The solved board is the zero vector \\(0\\in R^m\\).": "Soit \\(P=\\{p_1,\\ldots,p_m\\}\\) la liste des positions actives du plateau, dans un ordre fixé. Une configuration est le vecteur \\(s=(s_1,\\ldots,s_m)\\in R^m\\), où \\(s_i\\) est la valeur d'état affichée sur la tuile \\(p_i\\), lue modulo \\(n\\). Le plateau résolu est le vecteur zéro \\(0\\in R^m\\).",
-            "2. Every allowed tap has an effect vector": "2. Chaque toucher autorisé a un vecteur d'effet",
-            "Let \\(q_1,\\ldots,q_r\\) be the positions that can be tapped. The effect vector of the tap at \\(q_j\\) is \\(v_j\\in R^m\\). Its \\(i\\)-th value is \\(1\\) when that tap advances tile \\(p_i\\), and \\(0\\) otherwise. The tap matrix is \\(A=[v_1\\ \\cdots\\ v_r]\\), so the \\(j\\)-th column of \\(A\\) is \\(v_j\\).": "Soient \\(q_1,\\ldots,q_r\\) les positions que l'on peut toucher. Le vecteur d'effet du toucher en \\(q_j\\) est \\(v_j\\in R^m\\). Sa valeur \\(i\\)-ième est \\(1\\) quand ce toucher avance la tuile \\(p_i\\), et \\(0\\) sinon. La matrice des touchers est \\(A=[v_1\\ \\cdots\\ v_r]\\), donc la colonne \\(j\\)-ième de \\(A\\) est \\(v_j\\).",
-            "In the matrix, a row tracks a board position and a column tracks an allowed tap. A tile with a lock icon still gets a row because its value must become zero, and nearby taps may change it. It does not get a column because it cannot be tapped directly.": "Dans la matrice, une ligne suit une position du plateau et une colonne suit un toucher autorisé. Une tuile avec cadenas garde une ligne parce que sa valeur doit devenir zéro, et des touchers voisins peuvent la changer. Elle n'a pas de colonne parce qu'on ne peut pas la toucher directement.",
+            "Number the \\(m\\) tiles \\(p_1,\\ldots,p_m\\) in any fixed order. Write their states in that same order to get \\(s=(s_1,\\ldots,s_m)\\in R^m\\). Each entry \\(s_i\\) is the color of tile \\(p_i\\). An all-white board is the zero vector.": "Numérote les \\(m\\) tuiles \\(p_1,\\ldots,p_m\\) dans l’ordre de ton choix. Écris leurs états dans ce même ordre pour obtenir \\(s=(s_1,\\ldots,s_m)\\in R^m\\). La composante \\(s_i\\) indique la couleur de la tuile \\(p_i\\). Un plateau tout blanc correspond au vecteur nul.",
+            "2. Each tap contributes a column": "2. Une colonne par appui possible",
+            "Label the \\(r\\) tiles you can tap \\(q_1,\\ldots,q_r\\). Tap \\(q_j\\) once and record a \\(1\\) for each tile that changes and a \\(0\\) for each tile that stays the same. The result is its effect vector \\(v_j\\), column \\(j\\) of \\(A\\).": "Appelle \\(q_1,\\ldots,q_r\\) les \\(r\\) tuiles sur lesquelles tu peux appuyer. Appuie une fois sur \\(q_j\\), puis note \\(1\\) pour chaque tuile qui change et \\(0\\) pour celles qui restent en place. Tu obtiens son vecteur d’effet \\(v_j\\), la colonne \\(j\\) de \\(A\\).",
+            "Read across a row to see which taps affect one tile. Read down a column to see which tiles one tap affects. A locked tile has a row of its own, but you can’t tap it, so it has no column.": "Une ligne indique quels appuis font changer une tuile. Une colonne indique quelles tuiles changent sous l’effet d’un appui. Une tuile verrouillée a sa ligne, mais comme tu ne peux pas appuyer dessus, elle n’a pas de colonne.",
             "Solving equation": "Équation de résolution",
             "Goal": "Objectif",
-            "Find a tap-count vector": "Trouver le vecteur de touchers",
-            "A tap-count vector is an element \\(x=(x_1,\\ldots,x_r)\\in R^r\\). Its coordinate \\(x_j\\) counts how many times the tap at \\(q_j\\) is used, modulo \\(n\\). Executing \\(x\\) adds \\(\\sum_j x_jv_j=Ax\\) to the board. Thus tap order is irrelevant to the algebra. Only each tap count modulo \\(n\\) matters.": "Un vecteur de touchers est un élément \\(x=(x_1,\\ldots,x_r)\\in R^r\\). Sa coordonnée \\(x_j\\) compte combien de fois le toucher en \\(q_j\\) est utilisé, modulo \\(n\\). Exécuter \\(x\\) ajoute \\(\\sum_j x_jv_j=Ax\\) au plateau. L'ordre des touchers est donc sans importance pour l'algèbre. Seul chaque nombre de touchers modulo \\(n\\) compte.",
-            "After applying the plan, the board is \\(s+Ax\\). Solving the puzzle means making this vector equal to the zero vector, equivalently solving \\(Ax\\equiv -s\\pmod n\\).": "Après application du plan, le plateau est \\(s+Ax\\). Résoudre le casse-tête signifie rendre ce vecteur égal au vecteur zéro, c'est-à-dire résoudre \\(Ax\\equiv -s\\pmod n\\).",
-            "When does a solution exist?": "Quand une solution existe-t-elle ?",
-            "The columns of \\(A\\) generate the set of all board changes obtainable by allowed taps. Call this set the image of \\(A\\), written \\(\\operatorname{Im}(A)=\\{Ax:x\\in R^r\\}\\). A solution exists exactly when the target vector \\(-s\\) is in that set.": "Les colonnes de \\(A\\) engendrent l'ensemble de tous les changements du plateau obtenables par touchers autorisés. On appelle cet ensemble l'image de \\(A\\), écrite \\(\\operatorname{Im}(A)=\\{Ax:x\\in R^r\\}\\). Une solution existe exactement quand le vecteur cible \\(-s\\) est dans cet ensemble.",
-            "Over a field, such as \\(\\mathbb F_2,\\mathbb F_3,\\mathbb F_5\\), this can be checked by simplifying the rows of the system \\([A\\mid -s]\\). A row of the form \\([0\\ \\cdots\\ 0\\mid c]\\), where \\(c\\) is not \\(0\\), proves that no solution exists. If no such row appears, the simplified system gives at least one tap plan.": "Sur un corps, comme \\(\\mathbb F_2,\\mathbb F_3,\\mathbb F_5\\), on peut le vérifier en simplifiant les lignes du système \\([A\\mid -s]\\). Une ligne de la forme \\([0\\ \\cdots\\ 0\\mid c]\\), où \\(c\\) n'est pas \\(0\\), prouve qu'il n'existe pas de solution. Si aucune ligne de ce type n'apparaît, le système simplifié donne au moins un plan de touchers.",
-            "What changes for non-prime \\(n\\)?": "Qu'est-ce qui change pour \\(n\\) non premier ?",
-            "For composite \\(n\\), \\(\\mathbb Z/n\\mathbb Z\\) is a ring but not a field. You may add and multiply as usual, but division is valid only by values with a multiplicative inverse. For \\(n=4\\), the value \\(2\\) is different from \\(0\\) and has no inverse: no value \\(a\\) satisfies \\(2a\\equiv 1\\pmod 4\\).": "Pour \\(n\\) composé, \\(\\mathbb Z/n\\mathbb Z\\) est un anneau mais pas un corps. On peut additionner et multiplier normalement, mais la division n'est valide que par des valeurs avec un inverse multiplicatif. Pour \\(n=4\\), la valeur \\(2\\) est différente de \\(0\\) et n'a pas d'inverse : aucune valeur \\(a\\) ne satisfait \\(2a\\equiv 1\\pmod 4\\).",
-            "The rule does not change: there is still a solution exactly when \\(-s\\) is in \\(\\operatorname{Im}(A)\\), but the check must respect ring arithmetic. Row operations that divide by values with no inverse are not valid. For larger composite \\(n\\), the check can be split into smaller modulo checks that must all agree.": "La règle ne change pas : il existe toujours une solution exactement quand \\(-s\\) est dans \\(\\operatorname{Im}(A)\\), mais la vérification doit respecter l'arithmétique de l'anneau. Les opérations de ligne qui divisent par des valeurs sans inverse ne sont pas valides. Pour \\(n\\) composé plus grand, la vérification peut être divisée en contrôles modulo plus petits qui doivent être compatibles entre eux.",
+            "How many times should you tap each tile?": "Combien de fois appuyer sur chaque tuile ?",
+            "The tap-count vector \\(x=(x_1,\\ldots,x_r)\\) records how often you tap each unlocked tile, modulo \\(n\\). Each tap on \\(q_j\\) adds the same \\(v_j\\), so together the taps add \\(Ax=\\sum_j x_jv_j\\). You can play them in any order.": "Le vecteur des appuis \\(x=(x_1,\\ldots,x_r)\\) compte les appuis sur chaque tuile déverrouillée, modulo \\(n\\). Chaque appui sur \\(q_j\\) ajoute le même vecteur \\(v_j\\). Le changement total vaut donc \\(Ax=\\sum_j x_jv_j\\), quel que soit l’ordre des appuis.",
+            "The final board is \\(s+Ax\\). To make it all white, look for a vector \\(x\\) that solves \\(Ax=-s\\) in \\(R\\).": "Le plateau final est \\(s+Ax\\). Pour le rendre tout blanc, cherche un vecteur \\(x\\) qui vérifie \\(Ax=-s\\) dans \\(R\\).",
+            "When does a solution exist?": "Quand existe-t-il une solution ?",
+            "Every tap-count vector produces a change \\(Ax\\). All those changes together form the image of \\(A\\), written \\(\\operatorname{Im}(A)\\). A board has a solution exactly when \\(-s\\) belongs to this image.": "Chaque vecteur des appuis produit un changement \\(Ax\\). L’ensemble de ces changements est l’image de \\(A\\), notée \\(\\operatorname{Im}(A)\\). Le plateau admet une solution si et seulement si \\(-s\\) appartient à cette image.",
+            "When \\(n\\) is prime, you can check by row reducing the augmented matrix \\([A\\mid -s]\\) to echelon form. A row saying \\(0=c\\) with \\(c\\ne0\\) rules out a solution. If no such row appears, you can read off at least one solution by back substitution.": "Si \\(n\\) est premier, mets la matrice augmentée \\([A\\mid -s]\\) sous forme échelonnée par des opérations sur les lignes. Une ligne qui dit \\(0=c\\) avec \\(c\\ne0\\) exclut toute solution. Sinon, tu peux trouver une solution en remontant le système.",
+            "What changes with four states?": "Qu’est-ce qui change avec quatre états ?",
+            "When \\(n\\) is composite, \\(R\\) is still a ring, but some nonzero elements have no multiplicative inverse. For example, modulo \\(4\\), twice any number is even, so \\(2a\\) can never equal \\(1\\). You can’t divide a row by \\(2\\) here.": "Si \\(n\\) est composé, \\(R\\) reste un anneau, mais certains éléments non nuls n’ont pas d’inverse pour la multiplication. Par exemple, modulo \\(4\\), un double est toujours pair. Ainsi \\(2a\\) ne vaut jamais \\(1\\), et on ne peut pas diviser une ligne par \\(2\\).",
+            "The test for a solution is still \\(-s\\in\\operatorname{Im}(A)\\). Use row operations valid in the ring. If \\(n\\) factors into coprime prime powers, you can also solve modulo each of those powers and combine the results.": "Le critère reste \\(-s\\in\\operatorname{Im}(A)\\). Utilise des opérations sur les lignes valables dans cet anneau. Si \\(n\\) est un produit de puissances de nombres premiers distincts, on peut aussi résoudre le système modulo chacune de ces puissances, puis combiner les résultats.",
             "When is the solution unique?": "Quand la solution est-elle unique ?",
-            "If \\(x_0\\) is one solution, then every other solution is \\(x_0+z\\), where \\(z\\in R^r\\) is a tap-count vector with \\(Az=0\\). The equation \\(Az=0\\) means that using the taps in \\(z\\) causes no net change on the board. The set of all such \\(z\\) is the kernel of the tap matrix, written \\(\\ker(A)\\).": "Si \\(x_0\\) est une solution, toute autre solution est \\(x_0+z\\), où \\(z\\in R^r\\) est un vecteur de touchers avec \\(Az=0\\). L'équation \\(Az=0\\) signifie qu'utiliser les touchers de \\(z\\) ne produit aucun changement net sur le plateau. L'ensemble de tous ces \\(z\\) est le noyau de la matrice des touchers et s'écrit \\(\\ker(A)\\).",
-            "Tap counts already live modulo \\(n\\), so tapping one tile \\(n\\) additional times adds \\(n e_j=0\\), the zero vector in \\(R^r\\). That represents the same tap-count vector, not a new tap-count solution.": "Les nombres de touchers vivent déjà modulo \\(n\\), donc toucher une tuile \\(n\\) fois de plus ajoute \\(n e_j=0\\), le vecteur zéro dans \\(R^r\\). Cela représente le même vecteur de touchers, pas une nouvelle solution comme vecteur de touchers.",
-            "Uniqueness fails exactly when there is a tap-count vector \\(z\\ne 0\\), meaning \\(z\\) is not the zero vector, with \\(Az=0\\). In that case \\(x_0\\) and \\(x_0+z\\) are distinct tap-count vectors that solve the same board. Thus the solution as a tap-count vector is unique precisely when \\(\\ker(A)=\\{0\\}\\). Over fields this is equivalent to saying that no combination using at least one allowed tap adds the effect vectors to zero. Over rings, the same kernel condition is the correct statement over \\(\\mathbb Z/n\\mathbb Z\\).": "L'unicité échoue exactement lorsqu'il existe un vecteur de touchers \\(z\\ne 0\\), c'est-à-dire lorsque \\(z\\) n'est pas le vecteur zéro, avec \\(Az=0\\). Dans ce cas, \\(x_0\\) et \\(x_0+z\\) sont des vecteurs de touchers distincts qui résolvent le même plateau. La solution comme vecteur de touchers est donc unique précisément quand \\(\\ker(A)=\\{0\\}\\). Sur les corps, cela équivaut à dire qu'aucune combinaison utilisant au moins un toucher autorisé n'ajoute les vecteurs d'effet jusqu'à zéro. Sur les anneaux, la même condition de noyau est l'énoncé correct sur \\(\\mathbb Z/n\\mathbb Z\\).",
+            "Suppose \\(x_0\\) solves the board. If a tap-count vector \\(z\\) leaves the board unchanged, then \\(Az=0\\) and \\(x_0+z\\) also solves it. These vectors \\(z\\) form the kernel of \\(A\\), written \\(\\ker(A)\\). Adding each of them to \\(x_0\\) gives all the solutions.": "Suppose que \\(x_0\\) soit une solution. Si un vecteur des appuis \\(z\\) laisse le plateau inchangé, alors \\(Az=0\\) et \\(x_0+z\\) est aussi une solution. Ces vecteurs \\(z\\) forment le noyau de \\(A\\), noté \\(\\ker(A)\\). En ajoutant chacun d’eux à \\(x_0\\), on obtient toutes les solutions.",
+            "Remember that counts are taken modulo \\(n\\). Tapping one tile \\(n\\) extra times takes its whole pattern around the color cycle. It leaves both the board and the tap-count vector unchanged.": "On compte les appuis modulo \\(n\\). Si tu appuies \\(n\\) fois de plus sur une tuile, toutes les tuiles de son motif font un tour complet du cycle. Le plateau et le vecteur des appuis restent les mêmes.",
+            "So a solvable board has exactly one tap-count vector when \\(\\ker(A)=\\{0\\}\\). Over a field, this means the columns of \\(A\\) are linearly independent. The kernel test also works in the four-state ring.": "Un plateau résoluble admet donc un unique vecteur des appuis si et seulement si \\(\\ker(A)=\\{0\\}\\). Sur un corps, cela signifie que les colonnes de \\(A\\) sont linéairement indépendantes. Le critère du noyau vaut aussi dans l’anneau à quatre états.",
             "When is \\(A\\) invertible?": "Quand \\(A\\) est-elle inversible ?",
-            "A true inverse matrix can exist only when \\(A\\) is square, meaning it has the same number of rows and columns. This happens on a \\(w\\times h\\) board with no tiles with lock icons and no empty holes, when there is exactly one allowed tap for each tile. In that case \\(A\\) sends vectors in \\(R^{wh}\\) to vectors in \\(R^{wh}\\), and invertibility means every starting board has one unique tap-count solution.": "Une vraie matrice inverse ne peut exister que si \\(A\\) est carrée, c'est-à-dire si elle a le même nombre de lignes et de colonnes. Cela arrive sur un plateau \\(w\\times h\\) sans tuiles avec cadenas et sans trous vides, quand il existe exactement un toucher autorisé pour chaque tuile. Dans ce cas, \\(A\\) transforme des vecteurs de \\(R^{wh}\\) en vecteurs de \\(R^{wh}\\), et son inversibilité signifie que tout plateau de départ a une solution unique comme vecteur de touchers.",
-            "Equivalently, \\(\\det A\\) must have a multiplicative inverse modulo \\(n\\). For prime state counts \\(n=2,3,5\\), this means \\(\\det A\\not\\equiv0\\pmod n\\). Equivalently, simplifying rows can choose a value different from \\(0\\) in every column. For \\(n=4\\), it means \\(\\det A\\) is odd. If this fails in the square case, some board vectors are unreachable and some tap-count vectors different from zero lie in \\(\\ker(A)\\). With tiles with lock icons or empty holes, \\(A\\) may have different numbers of rows and columns. Then the useful tests are whether the target change is reachable and whether \\(\\ker(A)\\) contains tap-count vectors different from zero.": "De façon équivalente, \\(\\det A\\) doit avoir un inverse multiplicatif modulo \\(n\\). Pour les nombres d'états premiers \\(n=2,3,5\\), cela signifie \\(\\det A\\not\\equiv0\\pmod n\\). De façon équivalente, simplifier les lignes peut choisir une valeur différente de \\(0\\) dans chaque colonne. Pour \\(n=4\\), cela signifie que \\(\\det A\\) est impair. Si cela échoue dans le cas carré, certains vecteurs de plateau sont inatteignables et des vecteurs de touchers différents de zéro appartiennent à \\(\\ker(A)\\). Avec des tuiles avec cadenas ou des trous vides, \\(A\\) peut avoir des nombres de lignes et de colonnes différents. Les tests utiles sont alors de savoir si le changement cible est atteignable et si \\(\\ker(A)\\) contient des vecteurs de touchers différents de zéro.",
-            "Why the minimum matters": "Pourquoi le minimum compte",
-            "If there are several tap-count solutions, the game can still ask for the most efficient one. For each tap count \\(x_j\\in R\\), choose the number \\(\\tilde{x}_j\\in\\{0,\\ldots,n-1\\}\\) that represents it. The physical length of a plan is \\(\\ell(x)=\\sum_j\\tilde{x}_j\\), and the star target is based on a solution with minimal length among the solutions found.": "S'il existe plusieurs solutions comme vecteurs de touchers, le jeu peut quand même demander la plus efficace. Pour chaque nombre de touchers \\(x_j\\in R\\), choisis le nombre \\(\\tilde{x}_j\\in\\{0,\\ldots,n-1\\}\\) qui le représente. La longueur physique d'un plan est \\(\\ell(x)=\\sum_j\\tilde{x}_j\\), et l'objectif d'étoiles se base sur une solution de longueur minimale parmi celles trouvées.",
-            "How the shortest solver works": "Comment fonctionne le solveur le plus court",
-            "For small boards the app searches by tap count: first boards one tap away, then two taps away, and so on. The first time it reaches the zero board, that number is the true minimum number of physical taps.": "Pour les petits plateaux, le jeu cherche par nombre de touchers : d'abord les plateaux à un toucher, puis les plateaux à deux touchers, et ainsi de suite. La première fois qu'il atteint le plateau zéro, ce nombre est le vrai minimum de touchers physiques.",
-            "For larger boards with prime state counts \\(n=2,3,5\\), it simplifies the rows of \\(Ax=-s\\). If the simplified system leaves choices that are not forced, the solutions are \\(x_0+\\ker(A)\\). When the search over those extra tap-count vectors is small enough, the app enumerates them and chooses the one minimizing \\(\\ell(x)\\). If that exact search is too large, or \\(n\\) is composite and the board is too large for that search, the game falls back to a known solving plan instead of claiming a proof of minimality.": "Pour les plateaux plus grands avec des nombres d'états premiers \\(n=2,3,5\\), le jeu simplifie les lignes de \\(Ax=-s\\). Si le système simplifié laisse des choix qui ne sont pas forcés, les solutions sont \\(x_0+\\ker(A)\\). Quand la recherche parmi ces vecteurs de touchers supplémentaires est assez petite, le jeu les énumère et choisit celui qui minimise \\(\\ell(x)\\). Si cette recherche exacte est trop grande, ou si \\(n\\) est composé et le plateau trop grand pour cette recherche, le jeu utilise un plan de résolution connu au lieu d'affirmer une preuve de minimalité.",
-            "The shortest tap-count vector is not necessarily unique. Distinct solutions can tie for the same \\(\\ell(x)\\), and a single vector can be played in many tap orders. The app keeps the same shortest plan every time when it can prove the minimum. It does not currently mark whether all shortest plans are unique.": "Le vecteur de touchers le plus court n'est pas forcément unique. Des solutions distinctes peuvent être à égalité pour la même \\(\\ell(x)\\), et un seul vecteur peut être joué dans de nombreux ordres. Le jeu garde le même plan le plus court chaque fois qu'il peut prouver le minimum. Il n'indique pas actuellement si tous les plans les plus courts sont uniques.",
-            "Tiles with lock icons and empty holes": "Tuiles avec cadenas et trous vides",
-            "A tile with a lock icon stays in the board vector because its value must become zero, and nearby taps may still change it. It does not get its own tap choice in \\(x\\) because it cannot be tapped directly. An empty hole is left out of the ordered list \\(P\\), so the equation only tracks active board positions. This is how the same equation adapts to irregular boards.": "Une tuile avec cadenas reste dans le vecteur du plateau parce que sa valeur doit devenir zéro, et des touchers voisins peuvent encore la changer. Elle n'a pas son propre choix de toucher dans \\(x\\) parce qu'on ne peut pas la toucher directement. Un trou vide est laissé hors de la liste ordonnée \\(P\\), donc l'équation ne suit que les positions actives du plateau. C'est ainsi que la même équation s'adapte aux plateaux irréguliers.",
-            "How the generator uses this": "Comment le générateur utilise cela",
-            "The generator uses the same ingredients: board shape, tiles with lock icons, empty holes, tap pattern, and effect vectors. It chooses or verifies a starting vector \\(s\\) together with a tap-count vector \\(x\\) satisfying \\(s+Ax=0\\). When the exact solver is available, it searches the solution set for a short tap-count vector so the star thresholds have a mathematical basis. Hints use a stored plan one tap at a time.": "Le générateur utilise les mêmes ingrédients : forme du plateau, tuiles avec cadenas, trous vides, motif de toucher et vecteurs d'effet. Il choisit ou vérifie un vecteur de départ \\(s\\) avec un vecteur de touchers \\(x\\) satisfaisant \\(s+Ax=0\\). Quand le solveur exact est disponible, il cherche dans l'ensemble des solutions un vecteur de touchers court pour donner une base mathématique aux seuils d'étoiles. Les indices suivent un plan stocké, toucher par toucher.",
-            "What the symbols mean": "Signification des symboles",
-            "The number of tile states and the modulus used by the level. The app uses \\(2,3,4,\\) or \\(5\\) states.": "Le nombre d'états des tuiles et le module utilisé par le niveau. Le jeu utilise \\(2,3,4,\\) ou \\(5\\) états.",
-            "The current board configuration as a vector in \\(R^m\\).": "La configuration actuelle du plateau comme vecteur dans \\(R^m\\).",
-            "The tap matrix. Its \\(j\\)-th column is the effect vector \\(v_j\\) of the allowed tap at \\(q_j\\).": "La matrice des touchers. Sa colonne \\(j\\)-ième est le vecteur d'effet \\(v_j\\) du toucher autorisé en \\(q_j\\).",
-            "The tap-count vector in \\(R^r\\). Its coordinate \\(x_j\\) counts how many times the tap at \\(q_j\\) is used modulo \\(n\\).": "Le vecteur de touchers dans \\(R^r\\). Sa coordonnée \\(x_j\\) compte combien de fois le toucher en \\(q_j\\) est utilisé, modulo \\(n\\).",
-            "All board-change vectors obtainable by allowed taps.": "Tous les vecteurs de changement du plateau obtenables par touchers autorisés.",
-            "Tap-count vectors that produce zero board change.": "Les vecteurs de touchers qui produisent un changement nul du plateau.",
+            "If you can tap every tile, \\(A\\) has one row and one column per tile, so it is square. Holes leave that count balanced. A lock removes a column and keeps the row. When a square \\(A\\) is invertible, every starting board has exactly one tap-count solution.": "Si tu peux appuyer sur chaque tuile, \\(A\\) a autant de lignes que de colonnes et elle est carrée. Les trous préservent cette égalité. Un cadenas supprime une colonne et conserve la ligne. Si la matrice carrée \\(A\\) est inversible, chaque plateau de départ admet un unique vecteur des appuis qui le résout.",
+            "A square \\(A\\) is invertible exactly when its determinant has a multiplicative inverse in \\(R\\). For prime \\(n\\), the determinant must be nonzero modulo \\(n\\). For \\(n=4\\), it must be odd. If this test fails, some starting boards have no solution and others have several. For a rectangular matrix, use the image to test existence and the kernel to test uniqueness.": "Une matrice carrée \\(A\\) est inversible si et seulement si son déterminant est inversible dans \\(R\\). Pour \\(n\\) premier, il doit être non nul modulo \\(n\\). Pour \\(n=4\\), il doit être impair. Si ce critère échoue, certains plateaux n’ont aucune solution et d’autres en ont plusieurs. Pour une matrice rectangulaire, l’image permet de tester l’existence d’une solution et le noyau son unicité.",
+            "Counting the taps in a solution": "Compter les coups d’une solution",
+            "To play a solution, take each count \\(x_j\\) as a number from \\(0\\) to \\(n-1\\). Call that number \\(t_j\\). Add these numbers as ordinary integers to get the number of taps, \\(\\ell(x)\\). The shortest solution the game has found sets the three-star target.": "Pour jouer une solution, représente chaque composante \\(x_j\\) par un nombre de \\(0\\) à \\(n-1\\), noté \\(t_j\\). Additionne ces nombres comme des entiers pour obtenir le nombre de coups, \\(\\ell(x)\\). La solution la plus courte trouvée par le jeu fixe l’objectif des trois étoiles.",
+            "How the game finds a short solution": "Comment le jeu cherche une solution courte",
+            "If the board has few enough possible states, the game searches all positions one tap away, then two taps away, and so on. The first time it reaches an all-white board, it has found the fewest taps possible.": "Quand le plateau a assez peu de configurations possibles, le jeu explore d’abord celles à un coup, puis celles à deux coups, et ainsi de suite. La première fois qu’il atteint un plateau tout blanc, il a trouvé le minimum de coups.",
+            "For larger boards with a prime number of states per tile, the game row reduces \\(Ax=-s\\). If there are few enough solutions to try, it compares them all and keeps one with the fewest taps. When an exact search is too large, including on large four-state boards, it uses a known solution whose length may be above the minimum.": "Pour les grands plateaux où le nombre d’états par tuile est premier, le jeu réduit le système \\(Ax=-s\\) par opérations sur les lignes. Si les solutions sont assez peu nombreuses, il les compare toutes et en garde une qui demande le moins de coups. Quand la recherche exacte est trop longue, notamment sur les grands plateaux à quatre états, il utilise une solution connue qui peut dépasser le minimum.",
+            "Different tap-count vectors can tie for the minimum, and you can play the same vector in different orders. When the game proves a minimum, it always picks the same plan among those tied for shortest. It doesn’t tell you whether another plan ties with it.": "Plusieurs vecteurs des appuis peuvent atteindre le même minimum, et tu peux jouer un même vecteur dans des ordres différents. Quand le jeu établit le minimum, il choisit toujours le même plan parmi les plus courts. Il n’indique pas si un autre fait aussi bien.",
+            "Locked tiles and holes in the matrix": "Les cadenas et les trous dans la matrice",
+            "To model a hole, leave that position out entirely. To model a lock, keep the tile’s entry in \\(s\\) and its row in \\(A\\), since it still has to turn white. Leave out its column. The remaining columns tell you which other taps can change it.": "Pour représenter un trou, laisse cette position de côté. Pour un cadenas, garde la composante de la tuile dans \\(s\\) et sa ligne dans \\(A\\), car elle doit devenir blanche. Supprime sa colonne. Les autres colonnes indiquent quels appuis peuvent encore la changer.",
+            "How puzzles are made": "Comment les casse-têtes sont créés",
+            "The generator starts with a white board and scrambles it with allowed taps. It keeps track of how to undo their combined effect, so the starting board comes with a solution. When it can, the solver finds a shortest plan for the star targets. A hint plays one tap toward a solution and outlines the tiles it changed in red.": "Le jeu part d’un plateau blanc et le mélange avec des appuis autorisés. Il garde de quoi annuler leur effet cumulé. Le plateau obtenu a donc déjà une solution. Quand il le peut, le jeu trouve un plan de longueur minimale pour fixer les objectifs d’étoiles. Un indice joue un coup vers la solution et entoure en rouge les tuiles modifiées.",
+            "What the symbols mean": "Que signifient les symboles ?",
+            "The number of states per tile. It can be \\(2\\), \\(3\\), \\(4\\) or \\(5\\) and is the modulus for this board.": "Le nombre d’états par tuile. Il vaut \\(2\\), \\(3\\), \\(4\\) ou \\(5\\) et sert de module pour ce plateau.",
+            "The board vector. Each entry is the state of one tile.": "Le vecteur du plateau. Chaque composante donne l’état d’une tuile.",
+            "The tap matrix. Column \\(j\\) shows what changes when you tap \\(q_j\\).": "La matrice des appuis. La colonne \\(j\\) indique ce qui change quand tu appuies sur \\(q_j\\).",
+            "The tap-count vector. Entry \\(x_j\\) counts taps on \\(q_j\\) modulo \\(n\\).": "Le vecteur des appuis. La composante \\(x_j\\) compte les appuis sur \\(q_j\\) modulo \\(n\\).",
+            "The image of \\(A\\). It contains every board change you can make with taps.": "L’image de \\(A\\). Elle contient tous les changements que les appuis permettent de produire.",
+            "The kernel of \\(A\\). It contains every tap-count vector whose combined effect is zero.": "Le noyau de \\(A\\). Il contient tous les vecteurs des appuis dont l’effet total est nul.",
             "Language": "Langue",
             "Sound": "Son",
             "Show numbers on tiles": "Afficher les nombres sur les tuiles",
@@ -599,6 +958,7 @@
             "Best": "Meilleur",
             "Chapter": "Chapitre",
             "Inversion": "Inversion",
+            "You can now play in Korean. We also rewrote How to Play and the math guide, from your first tap to the equations behind a solution.": "Tu peux désormais jouer en coréen. Nous avons retravaillé les règles du jeu et le guide de mathématiques, du premier geste aux équations qui permettent de résoudre un plateau.",
             "Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later.": "Amélioration de la compatibilité avec Android 16, du retour système et de la disposition de l'écran autour des barres système. L'application Android nécessite désormais Android 7 ou une version ultérieure.",
             "Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility.": "Mise à jour des dépendances AndroidX Activity et Fragment vers les versions prises en charge actuelles pour Google Play.",
             "Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand.": "L’application cible désormais Android 16, maintient un retour système fiable et clarifie l’objectif de rendre toutes les tuiles blanches, avec une aide sur l’effet de toucher disponible à la demande.",
@@ -706,14 +1066,41 @@
     var originalAttributes = new WeakMap();
     var guideScreenHtml = {};
     var TERM_HIGHLIGHTS = {
+        ko: {
+            howto: [
+                { color: "green", terms: ["칸"] },
+                { color: "blue", terms: ["누르기", "누르면", "눌러", "누른"] },
+                { color: "purple", terms: ["상태"] },
+                { color: "orange", terms: ["패턴"] },
+                { color: "purple", terms: ["자물쇠", "잠긴 칸"] },
+                { color: "orange", terms: ["빈자리"] },
+                { color: "green", terms: ["힌트"] }
+            ],
+            math: [
+                { color: "green", terms: ["칸"] },
+                { color: "orange", terms: ["상태"] },
+                { color: "blue", terms: ["누르기", "누르면", "눌러", "누른"] },
+                { color: "green", terms: ["효과 벡터"] },
+                { color: "green", terms: ["누름 횟수 벡터"] },
+                { color: "green", terms: ["퍼즐판 벡터"] },
+                { color: "green", terms: ["영벡터"] },
+                { color: "orange", terms: ["행렬"] },
+                { color: "purple", terms: ["나머지"] },
+                { color: "green", terms: ["유한체", "체"] },
+                { color: "purple", terms: ["나머지환", "환"] },
+                { color: "green", terms: ["상"] },
+                { color: "blue", terms: ["핵"] },
+                { color: "orange", terms: ["가역", "가역행렬"] }
+            ]
+        },
         en: {
             howto: [
                 { color: "green", terms: ["tile", "tiles"] },
                 { color: "blue", terms: ["Tapping", "Tap", "tap", "taps"] },
                 { color: "purple", terms: ["state", "states", "States"] },
                 { color: "orange", terms: ["pattern", "patterns"] },
-                { color: "purple", terms: ["lock icon", "lock icons"] },
-                { color: "orange", terms: ["empty hole", "empty holes"] },
+                { color: "purple", terms: ["locked", "lock", "locks"] },
+                { color: "orange", terms: ["hole", "holes"] },
                 { color: "green", terms: ["hints", "hint", "Hint"] }
             ],
             math: [
@@ -741,7 +1128,7 @@
                 { color: "purple", terms: ["estado", "estados"] },
                 { color: "orange", terms: ["patrón", "patrones"] },
                 { color: "purple", terms: ["candado", "casillas con candado"] },
-                { color: "orange", terms: ["hueco vacío", "huecos vacíos"] },
+                { color: "orange", terms: ["hueco", "huecos"] },
                 { color: "green", terms: ["pista", "pistas"] }
             ],
             math: [
@@ -765,20 +1152,20 @@
         fr: {
             howto: [
                 { color: "green", terms: ["tuile", "tuiles"] },
-                { color: "blue", terms: ["toucher", "touchers"] },
+                { color: "blue", terms: ["appui", "appuis"] },
                 { color: "purple", terms: ["état", "états"] },
                 { color: "orange", terms: ["motif", "motifs"] },
                 { color: "purple", terms: ["cadenas", "tuiles avec cadenas"] },
-                { color: "orange", terms: ["trou vide", "trous vides"] },
+                { color: "orange", terms: ["trou", "trous"] },
                 { color: "green", terms: ["indice", "indices"] }
             ],
             math: [
                 { color: "purple", terms: ["modulaire"] },
                 { color: "green", terms: ["tuile", "tuiles"] },
                 { color: "orange", terms: ["état", "états"] },
-                { color: "blue", terms: ["Toucher", "toucher", "touchers"] },
-                { color: "green", terms: ["vecteur d'effet", "vecteurs d'effet"] },
-                { color: "green", terms: ["vecteur de touchers", "vecteurs de touchers"] },
+                { color: "blue", terms: ["Toucher", "appui", "appuis"] },
+                { color: "green", terms: ["vecteur d’effet", "vecteurs d’effet"] },
+                { color: "green", terms: ["vecteur des appuis", "vecteurs des appuis"] },
                 { color: "green", terms: ["vecteur du plateau"] },
                 { color: "green", terms: ["vecteur zéro", "vecteur nul"] },
                 { color: "orange", terms: ["matrice"] },
@@ -851,6 +1238,7 @@
         self: "1",
         knight: "K"
     };
+    var KOREAN_PATTERN_BADGES = { cross: "+", diagonal: "대", square: "네", horizontal: "가", vertical: "세", self: "1", knight: "나" };
     var CHAPTER_TITLES = [
         "Binary Beginnings", "Fourfold Flips", "Lights With Lock Icons", "Lockstep Squares", "First Empty Holes",
         "Binary Breakaways", "Fivefold Binary", "Three-Color Start", "Triple Grid", "Three Lock-Icon Tiles",
@@ -882,7 +1270,7 @@
             hideNumbers: true,
             showPlaygroundNumbers: false,
             guideTextSize: "small",
-            language: "en"
+            language: preferredLanguage()
         },
         freePrefs: {
             size: "5x5",
@@ -1372,18 +1760,31 @@
         startSplashBoard();
         applyLanguage();
     }
+    function preferredLanguage() {
+        if (typeof navigator === "undefined")
+            return "en";
+        var locales = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language];
+        for (var locale of locales) {
+            var language = String(locale || "").toLowerCase().split("-")[0];
+            if (LANGUAGE_OPTIONS.some(function (option) { return option.key === language; }))
+                return language;
+        }
+        return "en";
+    }
     function normalizeLanguage(language) {
         return LANGUAGE_OPTIONS.some(function (option) { return option.key === language; }) ? language : "en";
     }
     function currentLanguage() {
         return normalizeLanguage(app.progress && app.progress.settings ? app.progress.settings.language : "en");
     }
-    function t(text) {
-        var language = currentLanguage();
-        if (language === "en")
-            return text;
-        var table = TEXT_TRANSLATIONS[language] || {};
-        return table[text] || text;
+    function t(text, values) {
+        var table = TEXT_TRANSLATIONS[currentLanguage()];
+        var translated = (table && table[text]) || text;
+        if (!values)
+            return translated;
+        return translated.replace(/\{(\w+)\}/g, function (placeholder, key) {
+            return Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : placeholder;
+        });
     }
     function renderLanguageOptions() {
         if (!els.settingLanguage)
@@ -1414,6 +1815,11 @@
         if (app.activeScreen === "howto" || app.activeScreen === "math")
             typesetMath();
     }
+    function setTranslatedText(element, message) {
+        element.textContent = t(message);
+        if (element.firstChild)
+            originalTextNodes.set(element.firstChild, message);
+    }
     function translateStaticDom() {
         restoreGuideScreenHtml();
         var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
@@ -1434,7 +1840,7 @@
             var trimmed = source.trim();
             if (!trimmed)
                 continue;
-            textNode.nodeValue = source.replace(trimmed, t(trimmed));
+            textNode.nodeValue = source.replace(trimmed, function () { return t(trimmed); });
         }
         document.querySelectorAll("[aria-label]").forEach(function (node) {
             var source = originalAttributes.get(node);
@@ -1504,7 +1910,9 @@
                 if (index < 0)
                     break;
                 var end = index + lowerTerm.length;
-                if (isTermBoundary(text, index - 1) && isTermBoundary(text, end)) {
+                // Korean noun particles attach without a space and stay outside the highlighted term.
+                var endsWithParticle = language === "ko" && /^(?:은|는|이|가|을|를|에|의|과|와|도|로|으로|에서|에는|에도|마다|처럼|만|부터|까지)(?![\p{L}\p{N}_])/u.test(text.slice(end));
+                if (isTermBoundary(text, index - 1) && (isTermBoundary(text, end) || endsWithParticle)) {
                     if (!best || index < best.index || (index === best.index && lowerTerm.length > best.length)) {
                         best = { index: index, length: lowerTerm.length };
                     }
@@ -1518,7 +1926,7 @@
     function isTermBoundary(text, index) {
         if (index < 0 || index >= text.length)
             return true;
-        return !/[0-9A-Za-zÀ-ÖØ-öø-ÿ_]/.test(text.charAt(index));
+        return !/[\p{L}\p{N}_]/u.test(text.charAt(index));
     }
     function wrapTextRange(textNode, index, length, color) {
         var selected = textNode.splitText(index);
@@ -1634,7 +2042,7 @@
         els.customWidth.value = prefs.customWidth;
         els.customHeight.value = prefs.customHeight;
         els.stateOptions.innerHTML = STATE_OPTIONS.map(function (stateCount) {
-            return chipHtml(stateCount + " " + t("states"), "data-states", stateCount, prefs.states === stateCount);
+            return chipHtml(t("{n} states", { n: stateCount }), "data-states", stateCount, prefs.states === stateCount);
         }).join("");
         els.difficultyOptions.innerHTML = DIFFICULTIES.map(function (difficulty) {
             return chipHtml(difficultyDisplayName(difficulty), "data-difficulty", difficulty, prefs.difficulty === difficulty);
@@ -1710,7 +2118,7 @@
         els.playgroundWidth.value = prefs.width;
         els.playgroundHeight.value = prefs.height;
         if (els.playgroundStateSummary)
-            els.playgroundStateSummary.textContent = prefs.states + " " + t("states");
+            els.playgroundStateSummary.textContent = t("{n} states", { n: prefs.states });
         if (els.playgroundPatternSummary)
             els.playgroundPatternSummary.textContent = patternDisplayName(prefs.pattern);
         if (els.playgroundSizeSummary)
@@ -1718,7 +2126,7 @@
         if (els.playgroundCodeSummary)
             els.playgroundCodeSummary.textContent = t("Share");
         els.playgroundStateOptions.innerHTML = STATE_OPTIONS.map(function (stateCount) {
-            return chipHtml(stateCount + " " + t("states"), "data-playground-states", stateCount, prefs.states === stateCount);
+            return chipHtml(t("{n} states", { n: stateCount }), "data-playground-states", stateCount, prefs.states === stateCount);
         }).join("");
         els.playgroundPatternOptions.innerHTML = PLAYGROUND_PATTERNS.map(function (key) {
             return playgroundPatternChipHtml(key, prefs.pattern === key);
@@ -1734,7 +2142,7 @@
             playgroundToolButtonHtml(PLAYGROUND_TOOL_TAP, prefs.tool, t("Tap Tiles"), '<svg class="playground-tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v11l3-2 2.4 5.3 2.7-1.2-2.4-5.3 3.3-.5Z"></path></svg>', "")
         ];
         for (var state = 0; state < prefs.states; state += 1) {
-            var label = state === 0 ? t("Paint White") : t("Paint Color") + " " + state;
+            var label = state === 0 ? t("Paint White") : t("Paint color {n}", { n: state });
             buttons.push(playgroundToolButtonHtml(playgroundPaintTool(state), prefs.tool, label, '<span class="playground-swatch state-' + state + '" aria-hidden="true"></span>', " swatch-tool"));
         }
         buttons.push(playgroundToolButtonHtml(PLAYGROUND_TOOL_LOCK, prefs.tool, t("Lock Tiles"), '<svg class="playground-tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.25 10.25V8.1a4.75 4.75 0 0 1 9.5 0v2.15"></path><rect x="5.25" y="10.25" width="13.5" height="10" rx="2.6"></rect><path d="M12 14.2v2.45"></path></svg>', ""));
@@ -1764,7 +2172,7 @@
             for (var x = 0; x < prefs.width; x += 1) {
                 var idx = indexFor(x, y, prefs.width);
                 if (disabled.has(idx)) {
-                    html.push('<button class="hole playground-hole' + (pulseSet.has(idx) ? " pulsed" : "") + '" data-playground-index="' + idx + '" aria-label="' + escapeAttribute(t("Row") + " " + (y + 1) + ", " + t("column") + " " + (x + 1) + ", " + t("Empty hole")) + '"></button>');
+                    html.push('<button class="hole playground-hole' + (pulseSet.has(idx) ? " pulsed" : "") + '" data-playground-index="' + idx + '" aria-label="' + escapeAttribute(t("Row {row}, column {column}", { row: y + 1, column: x + 1 }) + ", " + t("Empty hole")) + '"></button>');
                     continue;
                 }
                 var state = prefs.board[idx] || 0;
@@ -1774,7 +2182,7 @@
                 if (pulseSet.has(idx))
                     classes.push("pulsed");
                 var lockMark = locked.has(idx) ? '<span class="lock-badge" aria-hidden="true"><svg class="lock-mark" viewBox="0 0 24 24"><path class="lock-shackle" d="M7.25 10.25V8.1a4.75 4.75 0 0 1 9.5 0v2.15"></path><rect class="lock-body" x="5.25" y="10.25" width="13.5" height="10" rx="2.6"></rect><path class="lock-key" d="M12 14.2v2.45"></path></svg></span>' : "";
-                html.push('<button class="' + classes.join(" ") + '" data-playground-index="' + idx + '" data-number="' + STATE_NUMBERS[state] + '" aria-label="' + escapeAttribute(t("Row") + " " + (y + 1) + ", " + t("column") + " " + (x + 1) + ", " + t("state") + " " + state + (locked.has(idx) ? ", " + t("locked") : "")) + '">' +
+                html.push('<button class="' + classes.join(" ") + '" data-playground-index="' + idx + '" data-number="' + STATE_NUMBERS[state] + '" aria-label="' + escapeAttribute(t("Row {row}, column {column}", { row: y + 1, column: x + 1 }) + ", " + t("state") + " " + state + (locked.has(idx) ? ", " + t("locked") : "")) + '">' +
                     lockMark +
                     '</button>');
             }
@@ -1903,7 +2311,7 @@
     }
     function setPlaygroundStatus(message) {
         if (els.playgroundSeedStatus)
-            els.playgroundSeedStatus.textContent = message ? t(message) : "";
+            setTranslatedText(els.playgroundSeedStatus, message);
     }
     function encodePlaygroundSeed(prefs) {
         return encodePlaygroundCompactSeed(prefs);
@@ -2256,6 +2664,10 @@
             var parts = coord.split(",").map(Number);
             return parts[0] >= 0 && parts[0] < 5 && parts[1] >= 0 && parts[1] < 5;
         }));
+    }
+    function patternBadge(key) {
+        var badges = currentLanguage() === "ko" ? KOREAN_PATTERN_BADGES : PATTERN_BADGES;
+        return badges[key] || "?";
     }
     function patternDisplayName(key) {
         return t(key === "randomMixed" ? "Random mixed" : (PATTERNS[key] ? PATTERNS[key].label : "Cross"));
@@ -2948,7 +3360,7 @@
         var record = dailyRecordFor(dateKey, tier.key);
         var completed = Boolean(record && record.completed);
         var tierLabel = dailyTierDisplayName(tier.key);
-        var bestLine = completed ? t("Best") + ": " + record.moves + " " + (record.moves === 1 ? t("tap") : t("taps")) : t("Not played today");
+        var bestLine = completed ? t("Best") + ": " + formatMoveThreshold(record.moves, false) : t("Not played today");
         var aria = tierLabel + " " + t("daily challenge") + ", " + bestLine;
         return '<button class="daily-card daily-card-' + tier.key + (completed ? " is-complete" : "") + '" data-action="start-daily" data-daily-tier="' + tier.key + '" aria-label="' + escapeAttribute(aria) + '">' +
             '<span class="daily-tier-grid" aria-hidden="true">' + renderDailyGridIcon(tier.key) + '</span>' +
@@ -3124,7 +3536,7 @@
         });
     }
     function campaignGroupAriaLabel(groupIndex, stars, completed, unlocked) {
-        var label = t("Group") + " " + (groupIndex + 1) + ", " + chapterTitle(groupIndex + 1) + ", " + stars + " " + t("stars") + ", " + completed + "/" + CAMPAIGN_LEVELS_PER_GROUP + " " + t("complete");
+        var label = t("Group") + " " + (groupIndex + 1) + ", " + chapterTitle(groupIndex + 1) + ", " + t(stars === 1 ? "{n} star" : "{n} stars", { n: stars }) + ", " + completed + "/" + CAMPAIGN_LEVELS_PER_GROUP + " " + t("complete");
         if (!unlocked)
             label += ", " + t("locked") + ", " + t("Earn 15 stars in a nearby group.");
         return escapeAttribute(label);
@@ -3528,7 +3940,7 @@
         });
         return unique.map(function (key) {
             var pattern = PATTERNS[key] || PATTERNS.cross;
-            return '<span><b>' + (PATTERN_BADGES[key] || "?") + '</b>' + patternDisplayName(key) + '</span>';
+            return '<span><b>' + patternBadge(key) + '</b>' + patternDisplayName(key) + '</span>';
         }).join("");
     }
     function renderBoard(pulsedIndexes) {
@@ -3574,11 +3986,10 @@
                 if (showSolution)
                     classes.push("solution");
                 var patternKey = game.tilePatterns[idx] || game.defaultPattern || "cross";
-                var patternBadge = PATTERN_BADGES[patternKey] || "?";
-                var patternMark = showPatternBadges ? '<span class="pattern-badge" aria-hidden="true">' + patternBadge + '</span>' : "";
+                var patternMark = showPatternBadges ? '<span class="pattern-badge" aria-hidden="true">' + patternBadge(patternKey) + '</span>' : "";
                 var solutionValue = showSolution ? (game.hint.solution[idx] || 0) : "";
                 var lockMark = game.locked.has(idx) ? '<span class="lock-badge" aria-hidden="true"><svg class="lock-mark" viewBox="0 0 24 24"><path class="lock-shackle" d="M7.25 10.25V8.1a4.75 4.75 0 0 1 9.5 0v2.15"></path><rect class="lock-body" x="5.25" y="10.25" width="13.5" height="10" rx="2.6"></rect><path class="lock-key" d="M12 14.2v2.45"></path></svg></span>' : "";
-                var ariaLabel = t("Row") + " " + (y + 1) + ", " + t("column") + " " + (x + 1) + ", " + t("state") + " " + state + ", " + patternDisplayName(patternKey) + " " + t("pattern") + (game.locked.has(idx) ? ", " + t("locked") : "");
+                var ariaLabel = t("Row {row}, column {column}", { row: y + 1, column: x + 1 }) + ", " + t("state") + " " + state + ", " + patternDisplayName(patternKey) + " " + t("pattern") + (game.locked.has(idx) ? ", " + t("locked") : "");
                 html.push('<button class="' + classes.join(" ") + '" data-index="' + idx + '" data-number="' + STATE_NUMBERS[state] + '" data-solution="' + solutionValue + '" aria-label="' + ariaLabel + '"' + (game.locked.has(idx) ? ' aria-disabled="true"' : "") + '>' +
                     patternMark +
                     lockMark +
@@ -3661,7 +4072,7 @@
             return;
         }
         game.hint = { preview: getAffectedIndexes(game, index), highlight: [index] };
-        els.hintLine.textContent = t("Previewing this tap.");
+        setTranslatedText(els.hintLine, "Previewing this tap.");
         renderBoard();
         playSound("preview");
     }
@@ -3745,7 +4156,7 @@
             return;
         if (game.mode === "playground") {
             playSound("invalid");
-            els.hintLine.textContent = t("Hints are off in Playground.");
+            setTranslatedText(els.hintLine, "Hints are off in Playground.");
             return;
         }
         if (Date.now() < app.hintCooldownUntil)
@@ -3764,7 +4175,7 @@
         }
         if (tapIndex === null || tapIndex === undefined || !isTappable(game, tapIndex)) {
             playSound("invalid");
-            els.hintLine.textContent = t("No useful tap is available.");
+            setTranslatedText(els.hintLine, "No useful tap is available.");
             return;
         }
         applyHintMove(tapIndex);
@@ -3785,7 +4196,7 @@
         var solvedByHint = isSolved(game, game.board);
         if (solvedByHint)
             game.hintCompletionPending = true;
-        els.hintLine.textContent = t("Hint applied. Red tiles changed. This try is worth 0 stars.");
+        setTranslatedText(els.hintLine, "Hint applied. Red tiles changed. This try is worth 0 stars.");
         renderBoard(affected);
         updateCounters();
         playSound("hint");
@@ -3963,7 +4374,7 @@
         updateCounters();
         closePatternInfo();
         els.modalTitle.textContent = game.mode === "daily" ? t("Daily Complete") : t("Level Complete");
-        els.modalStars.setAttribute("aria-label", stars + " " + t("out of 3 stars") + " " + t("earned"));
+        els.modalStars.setAttribute("aria-label", t("{n} out of 3 stars", { n: stars }) + " " + t("earned"));
         els.modalStars.innerHTML = '<span class="star-icons modal-star-icons" aria-hidden="true">' + renderStarIcons(stars) + '</span>';
         els.resultMoves.textContent = String(game.moves);
         els.resultMinimum.textContent = String(game.minimumMoves || "-");
@@ -4410,7 +4821,7 @@
             if (compact) {
                 return '<span class="' + (highlighted ? "is-highlighted" : "") + '">' + stars + ' ' + moveLabel + '</span>';
             }
-            return '<span class="' + (highlighted ? "is-highlighted" : "") + '" aria-label="' + escapeAttribute(threshold.stars + " " + t("out of 3 stars") + ": " + formatMoveRange(threshold.min, threshold.max, false)) + '">' + stars + '<em>' + moveLabel + '</em></span>';
+            return '<span class="' + (highlighted ? "is-highlighted" : "") + '" aria-label="' + escapeAttribute(t("{n} out of 3 stars", { n: threshold.stars }) + ": " + formatMoveRange(threshold.min, threshold.max, false)) + '">' + stars + '<em>' + moveLabel + '</em></span>';
         }).join("");
     }
     function renderStatusStarRanking(item) {
@@ -4419,7 +4830,7 @@
         }
         var highlightedStars = storedStarsForGame(item);
         return starThresholds(item).map(function (threshold) {
-            var label = threshold.stars + " " + (threshold.stars === 1 ? t("star") : t("stars")) + ": " + formatMoveRange(threshold.min, threshold.max, false);
+            var label = t(threshold.stars === 1 ? "{n} star" : "{n} stars", { n: threshold.stars }) + ": " + formatMoveRange(threshold.min, threshold.max, false);
             var highlighted = highlightedStars !== null && threshold.stars === highlightedStars;
             return '<span class="star-ranking-row' + (highlighted ? " is-highlighted" : "") + '" aria-label="' + escapeAttribute(label + (highlighted ? ", " + t("current best") : "")) + '">' +
                 '<span class="star-icons" aria-hidden="true">' + renderStarIcons(threshold.stars) + '</span>' +
@@ -4469,7 +4880,7 @@
         if (!unlocked)
             label += ", " + t("locked");
         if (completed) {
-            label += ", " + t("complete") + ", " + stars + " " + (stars === 1 ? t("star") : t("stars")) + " " + t("earned");
+            label += ", " + t("complete") + ", " + t(stars === 1 ? "{n} star" : "{n} stars", { n: stars }) + " " + t("earned");
             if (hintUsed)
                 label += ", " + t("hint used");
         }
@@ -4480,17 +4891,17 @@
     }
     function formatMoveRange(minimum, maximum, compact) {
         if (maximum === null) {
-            return compact ? minimum + "+" : minimum + "+ " + t("taps");
+            return compact ? minimum + "+" : t("{n}+ taps", { n: minimum });
         }
         if (minimum === maximum)
             return formatMoveThreshold(minimum, compact);
-        return compact ? minimum + "-" + maximum : minimum + "-" + maximum + " " + t("taps");
+        return compact ? minimum + "-" + maximum : t("{n} taps", { n: minimum + "-" + maximum });
     }
     function formatMoveThreshold(value, compact) {
         var moves = Math.max(0, Number(value) || 0);
         if (compact)
             return String(moves);
-        return moves + " " + (moves === 1 ? t("tap") : t("taps"));
+        return t(moves === 1 ? "{n} tap" : "{n} taps", { n: moves });
     }
     function escapeAttribute(value) {
         return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

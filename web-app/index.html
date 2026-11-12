@@ -351,8 +351,8 @@
             <span></span><span class="lit-orange"></span><span></span>
           </div>
           <div>
-            <p>Clear every tile by turning it white. Tapping a tile applies its tap pattern to the board, and every tile reached by that tap advances by one state.</p>
-            <p>Use previews and level clues to plan calmly before each tap.</p>
+            <p>Turn every tile white. A single tap can change several tiles at once.</p>
+            <p>Before you tap, hold a tile to see where its pattern reaches.</p>
           </div>
         </section>
 
@@ -364,11 +364,11 @@
               <span></span><span class="lit-blue"></span><span></span>
             </div>
             <div>
-              <h3>1. Make every tile white</h3>
+              <h3>1. Read the colors</h3>
               <ul class="guide-bullets">
-                <li>A white tile is solved.</li>
-                <li>Colored tiles are not wrong. They just need to keep advancing until they return to white.</li>
-                <li>The puzzle ends only when every tile is white at the same time.</li>
+                <li>White is the color you want every tile to reach.</li>
+                <li>A white tile can still change color if another tap reaches it.</li>
+                <li>You solve the puzzle when all the tiles are white at once.</li>
               </ul>
             </div>
           </article>
@@ -379,11 +379,11 @@
               <span></span><span></span><span></span>
             </div>
             <div>
-              <h3>2. Tap and cycle</h3>
+              <h3>2. Follow the color cycle</h3>
               <ul class="guide-bullets">
-                <li>Tap an available tile to apply the level's tap pattern.</li>
-                <li>Every tile reached by the pattern advances one state.</li>
-                <li>States cycle: after the last colored state, the next advance returns that tile to white.</li>
+                <li>Tap an unlocked tile. Its pattern tells you which tiles will change.</li>
+                <li>Each tile in the pattern moves on to its next color.</li>
+                <li>After the last color comes white again.</li>
               </ul>
             </div>
           </article>
@@ -394,10 +394,10 @@
               <span class="preview"></span><span></span><span class="preview"></span>
             </div>
             <div>
-              <h3>3. Use the pattern preview</h3>
+              <h3>3. Check the pattern</h3>
               <ul class="guide-bullets">
-                <li>A level can use a cross, diagonal, square, horizontal, vertical, knight, or mixed pattern.</li>
-                <li>Hold or hover a tile to see exactly which tiles will change before you tap.</li>
+                <li>Look for crosses, diagonals, squares, rows, columns and even chess knight moves. Some boards mix several patterns.</li>
+                <li>Hold a tile to preview its pattern. Lift your finger when you’re done looking.</li>
               </ul>
             </div>
           </article>
@@ -408,11 +408,11 @@
               <span></span><span></span><span></span>
             </div>
             <div>
-              <h3>4. Handle special tiles</h3>
+              <h3>4. Locks and holes</h3>
               <ul class="guide-bullets">
-                <li>A tile with a lock icon still needs to become white and can change when a nearby tap reaches it.</li>
-                <li>You cannot tap a tile with a lock icon directly.</li>
-                <li>An empty hole is outside the board. Tap patterns skip empty holes.</li>
+                <li>A locked tile still has to turn white.</li>
+                <li>To change it, tap another tile whose pattern reaches it.</li>
+                <li>A hole is just a gap in the board. Tap patterns skip it.</li>
               </ul>
             </div>
           </article>
@@ -428,10 +428,10 @@
             <p class="kicker">Modes</p>
             <h3>Choose your puzzle</h3>
             <ul class="guide-bullets guide-bullets-spaced">
-              <li><strong>Campaign:</strong> Pick groups on a 5x5 map. Earn 15 stars in a group to open adjacent groups.</li>
-              <li><strong>Custom Level:</strong> Choose board size, states, pattern, difficulty, tiles with lock icons, and empty holes. The generator always prefers a unique solution.</li>
-              <li><strong>Playground:</strong> Build a board by hand, share its puzzle code, and play without a completion modal.</li>
-              <li><strong>Daily Challenge:</strong> Play the same three generated puzzles as everyone else for the date. Each puzzle keeps its own saved best score.</li>
+              <li><strong>Campaign:</strong> Pick a group on the 5 × 5 map. Earn 15 stars there to unlock the groups directly beside it, above it and below it.</li>
+              <li><strong>Custom Level:</strong> Choose the board size, number of colors, pattern and difficulty. You can add locks and holes. The game looks for a puzzle with a unique solution when it can.</li>
+              <li><strong>Playground:</strong> Build your own board and share it with a puzzle code. You can keep experimenting even after every tile turns white.</li>
+              <li><strong>Daily Challenge:</strong> Everyone gets the same three puzzles each day. Each one keeps its own best score.</li>
             </ul>
           </div>
         </section>
@@ -446,12 +446,12 @@
             <div>
               <h3>Taps, stars, and hints</h3>
               <ul class="guide-bullets">
-                <li>The tap counter counts every tap you commit.</li>
-                <li>Three stars mean you matched the generator's minimum found tap count.</li>
-                <li>Two-star and one-star targets allow extra taps.</li>
-                <li>Undo rewinds one tap, and Reset restores the starting board.</li>
-                <li>Hint applies the next tap from a solver plan. A hinted try can still complete the puzzle, but it no longer earns stars.</li>
-                <li>Tiles changed by a hint are outlined in red.</li>
+                <li>Previewing a pattern is free. Your tap counts when the tiles change.</li>
+                <li>For three stars, solve the puzzle in as few taps as the game’s best known solution, or fewer.</li>
+                <li>The one- and two-star targets leave room for extra taps.</li>
+                <li>Undo takes back your last tap. Reset puts the board back the way it started.</li>
+                <li>A hint plays one tap for you. You can still finish that attempt, but it earns no stars.</li>
+                <li>Look for the red outlines to see which tiles the hint changed.</li>
               </ul>
             </div>
           </article>
@@ -464,9 +464,9 @@
             <div>
               <h3>Settings</h3>
               <ul class="guide-bullets">
-                <li>Sound toggles audio effects.</li>
-                <li>Show numbers on tiles displays state values when you want a more exact view.</li>
-                <li>Android also includes haptic feedback controls.</li>
+                <li>Turn sound effects on or off in Settings.</li>
+                <li>If you prefer numbers, turn them on to see each tile’s state alongside its color.</li>
+                <li>On Android, you can also turn vibration on or off.</li>
               </ul>
             </div>
           </article>
@@ -494,8 +494,8 @@
 
         <section class="math-intro" aria-label="Math overview">
           <div class="math-intro-copy">
-            <p class="math-lead">Invert the Matrix is a modular linear-algebra puzzle.</p>
-            <p>To play, think of each tile as having a state, shown by its color. A tap on a tile does not change only that tile, but every tile in a pattern centered on the chosen tile. After the last state, or color, a tile returns to white. The goal is to find a sequence of taps that makes all tiles white at the same time. Some boards have only two possible states: white and blue, and only one pattern: a cross centered on the tile you tap. But later on, everything gets much more complicated.</p>
+            <p class="math-lead">What happens when you add up the taps?</p>
+            <p>Take a board with just two colors. Tap the center of a cross and every tile in the cross switches between white and blue. Tap the same spot again and you’re back where you started. The same rule works with other patterns. With more colors, it takes more taps to go all the way around the cycle.</p>
           </div>
           <div class="math-pulse-demo" aria-hidden="true">
             <span></span>
@@ -520,10 +520,10 @@
         <section class="equation-panel math-model" aria-label="Modeling the game">
           <div>
             <p class="kicker">Modeling the game</p>
-            <h3>Turn the board into one equation</h3>
-            <p>To model a level, first list the active board positions in a fixed order. Once that list is fixed, a displayed board becomes a vector \(s\in R^m\). Here \(R=\mathbb Z/n\mathbb Z\) means values are read modulo \(n\), \(n\) is the number of tile states, and \(m\) is the number of active positions.</p>
-            <p>Each allowed tap has an effect vector in \(R^m\). For a tappable position \(q_j\), the vector \(v_j\) has value \(1\) exactly at the active positions advanced by that tap, and \(0\) elsewhere. The matrix \(A\) is built by placing these effect vectors as its columns. A tap-count vector \(x\in R^r\) records how many times each allowed tap is used, modulo \(n\), and solving means choosing \(x\) with \(s+Ax=0\).</p>
-            <p>All arithmetic is performed modulo \(n\), so the value after \(n-1\) is \(0\). Prime state counts such as \(2,3,\) and \(5\) give finite fields, where every value different from \(0\) has a multiplicative inverse. The four-state mode uses the ring \(\mathbb Z/4\mathbb Z\), where some values different from \(0\) cannot be used for division.</p>
+            <h3>The board in one equation</h3>
+            <p>Give white the number \(0\) and count up through the colors. On a board with \(n\) colors, the next step after \(n-1\) is \(0\) again. This is arithmetic modulo \(n\), written in the ring \(R=\mathbb Z/n\mathbb Z\).</p>
+            <p>Now read the tiles in a fixed order. Their numbers form the board vector \(s\). Put the effect of each possible tap in a column of a matrix \(A\). If \(x\) records how often you tap each unlocked tile, \(Ax\) gives the total change. You win when \(s+Ax=0\).</p>
+            <p>With \(2\), \(3\) or \(5\) states, \(R\) is a field. Every nonzero element has a multiplicative inverse, so you can divide by it. With four states, even a simple division by \(2\) can go wrong. We’ll see why below.</p>
           </div>
           <div class="formula-card hero-formula">
             \[
@@ -535,10 +535,10 @@
         <section class="equation-panel" aria-label="Lights Out generalization">
           <div>
             <p class="kicker">From Lights Out</p>
-            <h3>The same question, in modular form</h3>
-            <p>In ordinary Lights Out, every tile is either \(0\) or \(1\). Tapping a tile changes the same shape of tiles around it every time, usually the tapped tile plus the tiles directly above, below, left, and right. Changing a tile is adding \(1\) modulo \(2\), so tapping the same tile twice gives no net change. This is the simplest version of adding tap effects together.</p>
-            <p>This game keeps that add-the-effects rule while allowing \(n\) states, so values are read in \(R=\mathbb Z/n\mathbb Z\). Empty holes are not included in the board vector. Tiles with lock icons stay in the board vector because they must become white, but they do not get tap choices. Tap patterns determine the columns of \(A\).</p>
-            <p>The mathematical question is precise: can the allowed taps add up to the target change \(-s\)?</p>
+            <h3>From two states to many</h3>
+            <p>In the classic Lights Out puzzle, a tap flips the chosen tile and its neighbors above, below, left and right. Each flip adds \(1\) modulo \(2\). Two taps in the same spot cancel because \(1+1=0\) modulo \(2\).</p>
+            <p>Invert the Matrix adds more states and patterns, but tap effects still add together. Skip holes when you list the tiles. Include locked tiles, since a tap on another tile can change them.</p>
+            <p>Can you combine the available taps to cancel the starting board? The change you need is \(-s\).</p>
           </div>
         </section>
 
@@ -551,7 +551,7 @@
             </div>
             <div>
               <h3>1. The board is a vector</h3>
-              <p>Let \(P=\{p_1,\ldots,p_m\}\) be the list of active board positions, in a fixed order. A configuration is the vector \(s=(s_1,\ldots,s_m)\in R^m\), where \(s_i\) is the state value shown on tile \(p_i\), read modulo \(n\). The solved board is the zero vector \(0\in R^m\).</p>
+              <p>Number the \(m\) tiles \(p_1,\ldots,p_m\) in any fixed order. Write their states in that same order to get \(s=(s_1,\ldots,s_m)\in R^m\). Each entry \(s_i\) is the color of tile \(p_i\). An all-white board is the zero vector.</p>
               <div class="formula-card">
                 \[
                   s=(s_1,\ldots,s_m),\qquad s_i\in \mathbb Z/n\mathbb Z
@@ -566,16 +566,12 @@
               <span class="preview"></span><span></span><span class="preview"></span>
             </div>
             <div>
-              <h3>2. Every allowed tap has an effect vector</h3>
-              <p>Let \(q_1,\ldots,q_r\) be the positions that can be tapped. The effect vector of the tap at \(q_j\) is \(v_j\in R^m\). Its \(i\)-th value is \(1\) when that tap advances tile \(p_i\), and \(0\) otherwise. The tap matrix is \(A=[v_1\ \cdots\ v_r]\), so the \(j\)-th column of \(A\) is \(v_j\).</p>
-              <p>In the matrix, a row tracks a board position and a column tracks an allowed tap. A tile with a lock icon still gets a row because its value must become zero, and nearby taps may change it. It does not get a column because it cannot be tapped directly.</p>
+              <h3>2. Each tap contributes a column</h3>
+              <p>Label the \(r\) tiles you can tap \(q_1,\ldots,q_r\). Tap \(q_j\) once and record a \(1\) for each tile that changes and a \(0\) for each tile that stays the same. The result is its effect vector \(v_j\), column \(j\) of \(A\).</p>
+              <p>Read across a row to see which taps affect one tile. Read down a column to see which tiles one tap affects. A locked tile has a row of its own, but you can’t tap it, so it has no column.</p>
               <div class="formula-card">
                 \[
-                  (v_j)_i=
-                  \begin{cases}
-                    1 & \text{the tap at }q_j\text{ advances }p_i,\\
-                    0 & \text{otherwise.}
-                  \end{cases}
+                  A=[v_1\ \cdots\ v_r],\qquad A_{ij}=(v_j)_i\in\{0,1\}
                 \]
               </div>
             </div>
@@ -585,9 +581,9 @@
         <section class="equation-panel" aria-label="Solving equation">
           <div>
             <p class="kicker">Goal</p>
-            <h3>Find a tap-count vector</h3>
-            <p>A tap-count vector is an element \(x=(x_1,\ldots,x_r)\in R^r\). Its coordinate \(x_j\) counts how many times the tap at \(q_j\) is used, modulo \(n\). Executing \(x\) adds \(\sum_j x_jv_j=Ax\) to the board. Thus tap order is irrelevant to the algebra. Only each tap count modulo \(n\) matters.</p>
-            <p>After applying the plan, the board is \(s+Ax\). Solving the puzzle means making this vector equal to the zero vector, equivalently solving \(Ax\equiv -s\pmod n\).</p>
+            <h3>How many times should you tap each tile?</h3>
+            <p>The tap-count vector \(x=(x_1,\ldots,x_r)\) records how often you tap each unlocked tile, modulo \(n\). Each tap on \(q_j\) adds the same \(v_j\), so together the taps add \(Ax=\sum_j x_jv_j\). You can play them in any order.</p>
+            <p>The final board is \(s+Ax\). To make it all white, look for a vector \(x\) that solves \(Ax=-s\) in \(R\).</p>
           </div>
           <div class="formula-card equation-stack">
             \[
@@ -602,40 +598,40 @@
         <section class="math-grid small">
           <article>
             <h3>When does a solution exist?</h3>
-            <p>The columns of \(A\) generate the set of all board changes obtainable by allowed taps. Call this set the image of \(A\), written \(\operatorname{Im}(A)=\{Ax:x\in R^r\}\). A solution exists exactly when the target vector \(-s\) is in that set.</p>
+            <p>Every tap-count vector produces a change \(Ax\). All those changes together form the image of \(A\), written \(\operatorname{Im}(A)\). A board has a solution exactly when \(-s\) belongs to this image.</p>
             <div class="formula-card">
               \[
-                \text{solution exists}
+                (\exists x\in R^r:\ Ax=-s)
                 \Longleftrightarrow
                 -s\in \operatorname{Im}(A)
               \]
             </div>
-            <p>Over a field, such as \(\mathbb F_2,\mathbb F_3,\mathbb F_5\), this can be checked by simplifying the rows of the system \([A\mid -s]\). A row of the form \([0\ \cdots\ 0\mid c]\), where \(c\) is not \(0\), proves that no solution exists. If no such row appears, the simplified system gives at least one tap plan.</p>
+            <p>When \(n\) is prime, you can check by row reducing the augmented matrix \([A\mid -s]\) to echelon form. A row saying \(0=c\) with \(c\ne0\) rules out a solution. If no such row appears, you can read off at least one solution by back substitution.</p>
           </article>
           <article>
-            <h3>What changes for non-prime \(n\)?</h3>
-            <p>For composite \(n\), \(\mathbb Z/n\mathbb Z\) is a ring but not a field. You may add and multiply as usual, but division is valid only by values with a multiplicative inverse. For \(n=4\), the value \(2\) is different from \(0\) and has no inverse: no value \(a\) satisfies \(2a\equiv 1\pmod 4\).</p>
+            <h3>What changes with four states?</h3>
+            <p>When \(n\) is composite, \(R\) is still a ring, but some nonzero elements have no multiplicative inverse. For example, modulo \(4\), twice any number is even, so \(2a\) can never equal \(1\). You can’t divide a row by \(2\) here.</p>
             <div class="formula-card">
               \[
                 2a\not\equiv 1\pmod 4
               \]
             </div>
-            <p>The rule does not change: there is still a solution exactly when \(-s\) is in \(\operatorname{Im}(A)\), but the check must respect ring arithmetic. Row operations that divide by values with no inverse are not valid. For larger composite \(n\), the check can be split into smaller modulo checks that must all agree.</p>
+            <p>The test for a solution is still \(-s\in\operatorname{Im}(A)\). Use row operations valid in the ring. If \(n\) factors into coprime prime powers, you can also solve modulo each of those powers and combine the results.</p>
           </article>
           <article>
             <h3>When is the solution unique?</h3>
-            <p>If \(x_0\) is one solution, then every other solution is \(x_0+z\), where \(z\in R^r\) is a tap-count vector with \(Az=0\). The equation \(Az=0\) means that using the taps in \(z\) causes no net change on the board. The set of all such \(z\) is the kernel of the tap matrix, written \(\ker(A)\).</p>
+            <p>Suppose \(x_0\) solves the board. If a tap-count vector \(z\) leaves the board unchanged, then \(Az=0\) and \(x_0+z\) also solves it. These vectors \(z\) form the kernel of \(A\), written \(\ker(A)\). Adding each of them to \(x_0\) gives all the solutions.</p>
             <div class="formula-card">
               \[
                 \{x\in R^r:\ Ax=-s\}=x_0+\ker(A)
               \]
             </div>
-            <p>Tap counts already live modulo \(n\), so tapping one tile \(n\) additional times adds \(n e_j=0\), the zero vector in \(R^r\). That represents the same tap-count vector, not a new tap-count solution.</p>
-            <p>Uniqueness fails exactly when there is a tap-count vector \(z\ne 0\), meaning \(z\) is not the zero vector, with \(Az=0\). In that case \(x_0\) and \(x_0+z\) are distinct tap-count vectors that solve the same board. Thus the solution as a tap-count vector is unique precisely when \(\ker(A)=\{0\}\). Over fields this is equivalent to saying that no combination using at least one allowed tap adds the effect vectors to zero. Over rings, the same kernel condition is the correct statement over \(\mathbb Z/n\mathbb Z\).</p>
+            <p>Remember that counts are taken modulo \(n\). Tapping one tile \(n\) extra times takes its whole pattern around the color cycle. It leaves both the board and the tap-count vector unchanged.</p>
+            <p>So a solvable board has exactly one tap-count vector when \(\ker(A)=\{0\}\). Over a field, this means the columns of \(A\) are linearly independent. The kernel test also works in the four-state ring.</p>
           </article>
           <article>
             <h3>When is \(A\) invertible?</h3>
-            <p>A true inverse matrix can exist only when \(A\) is square, meaning it has the same number of rows and columns. This happens on a \(w\times h\) board with no tiles with lock icons and no empty holes, when there is exactly one allowed tap for each tile. In that case \(A\) sends vectors in \(R^{wh}\) to vectors in \(R^{wh}\), and invertibility means every starting board has one unique tap-count solution.</p>
+            <p>If you can tap every tile, \(A\) has one row and one column per tile, so it is square. Holes leave that count balanced. A lock removes a column and keeps the row. When a square \(A\) is invertible, every starting board has exactly one tap-count solution.</p>
             <div class="formula-card">
               \[
                 \exists\, A^{-1}
@@ -643,24 +639,24 @@
                 \det A\in R^\times
               \]
             </div>
-            <p>Equivalently, \(\det A\) must have a multiplicative inverse modulo \(n\). For prime state counts \(n=2,3,5\), this means \(\det A\not\equiv0\pmod n\). Equivalently, simplifying rows can choose a value different from \(0\) in every column. For \(n=4\), it means \(\det A\) is odd. If this fails in the square case, some board vectors are unreachable and some tap-count vectors different from zero lie in \(\ker(A)\). With tiles with lock icons or empty holes, \(A\) may have different numbers of rows and columns. Then the useful tests are whether the target change is reachable and whether \(\ker(A)\) contains tap-count vectors different from zero.</p>
+            <p>A square \(A\) is invertible exactly when its determinant has a multiplicative inverse in \(R\). For prime \(n\), the determinant must be nonzero modulo \(n\). For \(n=4\), it must be odd. If this test fails, some starting boards have no solution and others have several. For a rectangular matrix, use the image to test existence and the kernel to test uniqueness.</p>
           </article>
           <article>
-            <h3>Why the minimum matters</h3>
-            <p>If there are several tap-count solutions, the game can still ask for the most efficient one. For each tap count \(x_j\in R\), choose the number \(\tilde{x}_j\in\{0,\ldots,n-1\}\) that represents it. The physical length of a plan is \(\ell(x)=\sum_j\tilde{x}_j\), and the star target is based on a solution with minimal length among the solutions found.</p>
+            <h3>Counting the taps in a solution</h3>
+            <p>To play a solution, take each count \(x_j\) as a number from \(0\) to \(n-1\). Call that number \(t_j\). Add these numbers as ordinary integers to get the number of taps, \(\ell(x)\). The shortest solution the game has found sets the three-star target.</p>
             <div class="formula-card">
               \[
-                \ell(x)=\sum_j \tilde{x}_j,
+                \ell(x)=\sum_j t_j,
                 \qquad
-                \tilde{x}_j\in\{0,\ldots,n-1\}
+                t_j\in\{0,\ldots,n-1\}
               \]
             </div>
           </article>
           <article>
-            <h3>How the shortest solver works</h3>
-            <p>For small boards the app searches by tap count: first boards one tap away, then two taps away, and so on. The first time it reaches the zero board, that number is the true minimum number of physical taps.</p>
-            <p>For larger boards with prime state counts \(n=2,3,5\), it simplifies the rows of \(Ax=-s\). If the simplified system leaves choices that are not forced, the solutions are \(x_0+\ker(A)\). When the search over those extra tap-count vectors is small enough, the app enumerates them and chooses the one minimizing \(\ell(x)\). If that exact search is too large, or \(n\) is composite and the board is too large for that search, the game falls back to a known solving plan instead of claiming a proof of minimality.</p>
-            <p>The shortest tap-count vector is not necessarily unique. Distinct solutions can tie for the same \(\ell(x)\), and a single vector can be played in many tap orders. The app keeps the same shortest plan every time when it can prove the minimum. It does not currently mark whether all shortest plans are unique.</p>
+            <h3>How the game finds a short solution</h3>
+            <p>If the board has few enough possible states, the game searches all positions one tap away, then two taps away, and so on. The first time it reaches an all-white board, it has found the fewest taps possible.</p>
+            <p>For larger boards with a prime number of states per tile, the game row reduces \(Ax=-s\). If there are few enough solutions to try, it compares them all and keeps one with the fewest taps. When an exact search is too large, including on large four-state boards, it uses a known solution whose length may be above the minimum.</p>
+            <p>Different tap-count vectors can tie for the minimum, and you can play the same vector in different orders. When the game proves a minimum, it always picks the same plan among those tied for shortest. It doesn’t tell you whether another plan ties with it.</p>
           </article>
           <article>
             <div class="mini-board" aria-hidden="true">
@@ -668,24 +664,24 @@
               <span class="lit-orange"></span><span></span><span class="lit-blue"></span>
               <span></span><span></span><span></span>
             </div>
-            <h3>Tiles with lock icons and empty holes</h3>
-            <p>A tile with a lock icon stays in the board vector because its value must become zero, and nearby taps may still change it. It does not get its own tap choice in \(x\) because it cannot be tapped directly. An empty hole is left out of the ordered list \(P\), so the equation only tracks active board positions. This is how the same equation adapts to irregular boards.</p>
+            <h3>Locked tiles and holes in the matrix</h3>
+            <p>To model a hole, leave that position out entirely. To model a lock, keep the tile’s entry in \(s\) and its row in \(A\), since it still has to turn white. Leave out its column. The remaining columns tell you which other taps can change it.</p>
           </article>
           <article>
-            <h3>How the generator uses this</h3>
-            <p>The generator uses the same ingredients: board shape, tiles with lock icons, empty holes, tap pattern, and effect vectors. It chooses or verifies a starting vector \(s\) together with a tap-count vector \(x\) satisfying \(s+Ax=0\). When the exact solver is available, it searches the solution set for a short tap-count vector so the star thresholds have a mathematical basis. Hints use a stored plan one tap at a time.</p>
+            <h3>How puzzles are made</h3>
+            <p>The generator starts with a white board and scrambles it with allowed taps. It keeps track of how to undo their combined effect, so the starting board comes with a solution. When it can, the solver finds a shortest plan for the star targets. A hint plays one tap toward a solution and outlines the tiles it changed in red.</p>
           </article>
         </section>
 
         <details class="advanced-note">
           <summary>What the symbols mean</summary>
           <dl class="symbol-list">
-            <div><dt>\(n\)</dt><dd>The number of tile states and the modulus used by the level. The app uses \(2,3,4,\) or \(5\) states.</dd></div>
-            <div><dt>\(s\)</dt><dd>The current board configuration as a vector in \(R^m\).</dd></div>
-            <div><dt>\(A\)</dt><dd>The tap matrix. Its \(j\)-th column is the effect vector \(v_j\) of the allowed tap at \(q_j\).</dd></div>
-            <div><dt>\(x\)</dt><dd>The tap-count vector in \(R^r\). Its coordinate \(x_j\) counts how many times the tap at \(q_j\) is used modulo \(n\).</dd></div>
-            <div><dt>\(\operatorname{Im}(A)\)</dt><dd>All board-change vectors obtainable by allowed taps.</dd></div>
-            <div><dt>\(\ker(A)\)</dt><dd>Tap-count vectors that produce zero board change.</dd></div>
+            <div><dt>\(n\)</dt><dd>The number of states per tile. It can be \(2\), \(3\), \(4\) or \(5\) and is the modulus for this board.</dd></div>
+            <div><dt>\(s\)</dt><dd>The board vector. Each entry is the state of one tile.</dd></div>
+            <div><dt>\(A\)</dt><dd>The tap matrix. Column \(j\) shows what changes when you tap \(q_j\).</dd></div>
+            <div><dt>\(x\)</dt><dd>The tap-count vector. Entry \(x_j\) counts taps on \(q_j\) modulo \(n\).</dd></div>
+            <div><dt>\(\operatorname{Im}(A)\)</dt><dd>The image of \(A\). It contains every board change you can make with taps.</dd></div>
+            <div><dt>\(\ker(A)\)</dt><dd>The kernel of \(A\). It contains every tap-count vector whose combined effect is zero.</dd></div>
           </dl>
         </details>
       </main>
@@ -756,7 +752,7 @@
 
         <section class="about-panel" aria-label="About Invert the Matrix">
           <div class="about-version-card">
-            <strong id="about-version">Version 1.0.16</strong>
+            <strong id="about-version">Version 1.0.17</strong>
           </div>
 
           <div class="about-changelog-card">
