@@ -116,6 +116,41 @@ LOCALES = {
             ],
         },
     },
+    "ko-KR": {
+        "language": "ko",
+        "feature": {
+            "title": "Invert the Matrix",
+            "tagline": "한 칸을 누르면 어디까지 바뀔까요?",
+            "body": "캠페인을 풀고, 일일 도전에 참가하고, 나만의 퍼즐도 만들어 보세요.",
+            "pills": ["225개 레벨", "일일 도전", "업적"],
+        },
+        "screens": {
+            "Tap tiles. Bend the board.": "한 칸을 누르면?",
+            "A colorful puzzle where one move changes a whole pattern.": "한 칸을 누를 때마다 주변 칸의 색도 함께 바뀌어요.",
+            "Campaign groups, stars, unlocks.": "캠페인에서 별을 모아 보세요.",
+            "Master handcrafted levels and open new regions of the matrix.": "레벨을 하나씩 풀며 새로운 그룹으로 나아가세요.",
+            "Solve levels with clean taps.": "몇 번 만에 풀 수 있을까요?",
+            "Every board is modular logic in motion.": "색이 바뀌는 순서를 살펴보고 모든 칸을 흰색으로 만들어 보세요.",
+            "Earn stars. Unlock achievements.": "별을 모으면 업적도 따라와요.",
+            "Clear groups or master them with perfect scores.": "그룹의 레벨을 모두 풀거나 모든 별을 모으면 업적을 달성해요.",
+            "Daily puzzles in three tiers.": "하루에 세 가지 새로운 퍼즐",
+            "Easy, Medium, and Hard challenges keep the logic fresh.": "쉬움, 보통, 어려움 중에서 오늘의 도전을 골라 보세요.",
+            "Build custom puzzles.": "나만의 퍼즐을 만들어요.",
+            "Choose states, patterns, lock icons, holes, and difficulty.": "색의 수와 패턴을 고르고, 잠긴 칸과 빈자리도 넣어 보세요.",
+            "Create and share playground boards.": "실험실에서 만든 퍼즐을 나눠요.",
+            "Puzzle codes make experiments portable.": "퍼즐 코드 하나로 친구에게 같은 판을 보낼 수 있어요.",
+            "Use hints when the proof fights back.": "막혔을 땐 힌트를 받아 보세요.",
+            "Undo, reset, and solver hints keep hard boards approachable.": "한 수를 되돌리거나 처음부터 다시 풀 수도 있어요.",
+        },
+        "listing": {
+            "short": "한 칸을 누르면 주변 색도 바뀌어요. 몇 번 만에 모든 칸을 흰색으로 만들 수 있을까요?",
+            "full": [
+                "Invert the Matrix는 한 번 누를 때마다 여러 칸의 색이 함께 바뀌는 논리 퍼즐이에요. 어디를 눌러야 할지 살펴보고 모든 칸을 흰색으로 만들어 보세요.",
+                "225개 캠페인 레벨을 차례로 풀거나 매일 새로 열리는 세 가지 난이도의 퍼즐에 도전해 보세요. 실험실에서는 나만의 판을 만들고 퍼즐 코드로 친구와 나눌 수도 있어요.",
+                "적은 횟수로 풀어 별을 모으세요. 캠페인 그룹을 완료하거나 그 안의 별을 모두 모으면 Google Play 게임즈 업적이 열려요. 풀이에 어떤 수학이 숨어 있는지 궁금하다면 게임 안의 수학 가이드를 읽어 보세요.",
+            ],
+        },
+    },
     "es-ES": {
         "language": "es",
         "feature": {
@@ -336,7 +371,14 @@ class Chrome:
         convert_png(path)
 
 
-def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
+def font(size: int, bold: bool = False, text: str = "") -> ImageFont.FreeTypeFont:
+    if any("가" <= ch <= "힣" for ch in text):
+        face = "Bold" if bold else "Regular"
+        for filename in [f"/usr/share/fonts/adobe-source-han-sans/SourceHanSansKR-{face}.otf",
+                         "/usr/share/fonts/droid/DroidSansFallback.ttf"]:
+            if Path(filename).is_file():
+                return ImageFont.truetype(filename, size)
+        raise RuntimeError("Install Source Han Sans KR or Droid Sans Fallback to render Korean store graphics.")
     names = [
         "/usr/share/fonts/adobe-source-sans/SourceSans3-Bold.otf" if bold else "/usr/share/fonts/adobe-source-sans/SourceSans3-Regular.otf",
         "/usr/share/fonts/adobe-source-sans/SourceSansPro-Bold.otf" if bold else "/usr/share/fonts/adobe-source-sans/SourceSansPro-Regular.otf",
@@ -401,11 +443,11 @@ def fit_lines(
     bold: bool,
 ) -> tuple[ImageFont.FreeTypeFont, list[str]]:
     for size in range(start_size, min_size - 1, -2):
-        face = font(size, bold=bold)
+        face = font(size, bold=bold, text=text)
         lines = wrap_lines(draw, text, face, max_width)
         if len(lines) <= max_lines and all(text_size(draw, line, face)[0] <= max_width for line in lines):
             return face, lines
-    face = font(min_size, bold=bold)
+    face = font(min_size, bold=bold, text=text)
     lines = wrap_lines(draw, text, face, max_width)[:max_lines]
     if lines:
         while text_size(draw, lines[-1], face)[0] > max_width and len(lines[-1]) > 4:
@@ -510,7 +552,7 @@ def make_feature_graphic(locale_code: str, locale: dict, out_dir: Path) -> None:
     y += 16
     draw_lines(draw, (70, y), body_lines, body_face, (210, 219, 232), 6)
 
-    pill_face = font(17, bold=True)
+    pill_face = font(17, bold=True, text=" ".join(feature["pills"]))
     pill_y = 402
     pill_x = 68
     for pill in feature["pills"]:
@@ -758,15 +800,26 @@ def make_promo_screenshot(raw_path: Path, out_path: Path, spec: dict, locale_cod
     convert_png(out_path)
 
 
-def make_screenshots() -> None:
+def make_screenshots(locales=LOCALES) -> None:
     with tempfile.TemporaryDirectory(prefix="itm-web-capture-", ignore_cleanup_errors=True) as tmp:
         capture_base = Path(tmp)
-        for locale_code, locale in LOCALES.items():
+        for locale_code in locales:
+            locale = LOCALES[locale_code]
             locale_root = capture_base / locale_code
             locale_root.mkdir(parents=True, exist_ok=True)
             html_path = prepare_capture_root(locale_root, locale)
             file_url = html_path.as_uri()
             for device, width, height, promo in SCREEN_SETS:
+                if device == "phone" and locale_code == "ko-KR":
+                    # Preserve captures from the Korean native build (including its guides).
+                    sources = sorted((OUT / "source-screenshots" / "android-phone-ko-KR").glob("*.png"))
+                    if not 2 <= len(sources) <= 8:
+                        raise RuntimeError("Expected 2–8 verified Korean Android phone captures")
+                    target = OUT / "localized" / locale_code / "screenshots" / device
+                    clear_pngs(target)
+                    for source in sources:
+                        copy_png(source, target / source.name)
+                    continue
                 raw_dir = OUT / "source-screenshots" / locale_code / device
                 final_dir = OUT / "localized" / locale_code / "screenshots" / device
                 clear_pngs(raw_dir)
@@ -785,6 +838,8 @@ def make_screenshots() -> None:
                             copy_png(raw_path, final_path)
 
     # Keep the legacy top-level paths as the English Play Console defaults.
+    if "en-US" not in locales:
+        return
     english_root = OUT / "localized" / "en-US"
     for device, width, height, _promo in SCREEN_SETS:
         out_dir = OUT / "screenshots" / device
@@ -806,7 +861,7 @@ def install_native_phone_defaults() -> None:
     targets = [
         OUT / "screenshots" / "phone",
     ]
-    targets.extend(OUT / "localized" / locale_code / "screenshots" / "phone" for locale_code in LOCALES)
+    targets.extend(OUT / "localized" / locale_code / "screenshots" / "phone" for locale_code in LOCALES if locale_code != "ko-KR")
     for target in targets:
         clear_pngs(target)
         for name in expected_names:
@@ -826,7 +881,7 @@ def write_listing_text() -> None:
     lines = [
         "# Google Play Listing Copy",
         "",
-        "Generated assets are localized for English, Spanish, and French.",
+        "Generated assets are localized for English, Spanish, French, and Korean.",
         "",
     ]
     for locale_code, locale in LOCALES.items():
@@ -854,6 +909,14 @@ def write_listing_text() -> None:
         for spec in SCREENS:
             lines.append(f"- {spec['name']}: {localized_screen_text(locale, spec['headline'])} {localized_screen_text(locale, spec['body'])}")
         lines.extend(["", "### Asset Alt Text", ""])
+        if locale_code == "ko-KR":
+            lines.extend([
+                "- Feature graphic: 게임 제목 옆에 여러 색의 칸으로 이루어진 퍼즐판이 보입니다.",
+                "- Phone screenshots: 한국어판 안드로이드 앱의 메뉴, 캠페인, 퍼즐, 일일 도전, 맞춤 레벨, 실험실, 게임 방법, 수학 가이드.",
+                "- Tablet screenshots: 한국어판 메뉴, 캠페인, 퍼즐, 완료 화면, 일일 도전, 맞춤 레벨, 실험실, 힌트.",
+                "",
+            ])
+            continue
         lines.append("- Feature graphic: Invert the Matrix title beside a colorful modular tile board.")
         for device, width, height, promo in SCREEN_SETS:
             if device == "phone":
@@ -893,14 +956,24 @@ def write_readme() -> None:
         "- `localized/es-ES/screenshots/**`",
         "- `localized/fr-FR/feature-graphic/feature-graphic-1024x500.png`",
         "- `localized/fr-FR/screenshots/**`",
+        "- `localized/ko-KR/feature-graphic/feature-graphic-1024x500.png`",
+        "- `localized/ko-KR/screenshots/**`",
         "",
-        "Raw capture sources are kept under `source-screenshots/` for review. Native Android phone captures live under `source-screenshots/android-phone/` and are preserved by the generator.",
+        "Raw capture sources are kept under `source-screenshots/` for review. Native Android phone captures live under `source-screenshots/android-phone/` and `source-screenshots/android-phone-ko-KR/`. The generator preserves them.",
         "",
         "Regenerate from the repo root with:",
         "",
         "```sh",
         "python3 tools/generate_play_store_assets.py",
         "```",
+        "",
+        "Upload through the Android Publisher API with:",
+        "",
+        "```sh",
+        "python3 tools/upload_play_store_assets.py --commit",
+        "```",
+        "",
+        "This uses `.secrets/play-games-service-account.json`. The Google Play Android Developer API must be enabled on that service account's Google Cloud project before upload.",
     ]
     (OUT / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 

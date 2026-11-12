@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "play-store-assets"
 SERVICE_ACCOUNT = ROOT / ".secrets" / "play-games-service-account.json"
 PACKAGE_NAME = "invert_the_matrix.myapp"
-LOCALES = ("en-US", "es-ES", "fr-FR")
+LOCALES = ("en-US", "es-ES", "fr-FR", "ko-KR")
 SCOPE = "https://www.googleapis.com/auth/androidpublisher"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 API = "https://androidpublisher.googleapis.com/androidpublisher/v3"
@@ -110,12 +110,13 @@ class PlayApi:
 
 
 def image_manifest(locale: str) -> dict[str, list[Path]]:
+    locale_dir = OUT / "localized" / locale
     return {
         "icon": [OUT / "icon" / "play-store-icon-512.png"],
-        "featureGraphic": [OUT / "feature-graphic" / "feature-graphic-1024x500.png"],
-        "phoneScreenshots": sorted((OUT / "screenshots" / "phone").glob("*.png")),
-        "sevenInchScreenshots": sorted((OUT / "screenshots" / "tablet-7-inch").glob("*.png")),
-        "tenInchScreenshots": sorted((OUT / "screenshots" / "tablet-10-inch").glob("*.png")),
+        "featureGraphic": [locale_dir / "feature-graphic" / "feature-graphic-1024x500.png"],
+        "phoneScreenshots": sorted((locale_dir / "screenshots" / "phone").glob("*.png")),
+        "sevenInchScreenshots": sorted((locale_dir / "screenshots" / "tablet-7-inch").glob("*.png")),
+        "tenInchScreenshots": sorted((locale_dir / "screenshots" / "tablet-10-inch").glob("*.png")),
     }
 
 

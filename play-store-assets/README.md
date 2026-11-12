@@ -24,8 +24,10 @@ Localized files:
 - `localized/es-ES/screenshots/**`
 - `localized/fr-FR/feature-graphic/feature-graphic-1024x500.png`
 - `localized/fr-FR/screenshots/**`
+- `localized/ko-KR/feature-graphic/feature-graphic-1024x500.png`
+- `localized/ko-KR/screenshots/**`
 
-Raw capture sources are kept under `source-screenshots/` for review. Native Android phone captures live under `source-screenshots/android-phone/` and are preserved by the generator.
+Raw capture sources are kept under `source-screenshots/` for review. Native Android phone captures live under `source-screenshots/android-phone/` and `source-screenshots/android-phone-ko-KR/`. The generator preserves them.
 
 Regenerate from the repo root with:
 

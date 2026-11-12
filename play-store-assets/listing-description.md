@@ -1,6 +1,6 @@
 # Google Play Listing Copy
 
-Generated assets are localized for English, Spanish, and French.
+Generated assets are localized for English, Spanish, French, and Korean.
 
 ## en-US
 
@@ -38,6 +38,42 @@ Earn stars for efficient solves and unlock Play Games achievements as you clear 
 - phone screenshots: 1080x1920 native Android captures of menu, campaign, gameplay, daily, custom, playground, and hint flows.
 - tablet-7-inch screenshots: 1080x1920 raw captures of menu, campaign, gameplay, daily, custom, playground, and hint flows.
 - tablet-10-inch screenshots: 1440x2560 raw captures of menu, campaign, gameplay, daily, custom, playground, and hint flows.
+
+## ko-KR
+
+### Short Description
+
+한 칸을 누르면 주변 색도 바뀌어요. 몇 번 만에 모든 칸을 흰색으로 만들 수 있을까요?
+
+### Full Description
+
+Invert the Matrix는 한 번 누를 때마다 여러 칸의 색이 함께 바뀌는 논리 퍼즐이에요. 어디를 눌러야 할지 살펴보고 모든 칸을 흰색으로 만들어 보세요.
+225개 캠페인 레벨을 차례로 풀거나 매일 새로 열리는 세 가지 난이도의 퍼즐에 도전해 보세요. 실험실에서는 나만의 판을 만들고 퍼즐 코드로 친구와 나눌 수도 있어요.
+적은 횟수로 풀어 별을 모으세요. 캠페인 그룹을 완료하거나 그 안의 별을 모두 모으면 Google Play 게임즈 업적이 열려요. 풀이에 어떤 수학이 숨어 있는지 궁금하다면 게임 안의 수학 가이드를 읽어 보세요.
+
+### Feature Graphic Copy
+
+- Title: Invert the Matrix
+- Tagline: 한 칸을 누르면 어디까지 바뀔까요?
+- Body: 캠페인을 풀고, 일일 도전에 참가하고, 나만의 퍼즐도 만들어 보세요.
+- Pills: 225개 레벨, 일일 도전, 업적
+
+### Screenshot Overlay Copy
+
+- 01-main-menu: 한 칸을 누르면? 한 칸을 누를 때마다 주변 칸의 색도 함께 바뀌어요.
+- 02-campaign-map: 캠페인에서 별을 모아 보세요. 레벨을 하나씩 풀며 새로운 그룹으로 나아가세요.
+- 03-gameplay-level: 몇 번 만에 풀 수 있을까요? 색이 바뀌는 순서를 살펴보고 모든 칸을 흰색으로 만들어 보세요.
+- 04-completion-stars: 별을 모으면 업적도 따라와요. 그룹의 레벨을 모두 풀거나 모든 별을 모으면 업적을 달성해요.
+- 05-daily-challenge: 하루에 세 가지 새로운 퍼즐 쉬움, 보통, 어려움 중에서 오늘의 도전을 골라 보세요.
+- 06-custom-builder: 나만의 퍼즐을 만들어요. 색의 수와 패턴을 고르고, 잠긴 칸과 빈자리도 넣어 보세요.
+- 07-playground: 실험실에서 만든 퍼즐을 나눠요. 퍼즐 코드 하나로 친구에게 같은 판을 보낼 수 있어요.
+- 08-hints-and-patterns: 막혔을 땐 힌트를 받아 보세요. 한 수를 되돌리거나 처음부터 다시 풀 수도 있어요.
+
+### Asset Alt Text
+
+- Feature graphic: 게임 제목 옆에 여러 색의 칸으로 이루어진 퍼즐판이 보입니다.
+- Phone screenshots: 한국어판 안드로이드 앱의 메뉴, 캠페인, 퍼즐, 일일 도전, 맞춤 레벨, 실험실, 게임 방법, 수학 가이드.
+- Tablet screenshots: 한국어판 메뉴, 캠페인, 퍼즐, 완료 화면, 일일 도전, 맞춤 레벨, 실험실, 힌트.
 
 ## es-ES
 
