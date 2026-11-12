@@ -2,6 +2,38 @@
 
 Summarized release notes for Invert the Matrix.
 
+## 1.0.16 - 2026-10-24
+
+Version code: 18
+
+- Retained Android 16 (API level 36) targeting for Google Play updates.
+- Raised the minimum supported version to Android 7 (API level 24) to retain
+  the app's enabled Google Play automatic protection.
+- Hardened system Back navigation, display insets, and activity lifecycle handling
+  for Android 16.
+- Added release validation for the target API level, release signing, and
+  16 KB native library compatibility.
+- Aligned the version and release history across web and Android in English,
+  Spanish, and French.
+
+Play Store "What's new":
+
+Improved Android 16 compatibility, system Back navigation, and screen layout
+around system bars. The Android app now requires Android 7 or later.
+
+Localized Play Store "What's new":
+
+en-US: Improved Android 16 compatibility, system Back navigation, and screen
+layout around system bars. The Android app now requires Android 7 or later.
+
+es-ES: Se mejoraron la compatibilidad con Android 16, la navegación Atrás del
+sistema y la distribución de la pantalla junto a las barras del sistema.
+La aplicación de Android requiere ahora Android 7 o posterior.
+
+fr-FR: Amélioration de la compatibilité avec Android 16, du retour système et
+de la disposition de l'écran autour des barres système. L'application Android
+nécessite désormais Android 7 ou une version ultérieure.
+
 ## Android 1.0.15 - 2026-09-01
 
 Version code: 17

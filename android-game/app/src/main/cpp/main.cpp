@@ -64,11 +64,14 @@
 #include "third_party/stb_truetype.h"
 
 #include "generated/math_assets.h"
+#include "platform_events.h"
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "InvertMatrixCpp", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "InvertMatrixCpp", __VA_ARGS__)
 
 namespace {
+
+platform::EventQueue platformEvents;
 
 struct Color {
     float r;
@@ -134,7 +137,7 @@ constexpr int64_t HINT_COOLDOWN_MS = 500;
 constexpr int64_t HINT_COMPLETION_DELAY_MS = 500;
 constexpr int EXACT_BFS_STATE_LIMIT = 500000;
 constexpr int EXACT_NULLSPACE_LIMIT = 500000;
-constexpr const char *APP_VERSION_NAME = "1.0.15";
+constexpr const char *APP_VERSION_NAME = "1.0.16";
 constexpr const char *GITHUB_PROFILE_URL = "https://github.com/pportilla";
 constexpr const char *GITHUB_MARK_SVG_PATH =
         "M8 0 C3.58 0 0 3.58 0 8 "
@@ -201,6 +204,8 @@ struct Renderer {
     GLint textSamplerLoc = -1;
     int width = 0;
     int height = 0;
+    int surfaceWidth = 0;
+    platform::Insets safeInsets;
     bool fontReady = false;
     std::vector<unsigned char> vectorFontData;
     stbtt_fontinfo vectorFontInfo{};
@@ -270,11 +275,12 @@ struct Renderer {
             return false;
         }
         eglSwapInterval(display, 1);
-        eglQuerySurface(display, surface, EGL_WIDTH, &width);
+        eglQuerySurface(display, surface, EGL_WIDTH, &surfaceWidth);
         eglQuerySurface(display, surface, EGL_HEIGHT, &height);
+        width = platform::contentWidth(surfaceWidth, safeInsets);
         initGl();
         initSkia();
-        glViewport(0, 0, width, height);
+        applyViewport();
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         return true;
@@ -289,17 +295,33 @@ struct Renderer {
             nextWidth <= 0 || nextHeight <= 0) {
             return false;
         }
-        bool changed = nextWidth != width || nextHeight != height;
-        width = nextWidth;
+        bool changed = nextWidth != surfaceWidth || nextHeight != height;
+        surfaceWidth = nextWidth;
+        width = platform::contentWidth(surfaceWidth, safeInsets);
         height = nextHeight;
         if (changed) {
             skCanvas = nullptr;
             skSurface.reset();
         }
         if (changed || forceViewport) {
-            glViewport(0, 0, width, height);
+            applyViewport();
         }
         return changed;
+    }
+
+    void applyViewport() const {
+        glViewport(safeInsets.left, 0, width, height);
+        // Skia can leave a narrower scissor active after submitting a shape.
+        // Restore our content clip before every direct OpenGL draw.
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(safeInsets.left, 0, width, height);
+        if (skContext) skContext->resetContext();
+    }
+
+    void setSafeInsets(platform::Insets insets) {
+        safeInsets = insets;
+        if (surfaceWidth > 0) width = platform::contentWidth(surfaceWidth, safeInsets);
+        if (ready()) applyViewport();
     }
 
     void initSkia() {
@@ -322,7 +344,7 @@ struct Renderer {
         GrGLFramebufferInfo fbInfo;
         fbInfo.fFBOID = static_cast<GrGLuint>(framebuffer);
         fbInfo.fFormat = GR_GL_RGBA8;
-        auto target = GrBackendRenderTargets::MakeGL(width, height, 0, 8, fbInfo);
+        auto target = GrBackendRenderTargets::MakeGL(surfaceWidth, height, 0, 8, fbInfo);
         skSurface = SkSurfaces::WrapBackendRenderTarget(skContext.get(),
                                                         target,
                                                         kBottomLeft_GrSurfaceOrigin,
@@ -544,6 +566,7 @@ struct Renderer {
         surface = EGL_NO_SURFACE;
         width = 0;
         height = 0;
+        surfaceWidth = 0;
         if (vbo) glDeleteBuffers(1, &vbo);
         if (textVbo) glDeleteBuffers(1, &textVbo);
         if (fontTexture) glDeleteTextures(1, &fontTexture);
@@ -568,7 +591,10 @@ struct Renderer {
         ensureSkiaSurface();
         if (skiaReady()) {
             skCanvas->clear(skColor(BG));
+            skCanvas->translate(static_cast<float>(safeInsets.left), 0.0f);
+            skCanvas->clipRect(SkRect::MakeWH(static_cast<float>(width), static_cast<float>(height)));
         } else {
+            glDisable(GL_SCISSOR_TEST);
             glClearColor(BG.r, BG.g, BG.b, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
         }
@@ -867,6 +893,7 @@ struct Renderer {
         if (vertices.empty()) {
             return;
         }
+        applyViewport();
         glUseProgram(program);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_DYNAMIC_DRAW);
@@ -1032,6 +1059,7 @@ struct Renderer {
         }};
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        applyViewport();
         glUseProgram(textProgram);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, mathTexture);
@@ -1086,6 +1114,7 @@ struct Renderer {
             if (!tv.empty()) {
                 glEnable(GL_BLEND);
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                applyViewport();
                 glUseProgram(textProgram);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, fontTexture);
@@ -2468,6 +2497,8 @@ struct MathImageAsset {
 
 struct AppState {
     android_app *native = nullptr;
+    bool resumed = false;
+    int platformBackEnabled = -1;
     Renderer renderer;
     SoundEngine audio;
     Progress progress;
@@ -2880,6 +2911,7 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"solution exists iff", "hay solución sii"},
             {"solutions", "soluciones"},
             {"is a field", "es un cuerpo"},
+            {"Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later.", "Se mejoraron la compatibilidad con Android 16, la navegación Atrás del sistema y la distribución de la pantalla junto a las barras del sistema. La aplicación de Android requiere ahora Android 7 o posterior."},
             {"Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility.", "Se actualizaron las dependencias AndroidX Activity y Fragment a versiones compatibles actuales para Google Play."},
             {"Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand.", "La app ahora está orientada a Android 16, mantiene fiable la navegación Atrás del sistema y deja claro el objetivo de poner todas las casillas en blanco, con ayuda del efecto de toque disponible cuando se necesite."},
             {"The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress.", "El menú principal ahora incluye Logros, el tablero animado es más grande y Android abre el estado de logros de Play Games mientras la app web muestra el progreso de logros de campaña."},
@@ -3215,6 +3247,7 @@ const std::unordered_map<std::string, std::string> &translationTable(const std::
             {"solution exists iff", "solution existe ssi"},
             {"solutions", "solutions"},
             {"is a field", "est un corps"},
+            {"Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later.", "Amélioration de la compatibilité avec Android 16, du retour système et de la disposition de l'écran autour des barres système. L'application Android nécessite désormais Android 7 ou une version ultérieure."},
             {"Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility.", "Mise à jour des dépendances AndroidX Activity et Fragment vers les versions prises en charge actuelles pour Google Play."},
             {"Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand.", "L’application cible désormais Android 16, maintient un retour système fiable et clarifie l’objectif de rendre toutes les tuiles blanches, avec une aide sur l’effet de toucher disponible à la demande."},
             {"The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress.", "Le menu principal inclut maintenant Succès, le plateau animé est plus grand, et Android ouvre l'état des succès Play Games tandis que la version web affiche la progression des succès de campagne."},
@@ -3272,8 +3305,8 @@ std::string localizedDailyTierLabel(AppState *s, int tier) {
 }
 
 float dp(AppState *s, float v) { return v * s->density; }
-float safeTop(AppState *s) { return dp(s, 70); }
-float safeBottom(AppState *s) { return dp(s, 30); }
+float safeTop(AppState *s) { return std::max(dp(s, 70), static_cast<float>(s->renderer.safeInsets.top)); }
+float safeBottom(AppState *s) { return std::max(dp(s, 30), static_cast<float>(s->renderer.safeInsets.bottom)); }
 
 bool scrollable(Screen screen) {
     return screen == Screen::Main || screen == Screen::Campaign || screen == Screen::Freeplay ||
@@ -7218,7 +7251,7 @@ void drawGithubLogo(AppState *s, float cx, float cy, float size, bool finishSkia
                 r.skCanvas = nullptr;
                 r.skSurface.reset();
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                glViewport(0, 0, r.width, r.height);
+                r.applyViewport();
             }
             return;
         }
@@ -7361,7 +7394,8 @@ void drawAbout(AppState *s) {
     y += version.h + gap;
 
     drawGuideBlock(s, y, "Changelog",
-                   {"- 1.0.15 - 2026-09-01: " + tr(s, "Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility."),
+                   {"- 1.0.16 - 2026-10-24: " + tr(s, "Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later."),
+                    "- 1.0.15 - 2026-09-01: " + tr(s, "Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility."),
                     "- 1.0.14 - 2026-09-01: " + tr(s, "Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand."),
                     "- 1.0.13 - 2026-05-30: " + tr(s, "The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress."),
                     "- 1.0.12 - 2026-05-30: " + tr(s, "First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements."),
@@ -8215,7 +8249,7 @@ void updateInteractionState(AppState *s) {
 }
 
 void render(AppState *s) {
-    if (!s->renderer.ready()) return;
+    if (!platform::shouldRender(s->resumed, s->renderer.ready())) return;
     updateInteractionState(s);
     s->buttons.clear();
     s->renderer.begin();
@@ -8784,6 +8818,53 @@ void back(AppState *s) {
     }
 }
 
+bool callPlatformBridge(AppState *s, const char *methodName, const char *signature, bool enabled = false) {
+    JavaVM *vm = s->native->activity->vm;
+    JNIEnv *env = nullptr;
+    bool detach = vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK;
+    if (detach && vm->AttachCurrentThread(&env, nullptr) != JNI_OK) return false;
+    bool success = false;
+
+    jobject activity = s->native->activity->clazz;
+    jclass activityClass = env->GetObjectClass(activity);
+    jmethodID getClassLoader = env->GetMethodID(activityClass, "getClassLoader", "()Ljava/lang/ClassLoader;");
+    jobject loader = getClassLoader ? env->CallObjectMethod(activity, getClassLoader) : nullptr;
+    jclass loaderClass = env->FindClass("java/lang/ClassLoader");
+    jmethodID loadClass = loaderClass ? env->GetMethodID(loaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;") : nullptr;
+    jstring name = env->NewStringUTF("invert_the_matrix.myapp.PlatformBridge");
+    jclass bridge = loader && loadClass ? static_cast<jclass>(env->CallObjectMethod(loader, loadClass, name)) : nullptr;
+    if (bridge && !env->ExceptionCheck()) {
+        jmethodID method = env->GetStaticMethodID(bridge, methodName, signature);
+        if (method) {
+            if (std::strcmp(signature, "(Landroid/app/Activity;Z)V") == 0) {
+                env->CallStaticVoidMethod(bridge, method, activity, static_cast<jboolean>(enabled));
+            } else {
+                env->CallStaticVoidMethod(bridge, method, activity);
+            }
+            success = !env->ExceptionCheck();
+        }
+    }
+    if (env->ExceptionCheck()) {
+        LOGE("Unable to call platform bridge method %s", methodName);
+        env->ExceptionClear();
+    }
+    if (bridge) env->DeleteLocalRef(bridge);
+    if (name) env->DeleteLocalRef(name);
+    if (loaderClass) env->DeleteLocalRef(loaderClass);
+    if (loader) env->DeleteLocalRef(loader);
+    env->DeleteLocalRef(activityClass);
+    if (detach) vm->DetachCurrentThread();
+    return success;
+}
+
+void syncPlatformBackRegistration(AppState *s) {
+    bool enabled = s->screen != Screen::Main || s->patternInfoOpen || s->dailyExitConfirm;
+    if (s->platformBackEnabled == static_cast<int>(enabled)) return;
+    if (callPlatformBridge(s, "setInternalBackEnabled", "(Landroid/app/Activity;Z)V", enabled)) {
+        s->platformBackEnabled = enabled;
+    }
+}
+
 int64_t motionEventTimeMs(const AInputEvent *event) {
     return AMotionEvent_getEventTime(event) / 1000000LL;
 }
@@ -8882,15 +8963,18 @@ int32_t handleInput(android_app *app, AInputEvent *event) {
     if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_KEY) {
         int key = AKeyEvent_getKeyCode(event);
         int action = AKeyEvent_getAction(event);
-        if (key == AKEYCODE_BACK && action == AKEY_EVENT_ACTION_UP) {
-            back(s);
+        // Android 12 and older still deliver key events. At the root, let the
+        // system handle back-to-home, just as the Android 13+ dispatcher does.
+        if (app->activity->sdkVersion < 33 && key == AKEYCODE_BACK &&
+            (s->screen != Screen::Main || s->patternInfoOpen || s->dailyExitConfirm)) {
+            if (action == AKEY_EVENT_ACTION_UP) back(s);
             return 1;
         }
         return 0;
     }
     if (AInputEvent_getType(event) != AINPUT_EVENT_TYPE_MOTION) return 0;
     int action = AMotionEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK;
-    float x = AMotionEvent_getX(event, 0);
+    float x = AMotionEvent_getX(event, 0) - s->renderer.safeInsets.left;
     float y = AMotionEvent_getY(event, 0);
     int64_t eventTimeMs = motionEventTimeMs(event);
     if (action == AMOTION_EVENT_ACTION_DOWN) {
@@ -8996,6 +9080,22 @@ void handleCmd(android_app *app, int32_t cmd) {
         case APP_CMD_TERM_WINDOW:
             s->renderer.shutdown();
             break;
+        case APP_CMD_RESUME:
+            s->resumed = true;
+            handleWindowMetricsChanged(s, true);
+            break;
+        case APP_CMD_PAUSE:
+        case APP_CMD_STOP:
+            s->resumed = false;
+            s->dragging = false;
+            stopScrollMomentum(s);
+            clearPressStateForScroll(s);
+            break;
+        case APP_CMD_LOST_FOCUS:
+            s->dragging = false;
+            stopScrollMomentum(s);
+            clearPressStateForScroll(s);
+            break;
         case APP_CMD_GAINED_FOCUS:
             break;
         default:
@@ -9005,7 +9105,20 @@ void handleCmd(android_app *app, int32_t cmd) {
 
 } // namespace
 
+extern "C" JNIEXPORT void JNICALL
+Java_invert_1the_1matrix_myapp_PlatformBridge_nativeRequestBack(JNIEnv *, jclass) {
+    platformEvents.requestBack();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_invert_1the_1matrix_myapp_PlatformBridge_nativeUpdateInsets(
+        JNIEnv *, jclass, jint left, jint top, jint right, jint bottom) {
+    platformEvents.updateInsets({left, top, right, bottom});
+}
+
 extern "C" void android_main(android_app *app) {
+    ALooper_acquire(app->looper);
+    platformEvents.setWake([looper = app->looper]() { ALooper_wake(looper); });
     AppState state;
     state.native = app;
     state.renderer.app = app;
@@ -9027,16 +9140,37 @@ extern "C" void android_main(android_app *app) {
     while (true) {
         int events = 0;
         android_poll_source *source = nullptr;
-        int timeout = state.renderer.ready() ? 0 : -1;
+        int timeout = platform::shouldRender(state.resumed, state.renderer.ready()) ? 0 : -1;
         while (ALooper_pollOnce(timeout, nullptr, &events, reinterpret_cast<void **>(&source)) >= 0) {
             if (source) source->process(app, source);
             if (app->destroyRequested) {
+                platformEvents.setWake({});
+                platformEvents.take();
+                ALooper_release(app->looper);
                 state.renderer.shutdown();
                 state.audio.shutdown();
                 return;
             }
             timeout = 0;
         }
+        platform::Events pending = platformEvents.take();
+        if (pending.insetsChanged) {
+            state.renderer.setSafeInsets(pending.insets);
+            state.scroll = clampScrollOffset(&state, state.scroll);
+            state.dragging = false;
+            stopScrollMomentum(&state);
+            clearPressStateForScroll(&state);
+        }
+        if (state.resumed) {
+            for (unsigned i = 0; i < pending.backRequests; ++i) {
+                if (state.screen == Screen::Main && !state.patternInfoOpen && !state.dailyExitConfirm) {
+                    callPlatformBridge(&state, "onNativeBackAtRoot", "(Landroid/app/Activity;)V");
+                } else {
+                    back(&state);
+                }
+            }
+        }
+        syncPlatformBackRegistration(&state);
         render(&state);
     }
 }

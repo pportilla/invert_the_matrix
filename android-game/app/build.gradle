@@ -15,14 +15,15 @@ def campaignAssetFile = layout.buildDirectory.file("generated/assets/campaign/ca
 android {
     namespace = "invert_the_matrix.myapp"
     compileSdk 36
-    buildToolsVersion "36.0.0"
+    buildToolsVersion = "36.0.0"
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId "invert_the_matrix.myapp"
-        minSdk 23
+        minSdk 24
         targetSdk 36
-        versionCode 17
-        versionName "1.0.15"
+        versionCode 18
+        versionName "1.0.16"
         ndk {
             abiFilters "arm64-v8a", "x86_64"
         }
@@ -32,6 +33,13 @@ android {
         main {
             jniLibs.srcDirs = ["src/main/jniLibs"]
             assets.srcDirs += [campaignAssetsDir.get().asFile]
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Keep Play-generated APKs eligible for 16 KB ZIP alignment.
+            useLegacyPackaging = false
         }
     }
 
@@ -128,9 +136,13 @@ nativeTargets.each { target ->
     def buildNativeTask = "buildNative${target.suffix}"
 
     tasks.register(buildSkiaTask, Exec) {
+        inputs.property("gnArgs", skiaGnArgs(target.skiaCpu))
+        inputs.file(rootProject.file("local-sdk/ndk/28.2.13676358/source.properties"))
         inputs.files(fileTree("${skiaRoot}/include"))
         inputs.files(fileTree("${skiaRoot}/src"))
         outputs.file(file("${skiaOut}/libskia.a"))
+        outputs.file(file("${skiaOut}/libskcms.a"))
+        outputs.file(file("${skiaOut}/libcpu-features.a"))
 
         doFirst {
             if (!skiaRoot.exists()) {
@@ -149,6 +161,9 @@ nativeTargets.each { target ->
     }
 
     tasks.register(buildNativeTask, Exec) {
+        // Changes to compiler/linker flags must invalidate the native outputs.
+        inputs.file(project.buildFile)
+        inputs.file(rootProject.file("local-sdk/ndk/28.2.13676358/source.properties"))
         inputs.files(fileTree("src/main/cpp"))
         inputs.file(file("${skiaOut}/libskia.a"))
         inputs.file(file("${skiaOut}/libskcms.a"))
@@ -158,7 +173,7 @@ nativeTargets.each { target ->
 
         doFirst {
             if (!ndkRoot.exists()) {
-                throw new GradleException("NDK not found at ${ndkRoot}. Install it with: ${rootProject.file("local-sdk")}/cmdline-tools/latest/bin/android --no-metrics --sdk=${rootProject.file("local-sdk")} sdk install ndk/28.2.13676358")
+                throw new GradleException("NDK not found at ${ndkRoot}. Install it with: '${rootProject.file("local-sdk")}/cmdline-tools/latest/bin/sdkmanager' --sdk_root='${rootProject.file("local-sdk")}' 'ndk;28.2.13676358'")
             }
             nativeOut.parentFile.mkdirs()
             nativeSymbolOut.parentFile.mkdirs()
@@ -181,7 +196,7 @@ nativeTargets.each { target ->
             UNSTRIPPED="\$OBJ/libinvertmatrix.unstripped.so"
             "\$CLANGXX" -std=c++17 -O2 -g -fPIC -DANDROID -DSK_GANESH -DSK_GL -DSK_ASSUME_GL_ES=1 -Wall -Wextra -Wno-unused-parameter -I"\$INC" -I"\$SKIA" -c src/main/cpp/main.cpp -o "\$OBJ/main.o"
             "\$CLANG" -O2 -g -fPIC -DANDROID -I"\$INC" -c "\$GLUE" -o "\$OBJ/android_native_app_glue.o"
-            "\$CLANGXX" -shared "\$OBJ/main.o" "\$OBJ/android_native_app_glue.o" -o "\$UNSTRIPPED" -static-libstdc++ -Wl,--no-undefined -Wl,--start-group "\$SKIA_OUT/libskia.a" "\$SKIA_OUT/libskcms.a" "\$SKIA_OUT/libcpu-features.a" -Wl,--end-group -landroid -llog -lOpenSLES -lEGL -lGLESv2 -lm -latomic
+            "\$CLANGXX" -shared "\$OBJ/main.o" "\$OBJ/android_native_app_glue.o" -o "\$UNSTRIPPED" -static-libstdc++ -Wl,--no-undefined -Wl,--build-id=sha1 -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384 -Wl,--start-group "\$SKIA_OUT/libskia.a" "\$SKIA_OUT/libskcms.a" "\$SKIA_OUT/libcpu-features.a" -Wl,--end-group -landroid -llog -lOpenSLES -lEGL -lGLESv2 -lm -latomic
             cp "\$UNSTRIPPED" "\$SYMBOL_OUT"
             "\$STRIP" --strip-debug "\$SYMBOL_OUT"
             cp "\$UNSTRIPPED" "\$OUT"
@@ -216,6 +231,70 @@ tasks.configureEach {
 }
 
 preBuild.dependsOn("syncCampaignLevels", "verifyCampaignLevelsAsset", nativeTaskNames)
+
+// A successful release build must never silently produce an unsigned bundle.
+tasks.register("verifyReleaseConfiguration") {
+    doLast {
+        if (android.defaultConfig.targetSdk < 36) {
+            throw new GradleException("Google Play releases must target API 36 or higher. Review the current Play target API policy before raising this floor.")
+        }
+        if (android.defaultConfig.minSdk < 24) {
+            throw new GradleException("Google Play automatic protection requires a minimum SDK of 24 for this app. Keep protection enabled and support Android 7 or later.")
+        }
+        def required = ["storeFile", "storePassword", "keyAlias", "keyPassword"]
+        if (required.any { !keystoreProperties[it] }) {
+            throw new GradleException("Release signing is incomplete. Configure signing/keystore.properties with the existing Play upload key.")
+        }
+        if (!rootProject.file(keystoreProperties["storeFile"]).isFile()) {
+            throw new GradleException("The configured release upload keystore does not exist.")
+        }
+    }
+}
+
+tasks.configureEach {
+    if (name == "preReleaseBuild") dependsOn("verifyReleaseConfiguration")
+}
+
+def platformEventsTest = layout.buildDirectory.file("tests/platform-events-test")
+tasks.register("buildPlatformEventsTest", Exec) {
+    inputs.files(rootProject.file("tests/platform_events_test.cpp"), file("src/main/cpp/platform_events.h"))
+    outputs.file(platformEventsTest)
+    doFirst { platformEventsTest.get().asFile.parentFile.mkdirs() }
+    commandLine "c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-pthread",
+            rootProject.file("tests/platform_events_test.cpp").absolutePath,
+            "-o", platformEventsTest.get().asFile.absolutePath
+}
+
+tasks.register("verifyPlatformEvents", Exec) {
+    dependsOn("buildPlatformEventsTest")
+    commandLine platformEventsTest.get().asFile.absolutePath
+}
+
+tasks.register("testReleaseVerifier", Exec) {
+    workingDir rootProject.projectDir
+    commandLine providers.gradleProperty("pythonExecutable").getOrElse("python3"),
+            "-m", "unittest", "discover", "-s", "tools", "-p", "test_verify_release.py"
+}
+
+tasks.register("verifyPlayRelease") {
+    group = "verification"
+    description = "Build and inspect signed Play artifacts, SDK versions, and 16 KB native alignment."
+    dependsOn("bundleRelease", "assembleRelease", "lintRelease", "verifyPlatformEvents", "testReleaseVerifier")
+    doLast {
+        def python = providers.gradleProperty("pythonExecutable").getOrElse("python3")
+        ["outputs/bundle/release/app-release.aab", "outputs/apk/release/app-release.apk"].each { artifact ->
+            def verification = providers.exec {
+                workingDir rootProject.projectDir
+                ignoreExitValue = true
+                commandLine python, "tools/verify-release.py", "--artifact", layout.buildDirectory.file(artifact).get().asFile.absolutePath
+            }
+            logger.lifecycle(verification.standardOutput.asText.get())
+            def verificationErrors = verification.standardError.asText.get()
+            if (verificationErrors) logger.error(verificationErrors)
+            verification.result.get().assertNormalExitValue()
+        }
+    }
+}
 
 dependencies {
     // Play Games still requests obsolete AndroidX transitive versions. These

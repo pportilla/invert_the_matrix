@@ -8,6 +8,7 @@ public final class InvertMatrixApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        PlatformBridge.install(this);
         PlayGamesSdk.initialize(this);
     }
 }

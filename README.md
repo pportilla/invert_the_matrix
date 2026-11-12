@@ -37,6 +37,9 @@ Platform services such as Play Games leaderboards should remain Android-only.
 
 ## Android App
 
+The Android app supports Android 7 (API level 24) and later. This minimum keeps
+the app compatible with the automatic protection enabled in Google Play.
+
 Requirements:
 
 - Linux development environment
@@ -58,13 +61,13 @@ mkdir -p local-sdk
 export ANDROID_HOME="$PWD/local-sdk"
 export ANDROID_SDK_ROOT="$PWD/local-sdk"
 
-# Use the Android CLI bundled with the current command-line tools.
+# Use the SDK manager bundled with the command-line tools.
 export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
-android --no-metrics --sdk="$ANDROID_SDK_ROOT" sdk install \
+sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
   platform-tools \
-  platforms/android-36 \
-  build-tools/36.0.0 \
-  ndk/28.2.13676358
+  'platforms;android-36' \
+  'build-tools;36.0.0' \
+  'ndk;28.2.13676358'
 ```
 
 Fetch Skia:
@@ -89,6 +92,12 @@ Build a release bundle:
 cd android-game
 ./gradlew :app:bundleRelease
 ```
+
+Before uploading to Google Play, run `./gradlew :app:verifyPlayRelease` from
+`android-game/`. This builds and checks the signed release artifacts, target
+API, version metadata, and 16 KB native compatibility. See
+[the Android release procedure](android-game/README.md#play-release-procedure)
+for emulator testing and production rollout.
 
 The release artifact is written to:
 

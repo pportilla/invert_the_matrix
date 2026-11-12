@@ -7,10 +7,25 @@
   "use strict";
 
   var STORAGE_KEY = "resonance-grid-progress-v1";
-  var APP_VERSION = "1.0.13";
+  var APP_VERSION = "1.0.16";
   var CAMPAIGN_DATA_URL = "campaign-levels.json";
   var MATHJAX_URL = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js";
   var CHANGELOG_ENTRIES = [
+    {
+      version: "1.0.16",
+      date: "2026-10-24",
+      text: "Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later."
+    },
+    {
+      version: "1.0.15",
+      date: "2026-09-01",
+      text: "Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility."
+    },
+    {
+      version: "1.0.14",
+      date: "2026-09-01",
+      text: "Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand."
+    },
     {
       version: "1.0.13",
       date: "2026-05-30",
@@ -273,6 +288,9 @@
       "Best": "Mejor",
       "Chapter": "Capítulo",
       "Inversion": "Inversión",
+      "Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later.": "Se mejoraron la compatibilidad con Android 16, la navegación Atrás del sistema y la distribución de la pantalla junto a las barras del sistema. La aplicación de Android requiere ahora Android 7 o posterior.",
+      "Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility.": "Se actualizaron las dependencias AndroidX Activity y Fragment a versiones compatibles actuales para Google Play.",
+      "Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand.": "La app ahora está orientada a Android 16, mantiene fiable la navegación Atrás del sistema y deja claro el objetivo de poner todas las casillas en blanco, con ayuda del efecto de toque disponible cuando se necesite.",
       "The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress.": "El menú principal ahora incluye Logros, el tablero animado es más grande y Android abre el estado de logros de Play Games mientras la app web muestra el progreso de logros de campaña.",
       "First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements.": "Primera versión de producción con niveles de campaña, retos diarios, rompecabezas personalizados, tableros de Zona de pruebas, pistas, estrellas y logros de Play Games.",
       "Added a separate setting for Playground tile numbers, keeping Playground boards number-free unless it is turned on.": "Se añadió un ajuste separado para los números en casillas de Zona de pruebas, para que sus tableros no muestren números salvo que esté activado.",
@@ -582,6 +600,9 @@
       "Best": "Meilleur",
       "Chapter": "Chapitre",
       "Inversion": "Inversion",
+      "Improved Android 16 compatibility, system Back navigation, and screen layout around system bars. The Android app now requires Android 7 or later.": "Amélioration de la compatibilité avec Android 16, du retour système et de la disposition de l'écran autour des barres système. L'application Android nécessite désormais Android 7 ou une version ultérieure.",
+      "Updated AndroidX Activity and Fragment dependencies to current supported releases for Play compatibility.": "Mise à jour des dépendances AndroidX Activity et Fragment vers les versions prises en charge actuelles pour Google Play.",
+      "Android now targets Android 16, keeps system Back navigation reliable, and makes the all-white goal clear with tap-effect help available on demand.": "L’application cible désormais Android 16, maintient un retour système fiable et clarifie l’objectif de rendre toutes les tuiles blanches, avec une aide sur l’effet de toucher disponible à la demande.",
       "The main menu now includes Achievements, the animated board is larger, and Android opens Play Games achievement status while the web app shows campaign achievement progress.": "Le menu principal inclut maintenant Succès, le plateau animé est plus grand, et Android ouvre l'état des succès Play Games tandis que la version web affiche la progression des succès de campagne.",
       "First production release with campaign levels, daily challenges, custom puzzles, Playground boards, hints, stars, and Play Games achievements.": "Première version de production avec niveaux de campagne, défis quotidiens, casse-têtes personnalisés, plateaux de bac à sable, indices, étoiles et succès Play Games.",
       "Added a separate setting for Playground tile numbers, keeping Playground boards number-free unless it is turned on.": "Ajout d'un réglage séparé pour les nombres des tuiles du bac à sable, afin que les plateaux du bac à sable restent sans nombres sauf si ce réglage est activé.",

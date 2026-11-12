@@ -3,3 +3,4 @@
 -keep class invert_the_matrix.myapp.DexMarker { *; }
 -keep class invert_the_matrix.myapp.InvertMatrixApp { *; }
 -keep class invert_the_matrix.myapp.PlayGamesBridge { *; }
+-keep class invert_the_matrix.myapp.PlatformBridge { *; }
